@@ -1,3 +1,4 @@
+import type { SpinnerPlugin } from "./plugin.js";
 export interface SpinnerOptions {
     /** Auto-stop after this many milliseconds. */
     timeout?: number;
@@ -8,6 +9,8 @@ export interface SpinnerOptions {
      * determinate mode; omit it for an indeterminate spinner.
      */
     progress?: number;
+    /** Renderer used for the spinner graphics and animation. */
+    plugin: SpinnerPlugin;
 }
 export interface Spinner {
     /**
@@ -21,4 +24,5 @@ export interface Spinner {
     /** Stop and remove the injected DOM. */
     destroy(): void;
 }
-export declare function createSpinner(target: HTMLElement, options?: SpinnerOptions): Spinner;
+export declare function createSpinner(target: HTMLElement, options: SpinnerOptions): Spinner;
+export type { SpinnerPlugin, SpinnerPluginState } from "./plugin.js";

@@ -13,8 +13,10 @@ npm install 3d-spinner
 
 ```js
 import { createSpinner } from "3d-spinner";
+import { TestSpinner } from "3d-spinner/plugins/test";
 
 const spinner = createSpinner(document.getElementById("app"), {
+  plugin: new TestSpinner(),
   timeout: 5000, // optional: auto-stop after 5s
 });
 
@@ -34,11 +36,12 @@ Mounts a spinner inside `target` (an `HTMLElement`) and returns a `Spinner`.
 
 **Options** (all optional, and independent of each other):
 
-| Option     | Type     | Description                                                        |
-| ---------- | -------- | ------------------------------------------------------------------ |
-| `timeout`  | `number` | Auto-stop after this many milliseconds.                            |
-| `until`    | `Date`   | Auto-stop at this absolute time. If both set, the earlier wins.    |
-| `progress` | `number` | Initial progress `0..1`. Providing it makes the spinner determinate. |
+| Option            | Type            | Description                                                        |
+| ----------------- | --------------- | ------------------------------------------------------------------ |
+| `plugin`          | `SpinnerPlugin` | Renderer used for the spinner graphics and animation.              |
+| `timeout`         | `number`        | Auto-stop after this many milliseconds.                            |
+| `until`           | `Date`          | Auto-stop at this absolute time. If both set, the earlier wins.    |
+| `progress`        | `number`        | Initial progress `0..1`. Providing it makes the spinner determinate. |
 
 ### `Spinner`
 

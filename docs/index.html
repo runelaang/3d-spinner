@@ -1,403 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3d-spinner demo</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f7f8fb;
-        --panel: #ffffff;
-        --panel-soft: #eef2ff;
-        --text: #111827;
-        --muted: #5b6475;
-        --line: #d9deea;
-        --accent: #3b82f6;
-        --accent-dark: #1d4ed8;
-        --code-bg: #111827;
-        --code-text: #f8fafc;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner - example & test harness</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 980px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+      background: #0f1117;
+      color: #e2e8f0;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin: 1rem 0;
+    }
+
+    .progress-control {
+      display: grid;
+      grid-template-columns: auto minmax(180px, 1fr) 3rem;
+      gap: 0.75rem;
+      align-items: center;
+      margin: 1rem 0 1.5rem;
+    }
+
+    .spinner-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .spinner-card {
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #141927;
+    }
+
+    .spinner-card h2 {
+      margin: 0;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #2d3748;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    select {
+      background: #2d3748;
+      color: #e2e8f0;
+      border: 1px solid #4a5568;
+      border-radius: 6px;
+      padding: 0.2rem 0.4rem;
+      font: inherit;
+      font-size: 0.85rem;
+    }
+
+    .stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      font-size: 1.25rem;
+      background: #1a1f2e;
+    }
+
+    label {
+      display: inline-flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    button {
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      background: #2d3748;
+      color: #e2e8f0;
+      border: 1px solid #4a5568;
+      border-radius: 6px;
+    }
+
+    button:hover {
+      background: #3d4a60;
+    }
+
+    .note {
+      background: #1a1a0a;
+      border: 1px solid #4a3f00;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      color: #c8b84a;
+    }
+
+    code {
+      background: #2d3748;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 700px) {
+
+      .spinner-grid,
+      .progress-control {
+        grid-template-columns: 1fr;
       }
+    }
+  </style>
+</head>
 
-      * {
-        box-sizing: border-box;
-      }
+<body>
+  <h1>3d-spinner</h1>
 
-      body {
-        margin: 0;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background:
-          radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 34rem),
-          linear-gradient(180deg, #ffffff 0%, var(--bg) 34rem);
-        color: var(--text);
-        line-height: 1.5;
-      }
+  <p class="note">
+    ES modules need a server - don't open this file via <code>file://</code>. From the
+    <code>public/</code> folder run <code>npm run build</code> then <code>npm run dev</code>,
+    and open <code>/examples/index.html</code>.
+  </p>
 
-      .version {
-        position: fixed;
-        top: 1rem;
-        left: 1rem;
-        z-index: 10;
-        padding: 0.4rem 0.65rem;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.86);
-        color: var(--muted);
-        font-size: 0.82rem;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-      }
+  <div class="controls">
+    <button id="start-indeterminate">Start (indeterminate)</button>
+    <button id="start-timeout">Start (timeout 3s)</button>
+    <button id="start-until">Start (until now+5s)</button>
+    <button id="stop">Stop</button>
+    <button id="destroy">Destroy</button>
+  </div>
 
-      main {
-        width: min(1040px, calc(100% - 2rem));
-        margin: 0 auto;
-        padding: 5.75rem 0 4rem;
-      }
+  <label class="progress-control" for="progress">
+    <span>Progress</span>
+    <input id="progress" type="range" min="0" max="100" value="0" />
+    <span id="progress-label">0%</span>
+  </label>
 
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-        gap: 2rem;
-        align-items: center;
-        margin-bottom: 2.5rem;
-      }
+  <label class="progress-control" for="detail">
+    <span>Sphere detail</span>
+    <input id="detail" type="range" min="1" max="6" value="2" autocomplete="off" />
+    <span id="detail-label">2</span>
+  </label>
 
-      h1 {
-        margin: 0 0 1rem;
-        font-size: clamp(2.4rem, 6vw, 4.8rem);
-        line-height: 0.95;
-        letter-spacing: 0;
-      }
+  <label class="progress-control" for="render-tech">
+    <span>Render tech</span>
+    <select id="render-tech" autocomplete="off">
+      <option value="canvas2d">Canvas 2D (software)</option>
+      <option value="webgl" selected>WebGL</option>
+      <option value="webgpu">WebGPU</option>
+    </select>
+    <span></span>
+  </label>
 
-      .lead {
-        max-width: 42rem;
-        margin: 0;
-        color: var(--muted);
-        font-size: 1.14rem;
-      }
+  <div class="spinner-grid">
+    <section class="spinner-card">
+      <h2>Test</h2>
+      <div id="stage-test" class="stage"></div>
+    </section>
 
-      .demo-panel {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.88);
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
-        overflow: hidden;
-      }
+    <section class="spinner-card">
+      <h2>Progress bar</h2>
+      <div id="stage-progress-bar" class="stage"></div>
+    </section>
 
-      .stage {
-        min-height: 220px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
-        background:
-          linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(236, 72, 153, 0.12)),
-          #ffffff;
-        font-size: 1.35rem;
-      }
+    <section class="spinner-card">
+      <h2>Basic 3d cube</h2>
+      <div id="stage-basic-3d-cube" class="stage"></div>
+    </section>
 
-      .controls {
-        display: grid;
-        gap: 0.75rem;
-        padding: 1rem;
-        border-top: 1px solid var(--line);
-      }
+    <section class="spinner-card">
+      <h2>Tetrahedron (single color)</h2>
+      <div id="stage-tetra" class="stage"></div>
+    </section>
 
-      .button-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
+    <section class="spinner-card">
+      <h2>Octahedron (color array + spin)</h2>
+      <div id="stage-octa" class="stage"></div>
+    </section>
 
-      button {
-        border: 1px solid transparent;
-        border-radius: 6px;
-        padding: 0.55rem 0.75rem;
-        background: var(--accent);
-        color: #ffffff;
-        font: inherit;
-        font-weight: 650;
-        cursor: pointer;
-      }
+    <section class="spinner-card">
+      <h2>Pyramid</h2>
+      <div id="stage-pyramid" class="stage"></div>
+    </section>
 
-      button.secondary {
-        border-color: var(--line);
-        background: #ffffff;
-        color: var(--text);
-      }
+    <section class="spinner-card">
+      <h2>UV sphere</h2>
+      <div id="stage-uvsphere" class="stage"></div>
+    </section>
 
-      button:hover {
-        background: var(--accent-dark);
-      }
+    <section class="spinner-card">
+      <h2>Icosphere</h2>
+      <div id="stage-icosphere" class="stage"></div>
+    </section>
 
-      button.secondary:hover {
-        background: #f3f6fb;
-      }
+    <section class="spinner-card">
+      <h2>Cube sphere</h2>
+      <div id="stage-cubesphere" class="stage"></div>
+    </section>
 
-      .progress {
-        display: grid;
-        grid-template-columns: auto minmax(8rem, 1fr) 3rem;
-        gap: 0.75rem;
-        align-items: center;
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
+    <section class="spinner-card">
+      <h2>Octa sphere</h2>
+      <div id="stage-octasphere" class="stage"></div>
+    </section>
+  </div>
 
-      input[type="range"] {
-        width: 100%;
-      }
+  <script type="module">
+    import { createSpinner } from "./dist/index.js";
+    import { TestSpinner } from "./dist/plugins/test.js";
+    import { ProgressBarSpinner } from "./dist/plugins/progress-bar.js";
+    import { Basic3dCubeSpinner } from "./dist/plugins/basic-3d-cube.js";
+    import { Basic3dSpinSpinner } from "./dist/plugins/basic-3d-spin.js";
+    import {
+      tetrahedron,
+      octahedron,
+      pyramid,
+      uvSphere,
+      icosphere,
+      octaSphere,
+      cubeSphere,
+    } from "./dist/engines/little-3d-engine/little-3d-engine.js";
 
-      section {
-        margin-top: 2rem;
-      }
+    const progress = document.getElementById("progress");
+    const progressLabel = document.getElementById("progress-label");
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+    const detail = document.getElementById("detail");
+    const detailLabel = document.getElementById("detail-label");
+    const detailLevel = () => Number(detail.value);
+    detailLabel.textContent = detail.value;
 
-      .section-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
-      }
+    let spinners = [];
+    let lastOptions = {};
 
-      .card {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel);
-        padding: 1.15rem;
-      }
+    const spinnerDemos = [
+      { target: document.getElementById("stage-test"), create: () => new TestSpinner() },
+      {
+        target: document.getElementById("stage-progress-bar"),
+        create: () => new ProgressBarSpinner(),
+      },
+      {
+        target: document.getElementById("stage-basic-3d-cube"),
+        create: () => new Basic3dCubeSpinner({ backend: backend() }),
+      },
+      {
+        target: document.getElementById("stage-tetra"),
+        create: () =>
+          new Basic3dSpinSpinner({ shape: tetrahedron, color: "#22d3ee", backend: backend() }),
+      },
+      {
+        target: document.getElementById("stage-octa"),
+        create: () =>
+          new Basic3dSpinSpinner({
+            shape: octahedron,
+            color: ["#f59e0b", "#ef4444", "#10b981", "#3b82f6"],
+            spinX: 0.0015,
+            spinY: 0.0016,
+            backend: backend(),
+          }),
+      },
+      {
+        target: document.getElementById("stage-pyramid"),
+        create: () => new Basic3dSpinSpinner({ shape: pyramid, backend: backend() }),
+      },
+      {
+        target: document.getElementById("stage-uvsphere"),
+        create: () =>
+          new Basic3dSpinSpinner({
+            shape: () => uvSphere(1.6, detailLevel()),
+            color: "#3b82f6",
+            backend: backend(),
+          }),
+      },
+      {
+        target: document.getElementById("stage-icosphere"),
+        create: () =>
+          new Basic3dSpinSpinner({
+            shape: () => icosphere(1.6, detailLevel()),
+            color: "#10b981",
+            backend: backend(),
+          }),
+      },
+      {
+        target: document.getElementById("stage-cubesphere"),
+        create: () =>
+          new Basic3dSpinSpinner({
+            shape: () => cubeSphere(1.6, detailLevel()),
+            color: "#f59e0b",
+            backend: backend(),
+          }),
+      },
+      {
+        target: document.getElementById("stage-octasphere"),
+        create: () =>
+          new Basic3dSpinSpinner({
+            shape: () => octaSphere(1.6, detailLevel()),
+            color: "#ec4899",
+            backend: backend(),
+          }),
+      },
+    ];
 
-      h2 {
-        margin: 0 0 0.8rem;
-        font-size: 1.35rem;
-      }
+    function mount(options) {
+      lastOptions = options;
+      spinners.forEach((spinner) => spinner.destroy());
+      spinners = spinnerDemos.map((demo) => {
+        demo.target.innerHTML = "";
+        return createSpinner(demo.target, {
+          plugin: demo.create(),
+          ...options,
+        });
+      });
+    }
 
-      p {
-        margin: 0 0 0.9rem;
-      }
+    document.getElementById("start-indeterminate").onclick = () => mount({});
+    document.getElementById("start-timeout").onclick = () => mount({ timeout: 3000 });
+    document.getElementById("start-until").onclick = () =>
+      mount({ until: new Date(Date.now() + 5000) });
+    document.getElementById("stop").onclick = () => spinners.forEach((spinner) => spinner.stop());
+    document.getElementById("destroy").onclick = () => {
+      spinners.forEach((spinner) => spinner.destroy());
+      spinners = [];
+    };
 
-      p:last-child {
-        margin-bottom: 0;
-      }
+    renderTech.onchange = () => mount(lastOptions);
 
-      pre {
-        margin: 0;
-        overflow: auto;
-        border-radius: 8px;
-        background: var(--code-bg);
-        color: var(--code-text);
-        padding: 1rem;
-        font-size: 0.9rem;
-      }
+    detail.oninput = () => {
+      detailLabel.textContent = detail.value;
+    };
+    detail.onchange = () => mount(lastOptions);
 
-      code {
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      }
+    progress.oninput = () => {
+      const value = Number(progress.value) / 100;
+      progressLabel.textContent = `${progress.value}%`;
+      spinners.forEach((spinner) => spinner.setProgress(value));
+    };
 
-      :not(pre) > code {
-        padding: 0.12rem 0.28rem;
-        border-radius: 4px;
-        background: var(--panel-soft);
-        color: #27346a;
-      }
+    mount({});
+  </script>
+</body>
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.94rem;
-      }
-
-      th,
-      td {
-        padding: 0.65rem 0.5rem;
-        border-bottom: 1px solid var(--line);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      th {
-        color: var(--muted);
-        font-weight: 700;
-      }
-
-      @media (max-width: 760px) {
-        .version {
-          position: static;
-          display: inline-flex;
-          margin: 1rem 0 0 1rem;
-        }
-
-        main {
-          padding-top: 2.5rem;
-        }
-
-        .hero,
-        .section-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .progress {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="version">based on version: 0.1.1</div>
-
-    <main>
-      <header class="hero">
-        <div>
-          <h1>3d-spinner</h1>
-          <p class="lead">
-            A lightweight, customizable 3D spinner for loading, generating, processing, and
-            other waiting states in modern web apps.
-          </p>
-        </div>
-
-        <div class="demo-panel" aria-label="Interactive 3d-spinner demo">
-          <div id="stage" class="stage"></div>
-          <div class="controls">
-            <div class="button-row">
-              <button id="start-indeterminate">Indeterminate</button>
-              <button id="start-timeout" class="secondary">Timeout 3s</button>
-              <button id="start-until" class="secondary">Until now + 5s</button>
-              <button id="stop" class="secondary">Stop</button>
-              <button id="destroy" class="secondary">Destroy</button>
-            </div>
-            <label class="progress" for="progress">
-              <span>Progress</span>
-              <input id="progress" type="range" min="0" max="100" value="0" />
-              <span id="progress-label">0%</span>
-            </label>
-          </div>
-        </div>
-      </header>
-
-      <section class="section-grid" aria-label="Usage instructions">
-        <div class="card">
-          <h2>Install</h2>
-          <pre><code>npm install 3d-spinner</code></pre>
-        </div>
-
-        <div class="card">
-          <h2>Development</h2>
-          <pre><code>npm install
-npm run build
-npm run dev</code></pre>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Usage</h2>
-        <pre><code>import { createSpinner } from "3d-spinner";
-
-const spinner = createSpinner(document.getElementById("app"), {
-  timeout: 5000, // optional: auto-stop after 5s
-});
-
-// Later, when you have progress to report (0..1):
-spinner.setProgress(0.42); // smoothly advances toward 42%
-
-// When done:
-spinner.stop();    // stop animating, keep the element
-spinner.destroy(); // stop and remove the element</code></pre>
-      </section>
-
-      <section class="card">
-        <h2>API</h2>
-        <p>
-          <code>createSpinner(target, options?)</code> mounts a spinner inside an
-          <code>HTMLElement</code> and returns a <code>Spinner</code>.
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Option</th>
-              <th>Type</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>timeout</code></td>
-              <td><code>number</code></td>
-              <td>Auto-stop after this many milliseconds.</td>
-            </tr>
-            <tr>
-              <td><code>until</code></td>
-              <td><code>Date</code></td>
-              <td>Auto-stop at this absolute time. If both set, the earlier wins.</td>
-            </tr>
-            <tr>
-              <td><code>progress</code></td>
-              <td><code>number</code></td>
-              <td>Initial progress <code>0..1</code>. Providing it makes the spinner determinate.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="card">
-        <h2>Spinner Methods</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>setProgress(target)</code></td>
-              <td>
-                Smoothly advance progress toward <code>target</code> (<code>0..1</code>). Call
-                repeatedly as work completes.
-              </td>
-            </tr>
-            <tr>
-              <td><code>stop()</code></td>
-              <td>Stop the animation but keep the injected DOM.</td>
-            </tr>
-            <tr>
-              <td><code>destroy()</code></td>
-              <td>Stop and remove the injected DOM.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </main>
-
-    <script type="module">
-      import { createSpinner } from "./dist/index.js";
-
-      const stage = document.getElementById("stage");
-      const progress = document.getElementById("progress");
-      const progressLabel = document.getElementById("progress-label");
-
-      let spinner = null;
-
-      function mount(options) {
-        if (spinner) spinner.destroy();
-        stage.innerHTML = "";
-        spinner = createSpinner(stage, options);
-      }
-
-      document.getElementById("start-indeterminate").onclick = () => mount({});
-      document.getElementById("start-timeout").onclick = () => mount({ timeout: 3000 });
-      document.getElementById("start-until").onclick = () =>
-        mount({ until: new Date(Date.now() + 5000) });
-      document.getElementById("stop").onclick = () => spinner && spinner.stop();
-      document.getElementById("destroy").onclick = () => {
-        if (spinner) spinner.destroy();
-        spinner = null;
-      };
-
-      progress.oninput = () => {
-        const value = Number(progress.value) / 100;
-        progressLabel.textContent = `${progress.value}%`;
-        if (spinner) spinner.setProgress(value);
-      };
-
-      mount({});
-    </script>
-  </body>
 </html>
