@@ -1,10 +1,10 @@
 import type { SpinnerPlugin, SpinnerPluginState } from "../plugin.js";
 import {
-  ThreeDEngine,
+  Little3dEngine,
   cube,
   type Backend,
   type MeshHandle,
-} from "../engines/little-3d-engine/3dengine.js";
+} from "../engines/little-3d-engine/little-3d-engine.js";
 
 export interface Basic3dCubeOptions {
   /** Rendering backend. Default `"canvas2d"`. */
@@ -12,13 +12,13 @@ export interface Basic3dCubeOptions {
 }
 
 export class Basic3dCubeSpinner implements SpinnerPlugin {
-  private engine?: ThreeDEngine;
+  private engine?: Little3dEngine;
   private cubeHandle?: MeshHandle;
 
   constructor(private readonly options: Basic3dCubeOptions = {}) {}
 
   mount(target: HTMLElement): void {
-    const engine = new ThreeDEngine({
+    const engine = new Little3dEngine({
       backend: this.options.backend,
       camera: { position: { x: 0, y: 0, z: 3.2 } },
     });
