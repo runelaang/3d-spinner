@@ -1,6 +1,6 @@
-import type { LightParams } from "./light.js";
-import type { Mat4, Vec3 } from "./math.js";
-import type { Mesh } from "./mesh.js";
+import type { LightParams } from "./core/light.js";
+import type { Mat4, Vec3 } from "./core/math.js";
+import type { Mesh } from "./core/mesh.js";
 
 /** Rendering backend. Each is loaded on demand; unused ones are never fetched. */
 export type Backend = "canvas2d" | "webgl" | "webgpu";
