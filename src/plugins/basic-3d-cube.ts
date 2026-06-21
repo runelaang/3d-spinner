@@ -1,15 +1,32 @@
 import type { SpinnerPlugin, SpinnerPluginState } from "../plugin.js";
-import { ThreeDEngine, cube, type MeshHandle } from "../engines/3dengine.js";
+import {
+  ThreeDEngine,
+  cube,
+  type Backend,
+  type MeshHandle,
+} from "../engines/little-3d-engine/3dengine.js";
+
+export interface Basic3dCubeOptions {
+  /** Rendering backend. Default `"canvas2d"`. */
+  backend?: Backend;
+}
 
 export class Basic3dCubeSpinner implements SpinnerPlugin {
   private engine?: ThreeDEngine;
   private cubeHandle?: MeshHandle;
 
+  constructor(private readonly options: Basic3dCubeOptions = {}) {}
+
   mount(target: HTMLElement): void {
-    const engine = new ThreeDEngine({ camera: { position: { x: 0, y: 0, z: 3.2 } } });
-    engine.mount(target);
+    const engine = new ThreeDEngine({
+      backend: this.options.backend,
+      camera: { position: { x: 0, y: 0, z: 3.2 } },
+    });
     this.cubeHandle = engine.add(cube(1.4));
     this.engine = engine;
+    engine.mount(target).catch((error) => {
+      target.textContent = error instanceof Error ? error.message : String(error);
+    });
   }
 
   render(now: number, state: SpinnerPluginState): void {
