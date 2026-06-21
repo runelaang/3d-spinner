@@ -56,7 +56,7 @@ npm run build   # compile src/ -> dist/ (ESM + type declarations)
 npm run dev     # serve this folder; open /examples/index.html
 ```
 
-> ES modules don't load over `file://` — use `npm run dev` (or any static server), not a
+> ES modules don't load over `file://` - use `npm run dev` (or any static server), not a
 > direct file open. Run `npm run build` first so `dist/` exists.
 
 ## License

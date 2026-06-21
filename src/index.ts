@@ -88,7 +88,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions = {})
     if (determinate) {
       current = lerp(current, targetProgress, 0.12);
       if (Math.abs(targetProgress - current) < 0.0005) current = targetProgress;
-      el.textContent = `spinner goes here — ${Math.round(current * 100)}%`;
+      el.textContent = `spinner goes here - ${Math.round(current * 100)}%`;
     } else {
       el.textContent = "spinner goes here";
     }
@@ -122,7 +122,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions = {})
     targetProgress = clamp01(value);
     if (stopped) {
       current = targetProgress;
-      el.textContent = `spinner goes here — ${Math.round(current * 100)}%`;
+      el.textContent = `spinner goes here - ${Math.round(current * 100)}%`;
     }
   }
 
