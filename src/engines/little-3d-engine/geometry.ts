@@ -1,4 +1,4 @@
-import { cross, normalize, subtract } from "./math.js";
+import { type Vec3, cross, normalize, scale, subtract } from "./math.js";
 import type { Mesh } from "./mesh.js";
 
 /** Parse a CSS hex color (`#rgb` or `#rrggbb`) into 0..255 channels. */
@@ -67,4 +67,46 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
   }
 
   return { positions, normals, colors, count: positions.length / 3 };
+}
+
+function midpoint(a: Vec3, b: Vec3): Vec3 {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
+}
+
+/**
+ * Build a sphere by subdividing a triangular seed polyhedron and projecting
+ * every vertex onto the sphere. `detail` 1 keeps the seed; each extra level
+ * splits every triangle into four. Used by the icosphere and octa-sphere.
+ *
+ * @param seedVertices Seed polyhedron vertices (any radius; they are normalized).
+ * @param seedFaces Seed triangles, wound CCW as seen from outside.
+ */
+export function sphereFromTriangles(
+  seedVertices: Vec3[],
+  seedFaces: number[][],
+  size: number,
+  detail: number,
+  colors: string[],
+): Mesh {
+  const radius = size / 2;
+  let triangles = seedFaces.map((f) => f.map((i) => normalize(seedVertices[i])));
+  const levels = Math.max(0, Math.floor(detail) - 1);
+  for (let level = 0; level < levels; level++) {
+    const next: Vec3[][] = [];
+    for (const [a, b, c] of triangles) {
+      const ab = normalize(midpoint(a, b));
+      const bc = normalize(midpoint(b, c));
+      const ca = normalize(midpoint(c, a));
+      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+    }
+    triangles = next;
+  }
+
+  const vertices: Vec3[] = [];
+  const faces = triangles.map((tri, i) => {
+    const base = vertices.length;
+    vertices.push(scale(tri[0], radius), scale(tri[1], radius), scale(tri[2], radius));
+    return { indices: [base, base + 1, base + 2], color: colors[i % colors.length] };
+  });
+  return { vertices, faces };
 }
