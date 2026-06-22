@@ -30,6 +30,10 @@
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
       "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
+    },
+    "./engines/little-tween-engine": {
+      "types": "./dist/engines/little-tween-engine/little-tween-engine.d.ts",
+      "import": "./dist/engines/little-tween-engine/little-tween-engine.js"
     }
   },
   "files": [
