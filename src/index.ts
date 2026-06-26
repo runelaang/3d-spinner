@@ -66,7 +66,11 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
       current = lerp(current, targetProgress, 0.12);
       if (Math.abs(targetProgress - current) < 0.0005) current = targetProgress;
     }
-    plugin.render(now, { determinate, progress: current });
+    plugin.render(now, {
+      determinate,
+      progress: current,
+      targetProgress: targetProgress !== current ? targetProgress : undefined,
+    });
   }
 
   function frame(now: number): void {
@@ -97,7 +101,11 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     targetProgress = clamp01(value);
     if (stopped) {
       current = targetProgress;
-      plugin.render(performance.now(), { determinate, progress: current });
+      plugin.render(performance.now(), {
+        determinate,
+        progress: current,
+        targetProgress: targetProgress !== current ? targetProgress : undefined,
+      });
     }
   }
 

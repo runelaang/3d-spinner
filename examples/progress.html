@@ -100,7 +100,12 @@
         demo.target.innerHTML = "";
         return createSpinner(demo.target, { plugin: demo.create(), progress: value });
       });
-      applyProgress(value);
+      setSlider(value);
+      spinners.forEach((spinner) => spinner.setProgress(value));
+    }
+
+    function ensureMounted() {
+      if (spinners.length === 0) mount();
     }
 
     let value = 0;
@@ -112,6 +117,7 @@
     }
 
     function applyProgress(v) {
+      ensureMounted();
       value = v;
       setSlider(v);
       spinners.forEach((spinner) => spinner.setProgress(v));
@@ -145,6 +151,7 @@
 
     function startRun() {
       if (running) return;
+      ensureMounted();
       running = true;
       lastTime = 0;
       if (value >= 1 && !bounce.checked) applyProgress(0);
