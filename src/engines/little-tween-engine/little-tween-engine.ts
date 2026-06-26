@@ -1,9 +1,9 @@
-import { tween, type TweenType } from "./core/tweens.js";
+import { ease, type EaseType } from "./core/tweens.js";
 
 /** Options for {@link LittleTweenEngine}. */
 export interface LittleTweenEngineOptions {
-  /** Tween curve used when one is not provided to {@link LittleTweenEngine.value}. */
-  type?: TweenType;
+  /** Ease curve used when one is not provided to {@link LittleTweenEngine.value}. */
+  type?: EaseType;
   /** Allow input values outside 0..1. Default `false` clamps input to 0..1. */
   overextend?: boolean;
 }
@@ -13,7 +13,7 @@ export interface LittleTweenEngineOptions {
  * named easing curves.
  */
 export class LittleTweenEngine {
-  private readonly type: TweenType;
+  private readonly type: EaseType;
   private readonly overextend: boolean;
 
   constructor(options: LittleTweenEngineOptions = {}) {
@@ -21,19 +21,49 @@ export class LittleTweenEngine {
     this.overextend = options.overextend ?? false;
   }
 
-  /** Map `value` through the selected tween type. */
+  /** Map `value` through the selected ease type. */
   value(value: number, type = this.type, overextend = this.overextend): number {
-    return tween(type, value, overextend);
+    return ease(type, value, overextend);
   }
 }
 
 export {
-  tween,
-  tweenTypes,
+  ease,
+  easeTypes,
   linear,
   quadratic,
   cubic,
   quartic,
   quintic,
+  easeInSine,
+  easeOutSine,
+  easeInOutSine,
+  easeInQuad,
+  easeOutQuad,
+  easeInOutQuad,
+  easeInCubic,
+  easeOutCubic,
+  easeInOutCubic,
+  easeInQuart,
+  easeOutQuart,
+  easeInOutQuart,
+  easeInQuint,
+  easeOutQuint,
+  easeInOutQuint,
+  easeInExpo,
+  easeOutExpo,
+  easeInOutExpo,
+  easeInCirc,
+  easeOutCirc,
+  easeInOutCirc,
+  easeInBack,
+  easeOutBack,
+  easeInOutBack,
+  easeInElastic,
+  easeOutElastic,
+  easeInOutElastic,
+  easeInBounce,
+  easeOutBounce,
+  easeInOutBounce,
 } from "./core/tweens.js";
-export type { TweenFunction, TweenType } from "./core/tweens.js";
+export type { EaseFunction, EaseType } from "./core/tweens.js";
