@@ -32,7 +32,6 @@ export class Basic3dCubeSpinner implements SpinnerPlugin {
   private readonly spin: Basic3dSpinSpinner;
   private readonly progressAnimation: ProgressAnimation;
   private label?: HTMLDivElement;
-  private hidden = false;
   private lastState?: SpinnerPluginState;
 
   constructor(options: Basic3dCubeOptions = {}) {
@@ -64,7 +63,6 @@ export class Basic3dCubeSpinner implements SpinnerPlugin {
 
   render(now: number, state: SpinnerPluginState): void {
     this.lastState = state;
-    if (this.hidden) return;
     this.spin.render(now, state);
   }
 
@@ -76,7 +74,6 @@ export class Basic3dCubeSpinner implements SpinnerPlugin {
 
   private applyLabel(visual: ReturnType<ProgressAnimation["update"]>): void {
     if (!this.label) return;
-    this.hidden = visual.hidden;
     if (visual.hidden || visual.text == null) {
       this.label.hidden = true;
       this.label.textContent = "";
