@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner - progress examples</title>
+  <link rel="stylesheet" href="/examples/examples.css" />
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/examples/index.html">Shapes</a>
+    <a href="/examples/progress.html" class="active">Progress</a>
+  </nav>
+
+  <h1>3d-Spinner progress examples</h1>
+
+  <div class="controls">
+    <button id="run">Run</button>
+    <label for="speed">
+      <span>Speed</span>
+      <select id="speed" autocomplete="off">
+        <option value="0.1">Slow</option>
+        <option value="0.25" selected>Normal</option>
+        <option value="0.5">Fast</option>
+        <option value="1">Very fast</option>
+      </select>
+    </label>
+    <label for="bounce">
+      <input type="checkbox" id="bounce" />
+      <span>Bounce</span>
+    </label>
+    <button id="stop">Stop spinners</button>
+    <button id="destroy">Destroy</button>
+    <label for="render-tech">
+      <span>Render tech</span>
+      <select id="render-tech" autocomplete="off">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+  </div>
+
+  <label class="progress-control" for="progress">
+    <span>Progress</span>
+    <input id="progress" type="range" min="0" max="100" value="0" />
+    <span id="progress-label">0%</span>
+  </label>
+
+  <div class="spinner-grid">
+    <section class="spinner-card">
+      <h2>Progress bar</h2>
+      <div id="stage-progress-bar" class="stage"></div>
+    </section>
+
+    <section class="spinner-card">
+      <h2>Test</h2>
+      <div id="stage-test" class="stage"></div>
+    </section>
+
+    <section class="spinner-card">
+      <h2>Basic 3d cube (bobs with progress)</h2>
+      <div id="stage-cube" class="stage"></div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { createSpinner } from "/dist/index.js";
+    import { TestSpinner } from "/dist/plugins/test.js";
+    import { ProgressBarSpinner } from "/dist/plugins/progress-bar.js";
+    import { Basic3dCubeSpinner } from "/dist/plugins/basic-3d-cube.js";
+
+    const progress = document.getElementById("progress");
+    const progressLabel = document.getElementById("progress-label");
+    const speed = document.getElementById("speed");
+    const bounce = document.getElementById("bounce");
+    const runButton = document.getElementById("run");
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+
+    let spinners = [];
+
+    const spinnerDemos = [
+      {
+        target: document.getElementById("stage-progress-bar"),
+        create: () => new ProgressBarSpinner(),
+      },
+      { target: document.getElementById("stage-test"), create: () => new TestSpinner() },
+      {
+        target: document.getElementById("stage-cube"),
+        create: () => new Basic3dCubeSpinner({ backend: backend() }),
+      },
+    ];
+
+    function mount() {
+      spinners.forEach((spinner) => spinner.destroy());
+      spinners = spinnerDemos.map((demo) => {
+        demo.target.innerHTML = "";
+        return createSpinner(demo.target, { plugin: demo.create(), progress: value });
+      });
+      applyProgress(value);
+    }
+
+    let value = 0;
+    let direction = 1;
+
+    function setSlider(v) {
+      progress.value = String(Math.round(v * 100));
+      progressLabel.textContent = `${progress.value}%`;
+    }
+
+    function applyProgress(v) {
+      value = v;
+      setSlider(v);
+      spinners.forEach((spinner) => spinner.setProgress(v));
+    }
+
+    // Auto-advance loop, driven by the Run button.
+    let running = false;
+    let lastTime = 0;
+
+    function tick(now) {
+      if (!running) return;
+      const dt = lastTime ? (now - lastTime) / 1000 : 0;
+      lastTime = now;
+
+      let next = value + direction * Number(speed.value) * dt;
+      if (next >= 1) {
+        if (bounce.checked) {
+          next = 1;
+          direction = -1;
+        } else {
+          next = 1;
+          stopRun();
+        }
+      } else if (next <= 0) {
+        next = 0;
+        direction = 1;
+      }
+      applyProgress(next);
+      if (running) requestAnimationFrame(tick);
+    }
+
+    function startRun() {
+      if (running) return;
+      running = true;
+      lastTime = 0;
+      if (value >= 1 && !bounce.checked) applyProgress(0);
+      runButton.textContent = "Pause";
+      requestAnimationFrame(tick);
+    }
+
+    function stopRun() {
+      running = false;
+      runButton.textContent = "Run";
+    }
+
+    runButton.onclick = () => (running ? stopRun() : startRun());
+
+    progress.oninput = () => {
+      applyProgress(Number(progress.value) / 100);
+      direction = 1;
+    };
+
+    document.getElementById("stop").onclick = () => {
+      stopRun();
+      spinners.forEach((spinner) => spinner.stop());
+    };
+    document.getElementById("destroy").onclick = () => {
+      stopRun();
+      spinners.forEach((spinner) => spinner.destroy());
+      spinners = [];
+    };
+
+    renderTech.onchange = () => mount();
+
+    mount();
+  </script>
+</body>
+
+</html>
