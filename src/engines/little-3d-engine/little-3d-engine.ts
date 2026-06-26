@@ -6,6 +6,7 @@ import {
   rotationX,
   rotationY,
   rotationZ,
+  scaleMatrix,
   translation,
 } from "./core/math.js";
 import { type Mesh, type Transform, transform as makeTransform } from "./core/mesh.js";
@@ -34,7 +35,10 @@ function modelMatrix(t: Transform): Mat4 {
     rotationZ(t.rotation.z),
     multiply(rotationY(t.rotation.y), rotationX(t.rotation.x)),
   );
-  return multiply(translation(t.position.x, t.position.y, t.position.z), rotation);
+  return multiply(
+    translation(t.position.x, t.position.y, t.position.z),
+    multiply(rotation, scaleMatrix(t.scale)),
+  );
 }
 
 /**

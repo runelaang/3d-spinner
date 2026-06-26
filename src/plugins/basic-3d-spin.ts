@@ -18,6 +18,11 @@ export interface Basic3dSpinOptions {
   spinY?: number;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
+  /**
+   * When set, determinate progress drives mesh scale via this callback instead of
+   * bobbing on the Y axis. Return the uniform scale to apply (0 = invisible).
+   */
+  resolveProgressScale?: (progress: number, now: number) => number;
 }
 
 function resolveMesh(shape: Basic3dSpinOptions["shape"]): Mesh {
@@ -39,12 +44,14 @@ export class Basic3dSpinSpinner implements SpinnerPlugin {
   private readonly spinX: number;
   private readonly spinY: number;
   private readonly backend?: Backend;
+  private readonly resolveProgressScale?: Basic3dSpinOptions["resolveProgressScale"];
 
   constructor(options: Basic3dSpinOptions = {}) {
     this.mesh = applyColor(resolveMesh(options.shape), options.color);
     this.spinX = options.spinX ?? 0.0007;
     this.spinY = options.spinY ?? 0.0011;
     this.backend = options.backend;
+    this.resolveProgressScale = options.resolveProgressScale;
   }
 
   mount(target: HTMLElement): void {
@@ -65,7 +72,12 @@ export class Basic3dSpinSpinner implements SpinnerPlugin {
     rotation.x = now * this.spinX;
     rotation.y = now * this.spinY;
     if (state.determinate) {
-      this.handle.transform.position.y = (0.5 - state.progress) * 0.6;
+      if (this.resolveProgressScale) {
+        this.handle.transform.scale = this.resolveProgressScale(state.progress, now);
+      } else {
+        this.handle.transform.position.y = (0.5 - state.progress) * 0.6;
+        this.handle.transform.scale = 1;
+      }
     }
     this.engine.render();
   }
