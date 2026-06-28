@@ -154,14 +154,14 @@
       {
         target: document.getElementById("stage-tetra"),
         create: () =>
-          new SpinAnimation({ shape: tetrahedron, color: "#22d3ee", backend: backend() }),
+          new SpinAnimation({ shape: tetrahedron, color: "#2563eb", backend: backend() }),
       },
       {
         target: document.getElementById("stage-octa"),
         create: () =>
           new SpinAnimation({
             shape: octahedron,
-            color: ["#f59e0b", "#ef4444", "#10b981", "#3b82f6"],
+            color: ["#ef4444", "#2563eb", "#facc15", "#16a34a"],
             spinX: 0.0015,
             spinY: 0.0016,
             backend: backend(),
@@ -181,7 +181,7 @@
         create: () =>
           new SpinAnimation({
             shape: () => parseObj(carObj),
-            color: "#e2e8f0",
+            color: "#dc2626",
             backend: backend(),
           }),
       },
@@ -190,7 +190,7 @@
         create: () =>
           new SpinAnimation({
             shape: () => uvSphere(1.6, detailLevel()),
-            color: "#3b82f6",
+            color: "#2563eb",
             backend: backend(),
           }),
       },
@@ -199,7 +199,7 @@
         create: () =>
           new SpinAnimation({
             shape: () => icosphere(1.6, detailLevel()),
-            color: "#10b981",
+            color: "#16a34a",
             backend: backend(),
           }),
       },
@@ -208,7 +208,7 @@
         create: () =>
           new SpinAnimation({
             shape: () => cubeSphere(1.6, detailLevel()),
-            color: "#f59e0b",
+            color: "#facc15",
             backend: backend(),
           }),
       },
@@ -217,7 +217,7 @@
         create: () =>
           new SpinAnimation({
             shape: () => octaSphere(1.6, detailLevel()),
-            color: "#ec4899",
+            color: "#dc2626",
             backend: backend(),
           }),
       },
