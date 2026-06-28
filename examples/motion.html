@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner - motion examples</title>
+  <link rel="stylesheet" href="/examples/examples.css" />
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/examples/index.html">Shapes</a>
+    <a href="/examples/progress.html">Progress</a>
+    <a href="/examples/motion.html" class="active">Motion</a>
+  </nav>
+
+  <h1>3d-Spinner: motion controllers</h1>
+
+  <p class="note">
+    <code>ObjectMotionAnimation</code> moves any mesh along a <strong>motion controller</strong> -
+    a separate, swappable object that decides <em>how</em> the thing moves. Swap
+    <code>circleMotion</code>, <code>squareMotion</code>, <code>figureEightMotion</code>, or
+    <code>wanderMotion</code> (or write your own) and the same animation follows that path, nose
+    along the tangent. Each card runs as an <code>indeterminate</code> spinner; the config used to
+    build it is shown beneath.
+  </p>
+
+  <div class="controls">
+    <label for="render-tech">
+      <span>Render tech</span>
+      <select id="render-tech" autocomplete="off">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+    <button id="restart">Restart all</button>
+    <button id="stop">Stop all</button>
+  </div>
+
+  <div class="spinner-grid" id="motion-showcase"></div>
+
+  <script type="module">
+    import { createSpinner } from "/dist/index.js";
+    import { ObjectMotionAnimation } from "/dist/animations/object-motion.js";
+    import {
+      circleMotion,
+      squareMotion,
+      figureEightMotion,
+      wanderMotion,
+    } from "/dist/motion/motion.js";
+    import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
+    import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+
+    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
+
+    const COLOR = {
+      circle: "#2563eb",
+      square: "#16a34a",
+      eight: "#ea580c",
+      wander: "#a855f7",
+      tilt: "#0ea5e9",
+      spin: "#facc15",
+    };
+
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+
+    const cfg = (body) => `new ObjectMotionAnimation({\n${body}\n})`;
+
+    const demos = [
+      {
+        title: "Circle (cube)",
+        config: () =>
+          cfg(`  mesh: () => cube(),\n  color: "${COLOR.circle}",\n  size: 0.7,\n  motion: circleMotion({ radius: 1.3 }),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => cube(),
+            color: COLOR.circle,
+            size: 0.5,
+            motion: circleMotion({ radius: 1.3 }),
+          }),
+      },
+      {
+        title: "Square (plane)",
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.square}",\n  size: 0.9,\n  motion: squareMotion({ size: 2.6 }),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: COLOR.square,
+            size: 0.9,
+            motion: squareMotion({ size: 2.6 }),
+          }),
+      },
+      {
+        title: "Figure-8 (plane)",
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.eight}",\n  motion: figureEightMotion(),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: COLOR.eight,
+            motion: figureEightMotion(),
+          }),
+      },
+      {
+        title: "Wander (plane, stays in frame)",
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.wander}",\n  motion: wanderMotion({ seed: 7 }),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: COLOR.wander,
+            motion: wanderMotion({ seed: 7 }),
+          }),
+      },
+      {
+        title: "Circle (tilted, faster)",
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.tilt}",\n  motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: COLOR.tilt,
+            motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),
+          }),
+      },
+      {
+        title: "Circle with tail (cube convoy)",
+        config: () =>
+          cfg(`  mesh: () => cube(),\n  color: "${COLOR.square}",\n  size: 0.4,\n  motion: circleMotion({ radius: 1.3 }),\n  tail: { count: 8, gapMs: 140 },`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => cube(),
+            color: COLOR.square,
+            size: 0.4,
+            motion: circleMotion({ radius: 1.3 }),
+            tail: { count: 8, gapMs: 140 },
+          }),
+      },
+      {
+        title: "Wander + local spin (tetra)",
+        config: () =>
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.spin}",\n  size: 0.6,\n  rotation: { spinY: 0.004 },\n  motion: wanderMotion({ seed: 42, periodMs: 7000 }),`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => tetrahedron(),
+            color: COLOR.spin,
+            size: 0.6,
+            rotation: { spinY: 0.004 },
+            motion: wanderMotion({ seed: 42, periodMs: 7000 }),
+          }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("motion-showcase");
+      grid.replaceChildren();
+      const spinners = [];
+      demos.forEach((demo) => {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        card.innerHTML = `<h2>${demo.title}
+          <span class="card-playback">
+            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-stop">Stop</button>
+          </span></h2>`;
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        config.textContent = demo.config();
+        card.append(stage, config);
+        grid.appendChild(card);
+
+        let spinner = null;
+        const start = () => {
+          spinner?.destroy();
+          stage.replaceChildren();
+          spinner = createSpinner(stage, { type: "indeterminate", animation: demo.create() });
+        };
+        card.querySelector(".card-start").onclick = start;
+        card.querySelector(".card-stop").onclick = () => spinner?.stop();
+        start();
+        spinners.push({ start, stop: () => spinner?.stop() });
+      });
+      return spinners;
+    }
+
+    let spinners = buildShowcase();
+    renderTech.onchange = () => { spinners = buildShowcase(); };
+    document.getElementById("restart").onclick = () => spinners.forEach((s) => s.start());
+    document.getElementById("stop").onclick = () => spinners.forEach((s) => s.stop());
+  </script>
+</body>
+
+</html>
