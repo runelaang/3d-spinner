@@ -65,6 +65,45 @@ function add(a: Vec3, b: Vec3): Vec3 {
   return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
 }
 
+function smoothstep(progress: number): number {
+  const u = progress;
+  return u * u * (3 - 2 * u);
+}
+
+/** Signed shortest rotation from `from` radians to `to`. */
+function shortestAngleDelta(from: number, to: number): number {
+  let delta = to - from;
+  while (delta > Math.PI) delta -= 2 * Math.PI;
+  while (delta < -Math.PI) delta += 2 * Math.PI;
+  return delta;
+}
+
+/** Fly at constant speed while heading eases from start toward start + delta. */
+function outroPosition(
+  from: Vec3,
+  startHeading: number,
+  headingDelta: number,
+  speed: number,
+  progress: number,
+  durationMs: number,
+): Vec3 {
+  const steps = Math.max(2, Math.ceil(progress * 24));
+  let x = from.x;
+  let y = from.y;
+  let prevProgress = 0;
+
+  for (let step = 1; step <= steps; step++) {
+    const stepProgress = (step / steps) * progress;
+    const stepDuration = (stepProgress - prevProgress) * durationMs;
+    const heading = startHeading + headingDelta * smoothstep(stepProgress);
+    x += speed * stepDuration * Math.cos(heading);
+    y += speed * stepDuration * Math.sin(heading);
+    prevProgress = stepProgress;
+  }
+
+  return { x, y, z: from.z };
+}
+
 /** Cubic Hermite interpolation between `p0` (tangent `m0`) and `p1` (tangent `m1`). */
 function hermite(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, u: number): Vec3 {
   const u2 = u * u;
@@ -178,9 +217,9 @@ export class PlaneAnimation implements SpinnerAnimation {
   private loopStart = 0;
   private outroStart = 0;
   private outroFrom: Vec3 = ZERO;
-  private outroM0: Vec3 = ZERO;
-  private outroExit: Vec3 = ZERO;
-  private outroM1: Vec3 = ZERO;
+  private outroStartHeading = 0;
+  private outroHeadingDelta = 0;
+  private outroSpeed = 0;
   private bank = 0;
 
   constructor(options: PlaneAnimationOptions) {
@@ -220,14 +259,15 @@ export class PlaneAnimation implements SpinnerAnimation {
     const from = this.positionAt(now);
     let velocity = scale(subtract(this.positionAt(now + 1), this.positionAt(now - 1)), 0.5);
     if (Math.hypot(velocity.x, velocity.y, velocity.z) < 1e-4) velocity = loopVelocity(0);
-    // Always leave toward the nearest horizontal edge (left/right), never into
-    // depth: a plane exiting toward or away from the camera shrinks to nothing
-    // mid-frame instead of flying off-screen.
-    const outward: Vec3 = { x: from.x >= 0 ? 1 : -1, y: 0, z: 0 };
+    const startHeading = Math.atan2(velocity.y, velocity.x);
+    const deltaRight = Math.abs(shortestAngleDelta(startHeading, 0));
+    const deltaLeft = Math.abs(shortestAngleDelta(startHeading, Math.PI));
+    const targetHeading = deltaRight <= deltaLeft ? 0 : Math.PI;
+    const horizSpeed = Math.hypot(velocity.x, velocity.y);
     this.outroFrom = from;
-    this.outroM0 = scale(velocity, OUTRO_MS); // smooth C1 start from the current heading
-    this.outroExit = add(from, scale(outward, OUTRO_DISTANCE));
-    this.outroM1 = scale(outward, OUTRO_DISTANCE);
+    this.outroStartHeading = startHeading;
+    this.outroHeadingDelta = shortestAngleDelta(startHeading, targetHeading);
+    this.outroSpeed = Math.max(horizSpeed, OUTRO_DISTANCE / OUTRO_MS);
     this.phase = "outro";
     this.outroStart = now;
   }
@@ -290,8 +330,15 @@ export class PlaneAnimation implements SpinnerAnimation {
       return hermite(OFFSCREEN_FROM, ZERO, loopPoint(0), INTRO_JOIN, u);
     }
     if (this.phase === "outro") {
-      const u = Math.max(0, Math.min(1, (now - this.outroStart) / OUTRO_MS));
-      return hermite(this.outroFrom, this.outroM0, this.outroExit, this.outroM1, u);
+      const progress = Math.max(0, Math.min(1, (now - this.outroStart) / OUTRO_MS));
+      return outroPosition(
+        this.outroFrom,
+        this.outroStartHeading,
+        this.outroHeadingDelta,
+        this.outroSpeed,
+        progress,
+        OUTRO_MS,
+      );
     }
     const phase = ((now - this.loopStart) / LAP_MS) % 1;
     return loopPoint(phase < 0 ? phase + 1 : phase);
