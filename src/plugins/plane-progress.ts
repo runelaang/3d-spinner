@@ -7,6 +7,8 @@ import {
   type Vec3,
   cross,
   normalize,
+  scale,
+  subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 
 export interface PlaneProgressOptions {
@@ -16,7 +18,7 @@ export interface PlaneProgressOptions {
   color?: string;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
-  /** Uniform mesh size after centering. Default `1.6`. */
+  /** Uniform mesh size after centering. Default `1.5`. */
   meshSize?: number;
 }
 
@@ -35,18 +37,63 @@ const LABEL_STYLE = [
 ].join(";");
 
 const WORLD_UP: Vec3 = { x: 0, y: 1, z: 0 };
+const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
 
-// Flight path tuning. Progress drives a wide corkscrew sweep across the frame:
-// the plane enters off-screen on the left (p=0), spirals through depth and
-// height across the middle, and exits off-screen on the right (p=1).
-const SWEEP_X = 2.7;
-const AMP_Y = 0.8;
-const AMP_Z = 1.25;
-const TURNS = 1.25;
-const PHASE = Math.PI;
-const BANK_GAIN = 0.85;
-/** Milliseconds for one full off-screen-to-off-screen lap. */
-const LAP_MS = 3400;
+// Figure-8 loop amplitudes (scene units). The loop is a closed, periodic curve
+// so it repeats seamlessly. Depth (z) makes it read as 3D rather than flat.
+const LOOP_X = 1.5;
+const LOOP_Y = 1.0;
+const LOOP_Z = 1.05;
+
+// Where the plane starts (off-screen) before flying into the intro.
+const OFFSCREEN_FROM: Vec3 = { x: -3.3, y: -1.3, z: LOOP_Z };
+const OUTRO_DISTANCE = 5.5;
+
+// Phase durations in milliseconds.
+const INTRO_MS = 1300;
+const LAP_MS = 3600;
+const OUTRO_MS = 1100;
+
+// Bank (roll into turns): target from path curvature, eased for smoothness.
+const BANK_GAIN = 26;
+const BANK_LIMIT = 0.7;
+const BANK_SMOOTH = 0.12;
+
+type Phase = "idle" | "intro" | "loop" | "outro" | "done";
+
+function add(a: Vec3, b: Vec3): Vec3 {
+  return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+}
+
+/** Cubic Hermite interpolation between `p0` (tangent `m0`) and `p1` (tangent `m1`). */
+function hermite(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, u: number): Vec3 {
+  const u2 = u * u;
+  const u3 = u2 * u;
+  const h00 = 2 * u3 - 3 * u2 + 1;
+  const h10 = u3 - 2 * u2 + u;
+  const h01 = -2 * u3 + 3 * u2;
+  const h11 = u3 - u2;
+  return add(
+    add(scale(p0, h00), scale(m0, h10)),
+    add(scale(p1, h01), scale(m1, h11)),
+  );
+}
+
+/** Point on the seamless figure-8; `phase` in 0..1 is one full lap. */
+function loopPoint(phase: number): Vec3 {
+  const a = phase * Math.PI * 2;
+  return {
+    x: LOOP_X * Math.sin(a),
+    y: LOOP_Y * Math.sin(a) * Math.cos(a),
+    z: LOOP_Z * Math.cos(a),
+  };
+}
+
+/** Raw per-phase velocity of the loop at `phase` (central difference). */
+function loopVelocity(phase: number): Vec3 {
+  const e = 1e-3;
+  return scale(subtract(loopPoint(phase + e), loopPoint(phase - e)), 1 / (2 * e));
+}
 
 function resolveMesh(mesh: PlaneProgressOptions["mesh"]): Mesh {
   return typeof mesh === "function" ? mesh() : mesh;
@@ -81,39 +128,21 @@ export function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh {
   const centerY = (minY + maxY) / 2;
   const centerZ = (minZ + maxZ) / 2;
   const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-  const scale = targetSize / extent;
+  const factor = targetSize / extent;
 
   return {
     vertices: mesh.vertices.map((vertex) => ({
-      x: (vertex.x - centerX) * scale,
-      y: (vertex.y - centerY) * scale,
-      z: (vertex.z - centerZ) * scale,
+      x: (vertex.x - centerX) * factor,
+      y: (vertex.y - centerY) * factor,
+      z: (vertex.z - centerZ) * factor,
     })),
     faces: mesh.faces,
   };
 }
 
-/** Point on the flight path; `t` is the lap phase in 0..1 (loops seamlessly off-screen). */
-function pathPoint(t: number): Vec3 {
-  const a = t * TURNS * Math.PI * 2 + PHASE;
-  return {
-    x: SWEEP_X * (t * 2 - 1),
-    y: AMP_Y * Math.sin(a),
-    z: AMP_Z * Math.cos(a),
-  };
-}
-
-function pathTangent(t: number): Vec3 {
-  const e = 0.001;
-  const ahead = pathPoint(t + e);
-  const behind = pathPoint(t - e);
-  return normalize({ x: ahead.x - behind.x, y: ahead.y - behind.y, z: ahead.z - behind.z });
-}
-
 /**
- * Orientation (engine Euler, Rz*Ry*Rx) that points the canonical nose (+X)
- * along `forward` and keeps `up` upright, rolled by `bank` radians about the
- * nose so the plane leans into turns.
+ * Orientation (engine Euler, Rz*Ry*Rx) that points the nose (+X) along
+ * `forward` and keeps `up` upright, rolled by `bank` radians about the nose.
  */
 function orientationFor(forward: Vec3, bank: number): Vec3 {
   const fwd = normalize(forward);
@@ -121,11 +150,7 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   if (Math.hypot(right.x, right.y, right.z) < 1e-4) right = { x: 0, y: 0, z: 1 };
   right = normalize(right);
   const levelUp = cross(right, fwd);
-  const up = {
-    x: levelUp.x * Math.cos(bank) + right.x * Math.sin(bank),
-    y: levelUp.y * Math.cos(bank) + right.y * Math.sin(bank),
-    z: levelUp.z * Math.cos(bank) + right.z * Math.sin(bank),
-  };
+  const up = add(scale(levelUp, Math.cos(bank)), scale(right, Math.sin(bank)));
   const w = normalize(cross(fwd, up));
   const realUp = cross(w, fwd);
   return {
@@ -135,11 +160,19 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   };
 }
 
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
 /**
- * Plane flies a wide 3D corkscrew across the frame on a continuous loop. The
- * animation plays only while progress is strictly between 0 and 1 (work in
- * flight) and freezes otherwise; progress does not drive the plane's position,
- * only whether it is moving. The overlaid label shows the progress percentage.
+ * A plane that flies a continuous, seamless 3D figure-8. Progress only drives
+ * three phases - it does not position the plane:
+ * - **intro**: the first time progress rises above 0, the plane flies in from
+ *   off-screen and eases into the loop.
+ * - **loop**: while progress is between 0 and 1, the figure-8 repeats forever.
+ * - **outro**: when progress reaches 1, the plane peels out of the loop and
+ *   flies off-screen.
+ * An overlaid label shows the progress percentage.
  */
 export class PlaneProgressSpinner implements SpinnerPlugin {
   private engine?: Little3dEngine;
@@ -147,11 +180,17 @@ export class PlaneProgressSpinner implements SpinnerPlugin {
   private label?: HTMLDivElement;
   private readonly mesh: Mesh;
   private readonly backend?: Backend;
-  private phase = 0;
+
+  private phase: Phase = "idle";
+  private introU = 0;
+  private loopPhase = 0;
+  private outroU = 0;
+  private outroFromPhase = 0;
+  private bank = 0;
   private lastNow?: number;
 
   constructor(options: PlaneProgressOptions) {
-    const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.meshSize ?? 1.9);
+    const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.meshSize ?? 1.5);
     this.mesh = applyColor(centered, options.color ?? "#cbd5e1");
     this.backend = options.backend;
   }
@@ -179,30 +218,97 @@ export class PlaneProgressSpinner implements SpinnerPlugin {
   render(now: number, state: SpinnerPluginState): void {
     if (!this.engine || !this.handle || !this.label) return;
 
-    const progress = state.determinate ? Math.max(0, Math.min(1, state.progress)) : 0;
-    // Loop continuously while work is in flight; freeze at the ends.
-    const playing = !state.determinate || (progress > 0 && progress < 1);
+    // Indeterminate spinners have no progress, so treat them as always "in
+    // flight": they intro once and loop forever, never reaching the outro.
+    const progress = state.determinate ? clamp01(state.progress) : 0.5;
     const dt = this.lastNow === undefined ? 0 : now - this.lastNow;
     this.lastNow = now;
-    if (playing) this.phase = (this.phase + dt / LAP_MS) % 1;
 
+    const visible = this.advance(progress, dt);
     const transform = this.handle.transform;
-    const position = pathPoint(this.phase);
-    const tangent = pathTangent(this.phase);
-    const turn = pathTangent(this.phase + 0.01);
-    const bank = Math.max(-1, Math.min(1, cross(tangent, turn).y * 60)) * BANK_GAIN;
-    const orientation = orientationFor(tangent, bank);
 
-    transform.position.x = position.x;
-    transform.position.y = position.y;
-    transform.position.z = position.z;
-    transform.rotation.x = orientation.x;
-    transform.rotation.y = orientation.y;
-    transform.rotation.z = orientation.z;
+    if (visible) {
+      transform.scale = 1;
+      const here = this.sample(0);
+      const heading = normalize(subtract(this.sample(1), here));
+      const turn = cross(heading, normalize(subtract(this.sample(2), this.sample(1))));
+      const targetBank = Math.max(-BANK_LIMIT, Math.min(BANK_LIMIT, turn.y * BANK_GAIN));
+      this.bank += (targetBank - this.bank) * BANK_SMOOTH;
 
-    this.label.textContent = `${Math.round(progress * 100)}%`;
+      const orientation = orientationFor(heading, this.bank);
+      transform.position.x = here.x;
+      transform.position.y = here.y;
+      transform.position.z = here.z;
+      transform.rotation.x = orientation.x;
+      transform.rotation.y = orientation.y;
+      transform.rotation.z = orientation.z;
+    } else {
+      transform.scale = 0;
+    }
 
+    this.label.textContent = state.determinate ? `${Math.round(progress * 100)}%` : "";
     this.engine.render();
+  }
+
+  /** Advance the phase state machine by `dt`; returns whether the plane is on-screen. */
+  private advance(progress: number, dt: number): boolean {
+    if (progress <= 0) {
+      this.phase = "idle";
+      return false;
+    }
+    if (this.phase === "idle" || (this.phase === "done" && progress < 1)) {
+      this.phase = "intro";
+      this.introU = 0;
+    }
+    if (this.phase === "intro") {
+      this.introU += dt / INTRO_MS;
+      if (this.introU >= 1) {
+        this.phase = "loop";
+        this.loopPhase = 0;
+      }
+    }
+    if (this.phase === "loop") {
+      this.loopPhase = (this.loopPhase + dt / LAP_MS) % 1;
+      if (progress >= 1) {
+        this.phase = "outro";
+        this.outroFromPhase = this.loopPhase;
+        this.outroU = 0;
+      }
+    }
+    if (this.phase === "outro") {
+      this.outroU += dt / OUTRO_MS;
+      if (this.outroU >= 1) {
+        this.phase = "done";
+        return false;
+      }
+    }
+    return this.phase === "intro" || this.phase === "loop" || this.phase === "outro";
+  }
+
+  /**
+   * Position of the active phase, offset by `step` small ticks of its own
+   * parameter (used to sample a look-ahead for heading and bank). Intro and
+   * outro are Hermite curves: the intro starts at rest off-screen and arrives
+   * with the loop's velocity; the outro leaves with the loop's velocity. Both
+   * endpoints match the loop in position and velocity, so the joins are smooth
+   * with no change in speed.
+   */
+  private sample(step: number): Vec3 {
+    const e = 4e-3;
+    if (this.phase === "intro") {
+      const u = clamp01(this.introU + step * e);
+      const joinVelocity = scale(loopVelocity(0), INTRO_MS / LAP_MS);
+      return hermite(OFFSCREEN_FROM, ZERO, loopPoint(0), joinVelocity, u);
+    }
+    if (this.phase === "outro") {
+      const u = clamp01(this.outroU + step * e);
+      const from = loopPoint(this.outroFromPhase);
+      const outward = normalize(loopVelocity(this.outroFromPhase));
+      const leaveVelocity = scale(loopVelocity(this.outroFromPhase), OUTRO_MS / LAP_MS);
+      const exit = add(from, scale(outward, OUTRO_DISTANCE));
+      return hermite(from, leaveVelocity, exit, scale(outward, OUTRO_DISTANCE), u);
+    }
+    return loopPoint(this.loopPhase + step * e);
   }
 
   destroy(): void {
