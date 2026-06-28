@@ -220,9 +220,12 @@ export class PlaneAnimation implements SpinnerAnimation {
     const from = this.positionAt(now);
     let velocity = scale(subtract(this.positionAt(now + 1), this.positionAt(now - 1)), 0.5);
     if (Math.hypot(velocity.x, velocity.y, velocity.z) < 1e-4) velocity = loopVelocity(0);
-    const outward = normalize(velocity);
+    // Always leave toward the nearest horizontal edge (left/right), never into
+    // depth: a plane exiting toward or away from the camera shrinks to nothing
+    // mid-frame instead of flying off-screen.
+    const outward: Vec3 = { x: from.x >= 0 ? 1 : -1, y: 0, z: 0 };
     this.outroFrom = from;
-    this.outroM0 = scale(velocity, OUTRO_MS);
+    this.outroM0 = scale(velocity, OUTRO_MS); // smooth C1 start from the current heading
     this.outroExit = add(from, scale(outward, OUTRO_DISTANCE));
     this.outroM1 = scale(outward, OUTRO_DISTANCE);
     this.phase = "outro";
