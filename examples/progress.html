@@ -14,24 +14,39 @@
     <a href="/examples/progress.html" class="active">Progress</a>
   </nav>
 
-  <h1>3d-Spinner progress examples</h1>
+  <h1>3d-Spinner progress &amp; indeterminate</h1>
+
+  <p class="note">
+    Every animation runs under either spinner <strong>type</strong>: <code>progress</code> (drive
+    the slider) or <code>indeterminate</code> (self-driving on a timer until you press Stop, which
+    plays each animation's outro).
+  </p>
 
   <div class="controls">
-    <button id="run">Run</button>
-    <label for="speed">
-      <span>Speed</span>
-      <select id="speed" autocomplete="off">
-        <option value="0.1">Slow</option>
-        <option value="0.25" selected>Normal</option>
-        <option value="0.5">Fast</option>
-        <option value="1">Very fast</option>
+    <label for="type">
+      <span>Type</span>
+      <select id="type" autocomplete="off">
+        <option value="progress" selected>progress</option>
+        <option value="indeterminate">indeterminate</option>
       </select>
     </label>
-    <label for="bounce">
-      <input type="checkbox" id="bounce" />
-      <span>Bounce</span>
+    <label id="loop-ctl" for="loop" hidden>
+      <span>Loop</span>
+      <select id="loop" autocomplete="off">
+        <option value="bounce" selected>bounce</option>
+        <option value="restart">restart</option>
+      </select>
     </label>
-    <button id="stop">Stop spinners</button>
+    <label id="speed-ctl" for="speed" hidden>
+      <span>Speed</span>
+      <select id="speed" autocomplete="off">
+        <option value="3500">slow</option>
+        <option value="2000" selected>normal</option>
+        <option value="1000">fast</option>
+      </select>
+    </label>
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
     <button id="destroy">Destroy</button>
     <label for="render-tech">
       <span>Render tech</span>
@@ -43,7 +58,7 @@
     </label>
   </div>
 
-  <label class="progress-control" for="progress">
+  <label class="progress-control" id="progress-ctl" for="progress">
     <span>Progress</span>
     <input id="progress" type="range" min="0" max="100" value="0" />
     <span id="progress-label">0%</span>
@@ -56,12 +71,7 @@
     </section>
 
     <section class="spinner-card">
-      <h2>Test</h2>
-      <div id="stage-test" class="stage"></div>
-    </section>
-
-    <section class="spinner-card">
-      <h2>Basic 3d cube (size with progress)</h2>
+      <h2>Cube (pop + scale)</h2>
       <div id="stage-cube" class="stage"></div>
     </section>
 
@@ -69,147 +79,94 @@
       <h2>Plane (3D fly-through)</h2>
       <div id="stage-plane" class="stage"></div>
     </section>
+
+    <section class="spinner-card">
+      <h2>Test</h2>
+      <div id="stage-test" class="stage"></div>
+    </section>
   </div>
 
   <script type="module">
     import { createSpinner } from "/dist/index.js";
-    import { TestSpinner } from "/dist/plugins/test.js";
-    import { ProgressBarSpinner } from "/dist/plugins/progress-bar.js";
-    import { Basic3dCubeSpinner } from "/dist/plugins/basic-3d-cube.js";
-    import { PlaneProgressSpinner } from "/dist/plugins/plane-progress.js";
+    import { ProgressBarAnimation } from "/dist/animations/progress-bar.js";
+    import { SpinAnimation } from "/dist/animations/spin.js";
+    import { PlaneAnimation } from "/dist/animations/plane.js";
+    import { TestAnimation } from "/dist/animations/test.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
 
-    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((response) =>
-      response.text(),
-    );
+    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
 
-    const progress = document.getElementById("progress");
-    const progressLabel = document.getElementById("progress-label");
+    const type = document.getElementById("type");
+    const loop = document.getElementById("loop");
     const speed = document.getElementById("speed");
-    const bounce = document.getElementById("bounce");
-    const runButton = document.getElementById("run");
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
+    const progress = document.getElementById("progress");
+    const progressLabel = document.getElementById("progress-label");
 
-    let spinners = [];
+    const isIndeterminate = () => type.value === "indeterminate";
 
-    const spinnerDemos = [
-      {
-        target: document.getElementById("stage-progress-bar"),
-        create: () => new ProgressBarSpinner(),
-      },
-      { target: document.getElementById("stage-test"), create: () => new TestSpinner() },
+    const animations = [
+      { target: document.getElementById("stage-progress-bar"), create: () => new ProgressBarAnimation() },
       {
         target: document.getElementById("stage-cube"),
-        create: () => new Basic3dCubeSpinner({ backend: backend() }),
+        create: () => new SpinAnimation({ backend: backend(), progressAnimation: {} }),
       },
       {
         target: document.getElementById("stage-plane"),
         create: () =>
-          new PlaneProgressSpinner({
-            backend: backend(),
-            mesh: () => parseObj(planeObj, { colors: ["#cbd5e1"] }),
-          }),
+          new PlaneAnimation({ backend: backend(), mesh: () => parseObj(planeObj, { colors: ["#cbd5e1"] }) }),
       },
+      { target: document.getElementById("stage-test"), create: () => new TestAnimation() },
     ];
+
+    let spinners = [];
+
+    function options(animation) {
+      if (isIndeterminate()) {
+        return { type: "indeterminate", animation, loop: loop.value, periodMs: Number(speed.value) };
+      }
+      return { type: "progress", animation, progress: Number(progress.value) / 100 };
+    }
 
     function mount() {
       spinners.forEach((spinner) => spinner.destroy());
-      spinners = spinnerDemos.map((demo) => {
+      spinners = animations.map((demo) => {
         demo.target.innerHTML = "";
-        return createSpinner(demo.target, { plugin: demo.create(), progress: value });
+        return createSpinner(demo.target, options(demo.create()));
       });
-      setSlider(value);
-      spinners.forEach((spinner) => spinner.setProgress(value));
     }
 
-    function ensureMounted() {
-      if (spinners.length === 0) mount();
+    function syncControls() {
+      const indeterminate = isIndeterminate();
+      document.getElementById("loop-ctl").hidden = !indeterminate;
+      document.getElementById("speed-ctl").hidden = !indeterminate;
+      document.getElementById("progress-ctl").hidden = indeterminate;
     }
 
-    let value = 0;
-    let direction = 1;
-    let syncingSlider = false;
-
-    function setSlider(v) {
-      syncingSlider = true;
-      progress.value = String(Math.round(v * 100));
-      progressLabel.textContent = `${progress.value}%`;
-      syncingSlider = false;
-    }
-
-    function applyProgress(v) {
-      ensureMounted();
-      value = v;
-      setSlider(v);
-      spinners.forEach((spinner) => spinner.setProgress(v));
-    }
-
-    // Auto-advance loop, driven by the Run button.
-    let running = false;
-    let lastTime = 0;
-
-    function tick(now) {
-      if (!running) return;
-      const dt = lastTime ? (now - lastTime) / 1000 : 0;
-      lastTime = now;
-
-      let next = value + direction * Number(speed.value) * dt;
-      if (next >= 1) {
-        if (bounce.checked) {
-          next = 1;
-          direction = -1;
-        } else {
-          next = 1;
-          stopRun();
-        }
-      } else if (next <= 0) {
-        next = 0;
-        direction = 1;
-      }
-      applyProgress(next);
-      if (running) requestAnimationFrame(tick);
-    }
-
-    function startRun() {
-      if (running) return;
-      ensureMounted();
-      running = true;
-      lastTime = 0;
-      if (value >= 1 && !bounce.checked) {
-        value = 0;
-        direction = 1;
-        applyProgress(0);
-      }
-      runButton.textContent = "Pause";
-      requestAnimationFrame(tick);
-    }
-
-    function stopRun() {
-      running = false;
-      runButton.textContent = "Run";
-    }
-
-    runButton.onclick = () => (running ? stopRun() : startRun());
-
-    progress.oninput = () => {
-      if (syncingSlider) return;
-      applyProgress(Number(progress.value) / 100);
-      direction = 1;
+    type.onchange = () => {
+      syncControls();
+      mount();
     };
+    loop.onchange = () => mount();
+    speed.onchange = () => mount();
+    renderTech.onchange = () => mount();
 
-    document.getElementById("stop").onclick = () => {
-      stopRun();
-      spinners.forEach((spinner) => spinner.stop());
-    };
+    document.getElementById("start").onclick = () => mount();
+    document.getElementById("stop").onclick = () => spinners.forEach((spinner) => spinner.stop());
     document.getElementById("destroy").onclick = () => {
-      stopRun();
       spinners.forEach((spinner) => spinner.destroy());
       spinners = [];
     };
 
-    renderTech.onchange = () => mount();
+    progress.oninput = () => {
+      progressLabel.textContent = `${progress.value}%`;
+      if (!isIndeterminate()) {
+        spinners.forEach((spinner) => spinner.setProgress(Number(progress.value) / 100));
+      }
+    };
 
+    syncControls();
     mount();
   </script>
 </body>
