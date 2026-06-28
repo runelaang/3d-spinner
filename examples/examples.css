@@ -182,8 +182,8 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 120px;
-  min-height: 120px;
+  height: 340px;
+  min-height: 340px;
   font-size: 1.25rem;
   background: #1a1f2e;
 }

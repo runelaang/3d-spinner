@@ -34,16 +34,17 @@
     <label id="loop-ctl" for="loop">
       <span>Loop</span>
       <select id="loop" autocomplete="off">
-        <option value="bounce" selected>bounce</option>
+        <option value="none" selected>no loop</option>
+        <option value="bounce">bounce</option>
         <option value="restart">restart</option>
       </select>
     </label>
     <label id="speed-ctl" for="speed">
       <span>Speed</span>
       <select id="speed" autocomplete="off">
-        <option value="3500">slow</option>
-        <option value="2000" selected>normal</option>
-        <option value="1000">fast</option>
+        <option value="7000">slow</option>
+        <option value="3500" selected>normal</option>
+        <option value="2000">fast</option>
       </select>
     </label>
     <button id="destroy">Destroy</button>
@@ -131,6 +132,7 @@
     function simulatedProgress(now) {
       const period = Number(speed.value);
       const elapsed = (now - simStart) / period;
+      if (loop.value === "none") return Math.min(1, elapsed);
       if (loop.value === "restart") return elapsed - Math.floor(elapsed);
       const phase = elapsed - 2 * Math.floor(elapsed / 2);
       return phase <= 1 ? phase : 2 - phase;
@@ -155,6 +157,10 @@
       progress.value = String(Math.round(value * 100));
       progressLabel.textContent = `${progress.value}%`;
       simIndices.forEach((index) => spinners[index]?.setProgress(value));
+      if (loop.value === "none" && value >= 1) {
+        stopSimulation(true);
+        return;
+      }
       simRafId = requestAnimationFrame(tickSimulation);
     }
 
@@ -168,7 +174,12 @@
 
     function options(animation, progressValue = Number(progress.value) / 100) {
       if (isIndeterminate()) {
-        return { type: "indeterminate", animation, loop: loop.value, periodMs: Number(speed.value) };
+        return {
+          type: "indeterminate",
+          animation,
+          loop: loop.value === "restart" ? "restart" : "bounce",
+          periodMs: Number(speed.value),
+        };
       }
       return { type: "progress", animation, progress: progressValue };
     }
@@ -239,7 +250,17 @@
     }
 
     function syncControls() {
-      document.getElementById("progress-ctl").hidden = isIndeterminate();
+      const indeterminate = isIndeterminate();
+      document.getElementById("progress-ctl").hidden = indeterminate;
+      const noneOption = loop.querySelector("option[value='none']");
+      if (indeterminate) {
+        if (loop.value === "none") loop.value = "bounce";
+        noneOption.hidden = true;
+        noneOption.disabled = true;
+      } else {
+        noneOption.hidden = false;
+        noneOption.disabled = false;
+      }
     }
 
     type.onchange = () => {
