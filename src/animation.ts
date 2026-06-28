@@ -14,8 +14,7 @@ export interface AnimationFrame {
 /**
  * A reusable visual: a cube spin, a flying plane, a progress bar. The animation
  * owns its intro/loop/outro visuals but does not decide *when* to play them -
- * the spinner runner triggers {@link enter} and {@link exit}. This is what lets
- * the same animation back either a `progress` or an `indeterminate` spinner.
+ * the spinner runner triggers {@link enter} and {@link exit}.
  */
 export interface SpinnerAnimation {
   mount(target: HTMLElement): void;
