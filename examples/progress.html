@@ -97,8 +97,8 @@
   <p class="note">
     Each card is an always-running <code>indeterminate</code> object-flight; the exact config used
     to build it is shown beneath. Mesh works with OBJ imports or engine primitives;
-    <code>facing</code> corrects a model that flies backwards/sideways, and <code>tail</code> adds
-    chasing copies.
+    <code>facing</code> corrects a model that flies backwards/sideways, <code>tail</code> adds
+    chasing copies, and <code>rotation</code> adds local spin or tilt on top of path following.
   </p>
   <div class="spinner-grid" id="flight-showcase"></div>
 
@@ -368,7 +368,7 @@
       {
         title: "Cube primitive",
         config: () =>
-          cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 1 },\n  rotation: { spinY: 0.002 },`),
+          cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.3,\n  tail: { count: 20, distance: 0.5 },\n  rotation: { spinY: 0.002 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
@@ -381,7 +381,8 @@
       },
       {
         title: "Tetrahedron primitive",
-        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 1 },`),
+        config: () =>
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.2,\n  tail: { count: 50, distance: 0.6 },\n  rotation: { spinX: 0.004 },\n  speed: 0.5,`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
@@ -395,7 +396,8 @@
       },
       {
         title: "Objects with tail",
-        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  tail: { count: 7, distance: 1.2 },`),
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, distance: 1.2 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
