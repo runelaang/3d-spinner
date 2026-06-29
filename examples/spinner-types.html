@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner - spinner types</title>
+  <link rel="stylesheet" href="/examples/examples.css" />
+  <script src="/examples/theme.js"></script>
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/examples/index.html">Shapes</a>
+    <a href="/examples/spinner-types.html" class="active">Spinner types</a>
+    <a href="/examples/motion.html">Motion</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Auto</button>
+  </nav>
+
+  <h1>3d-spinner: progress &amp; indeterminate types</h1>
+
+  <p class="note">
+    every animation runs under either spinner <strong>type</strong>: <code>progress</code> (Start
+    simulates progress with the speed and loop settings, or drive the slider manually) or
+    <code>indeterminate</code> (self-driving on a timer until you press Stop, which plays each
+    animation's outro).
+  </p>
+
+  <div class="controls">
+    <label for="type">
+      <span>Type</span>
+      <select id="type" autocomplete="off">
+        <option value="progress" selected>progress</option>
+        <option value="indeterminate">indeterminate</option>
+      </select>
+    </label>
+    <label id="loop-ctl" for="loop">
+      <span>Loop</span>
+      <select id="loop" autocomplete="off">
+        <option value="none" selected>no loop</option>
+        <option value="bounce">bounce</option>
+        <option value="restart">restart</option>
+      </select>
+    </label>
+    <label id="speed-ctl" for="speed">
+      <span>Speed</span>
+      <select id="speed" autocomplete="off">
+        <option value="7000">slow</option>
+        <option value="3500" selected>normal</option>
+        <option value="2000">fast</option>
+      </select>
+    </label>
+    <button id="destroy">Destroy</button>
+    <label for="render-tech">
+      <span>Render tech</span>
+      <select id="render-tech" autocomplete="off">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="playback-controls">
+    <button id="start" type="button">Start</button>
+    <button id="stop" type="button">Stop</button>
+  </div>
+
+  <label class="progress-control" id="progress-ctl" for="progress">
+    <span>Progress</span>
+    <input id="progress" type="range" min="0" max="100" value="0" />
+    <span id="progress-label">0%</span>
+  </label>
+
+  <div class="spinner-grid">
+    <section class="spinner-card">
+      <h2>
+        Cube (pop + scale)
+        <span class="card-playback">
+          <button type="button" class="card-start" data-index="0">Start</button>
+          <button type="button" class="card-stop" data-index="0">Stop</button>
+        </span>
+      </h2>
+      <div id="stage-cube" class="stage"></div>
+    </section>
+
+    <section class="spinner-card">
+      <h2>
+        Plane (figure-8 flight)
+        <span class="card-playback">
+          <button type="button" class="card-start" data-index="1">Start</button>
+          <button type="button" class="card-stop" data-index="1">Stop</button>
+        </span>
+      </h2>
+      <div id="stage-plane" class="stage"></div>
+    </section>
+  </div>
+
+  <h2 class="showcase-title">Object-motion flight configurations</h2>
+  <p class="note">
+    Each card is an always-running <code>indeterminate</code> <code>ObjectMotionAnimation</code> on
+    a <code>figureEightMotion</code> path, flying in and out with the
+    <code>enterFromObjectDirection</code> / <code>leaveInObjectDirection</code> transitions; the
+    exact config is shown beneath. Mesh works with OBJ imports or engine primitives;
+    <code>facing</code> corrects a model that points backwards/sideways, <code>tail</code> adds
+    chasing copies, and <code>rotation</code> adds local spin or tilt on top of path following.
+  </p>
+  <div class="spinner-grid" id="motion-showcase"></div>
+
+  <script type="module">
+    import { createSpinner } from "/dist/index.js";
+    import { SpinAnimation } from "/dist/animations/spin.js";
+    import { ObjectMotionAnimation } from "/dist/animations/object-motion.js";
+    import { figureEightMotion } from "/dist/motion/motion.js";
+    import { enterFromObjectDirection, leaveInObjectDirection } from "/dist/motion/transitions.js";
+    import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
+    import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+
+    // A flight-style object-motion: follows the figure-8 path, flies in along the
+    // path direction, and flies off the same way (the velocity-aware transitions).
+    const flight = ({ periodMs, ...options }) =>
+      new ObjectMotionAnimation({
+        motion: figureEightMotion(periodMs ? { periodMs } : {}),
+        intro: enterFromObjectDirection(),
+        outro: leaveInObjectDirection(),
+        ...options,
+      });
+
+    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
+    const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
+
+    const PRIMARY = {
+      plane: "#2563eb",
+      car: "#dc2626",
+      cube: "#16a34a",
+      tetra: "#faccFF",
+      tail: "#77EE55",
+      speed: "#ea580c",
+    };
+
+    const type = document.getElementById("type");
+    const loop = document.getElementById("loop");
+    const speed = document.getElementById("speed");
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+    const progress = document.getElementById("progress");
+    const progressLabel = document.getElementById("progress-label");
+
+    const isIndeterminate = () => type.value === "indeterminate";
+
+    const animations = [
+      {
+        target: document.getElementById("stage-cube"),
+        create: () => new SpinAnimation({ backend: backend(), color: PRIMARY.cube, progressAnimation: {} }),
+      },
+      {
+        target: document.getElementById("stage-plane"),
+        create: () =>
+          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
+      },
+    ];
+
+    let spinners = animations.map(() => undefined);
+    let simRunning = false;
+    let simIndices = new Set();
+    let simStart = 0;
+    let simRafId = 0;
+
+    function simulatedProgress(now) {
+      const period = Number(speed.value);
+      const elapsed = (now - simStart) / period;
+      if (loop.value === "none") return Math.min(1, elapsed);
+      if (loop.value === "restart") return elapsed - Math.floor(elapsed);
+      const phase = elapsed - 2 * Math.floor(elapsed / 2);
+      return phase <= 1 ? phase : 2 - phase;
+    }
+
+    function stopSimulation(playOutro = true, indices = null) {
+      simRunning = false;
+      simIndices = new Set();
+      if (simRafId) {
+        cancelAnimationFrame(simRafId);
+        simRafId = 0;
+      }
+      if (playOutro) {
+        const targets = indices ?? spinners.map((_, index) => index);
+        targets.forEach((index) => spinners[index]?.stop());
+      }
+    }
+
+    function tickSimulation(now) {
+      if (!simRunning) return;
+      const value = simulatedProgress(now);
+      progress.value = String(Math.round(value * 100));
+      progressLabel.textContent = `${progress.value}%`;
+      simIndices.forEach((index) => spinners[index]?.setProgress(value));
+      if (loop.value === "none" && value >= 1) {
+        stopSimulation(true);
+        return;
+      }
+      simRafId = requestAnimationFrame(tickSimulation);
+    }
+
+    function startSimulation(indices) {
+      stopSimulation(false);
+      simRunning = true;
+      simIndices = new Set(indices);
+      simStart = performance.now();
+      tickSimulation(simStart);
+    }
+
+    function options(animation, progressValue = Number(progress.value) / 100) {
+      if (isIndeterminate()) {
+        return {
+          type: "indeterminate",
+          animation,
+          loop: loop.value === "restart" ? "restart" : "bounce",
+          periodMs: Number(speed.value),
+        };
+      }
+      return { type: "progress", animation, progress: progressValue };
+    }
+
+    function clearStage(index) {
+      const target = animations[index].target;
+      target.replaceChildren();
+      target.style.removeProperty("position");
+    }
+
+    function mountDemo(index, progressValue) {
+      const demo = animations[index];
+      spinners[index]?.destroy();
+      clearStage(index);
+      spinners[index] = createSpinner(demo.target, options(demo.create(), progressValue));
+    }
+
+    function unmountDemo(index) {
+      spinners[index]?.destroy();
+      spinners[index] = undefined;
+      clearStage(index);
+    }
+
+    function mountAll(resetProgress = false) {
+      stopSimulation(false);
+      if (resetProgress) {
+        progress.value = "0";
+        progressLabel.textContent = "0%";
+      }
+      const progressValue = Number(progress.value) / 100;
+      animations.forEach((_, index) => mountDemo(index, progressValue));
+    }
+
+    function mountedIndices() {
+      return spinners.map((spinner, index) => (spinner ? index : -1)).filter((index) => index >= 0);
+    }
+
+    function applySliderProgress() {
+      stopSimulation(false);
+      const value = Number(progress.value) / 100;
+      progressLabel.textContent = `${progress.value}%`;
+      let indices = mountedIndices();
+      if (indices.length === 0) indices = animations.map((_, index) => index);
+      indices.forEach((index) => mountDemo(index, value));
+    }
+
+    function remountMounted() {
+      stopSimulation(false);
+      const progressValue = Number(progress.value) / 100;
+      mountedIndices().forEach((index) => mountDemo(index, progressValue));
+    }
+
+    function startDemo(index) {
+      progress.value = "0";
+      progressLabel.textContent = "0%";
+      animations.forEach((_, otherIndex) => {
+        if (otherIndex !== index) unmountDemo(otherIndex);
+      });
+      mountDemo(index, 0);
+      if (!isIndeterminate()) startSimulation([index]);
+    }
+
+    function stopDemo(index) {
+      if (isIndeterminate()) spinners[index]?.stop();
+      else if (simIndices.has(index)) stopSimulation(true, [index]);
+      else spinners[index]?.stop();
+    }
+
+    function startAll() {
+      progress.value = "0";
+      progressLabel.textContent = "0%";
+      mountAll(true);
+      if (!isIndeterminate()) startSimulation(animations.map((_, index) => index));
+    }
+
+    function stopAll() {
+      if (isIndeterminate()) spinners.forEach((spinner) => spinner?.stop());
+      else stopSimulation();
+    }
+
+    function syncControls() {
+      const indeterminate = isIndeterminate();
+      document.getElementById("progress-ctl").hidden = indeterminate;
+      const noneOption = loop.querySelector("option[value='none']");
+      if (indeterminate) {
+        if (loop.value === "none") loop.value = "bounce";
+        noneOption.hidden = true;
+        noneOption.disabled = true;
+      } else {
+        noneOption.hidden = false;
+        noneOption.disabled = false;
+      }
+    }
+
+    type.onchange = () => {
+      stopSimulation(false);
+      syncControls();
+      mountAll();
+    };
+    loop.onchange = () => {
+      if (simRunning) {
+        const progressValue = Number(progress.value) / 100;
+        [...simIndices].forEach((index) => mountDemo(index, progressValue));
+        startSimulation([...simIndices]);
+      } else remountMounted();
+    };
+    speed.onchange = () => {
+      if (simRunning) {
+        const progressValue = Number(progress.value) / 100;
+        [...simIndices].forEach((index) => mountDemo(index, progressValue));
+        startSimulation([...simIndices]);
+      } else remountMounted();
+    };
+    renderTech.onchange = () => remountMounted();
+
+    document.getElementById("start").onclick = () => startAll();
+    document.getElementById("stop").onclick = () => stopAll();
+    document.getElementById("destroy").onclick = () => {
+      stopSimulation(false);
+      animations.forEach((_, index) => unmountDemo(index));
+    };
+
+    document.querySelectorAll(".card-start").forEach((button) => {
+      button.onclick = () => startDemo(Number(button.dataset.index));
+    });
+    document.querySelectorAll(".card-stop").forEach((button) => {
+      button.onclick = () => stopDemo(Number(button.dataset.index));
+    });
+
+    progress.oninput = () => {
+      if (isIndeterminate()) return;
+      applySliderProgress();
+    };
+
+    // Showcase of object-motion flight configs (independent of the controls above).
+    // Each card has its own Start/Stop and does not auto-start; the exact config
+    // used to build it is shown beneath. All share the figure-8 path and the
+    // velocity-aware fly-in / fly-out transitions via the `flight` helper above.
+    const cfg = (motion, body) =>
+      `new ObjectMotionAnimation({\n  motion: ${motion},\n${body}  intro: enterFromObjectDirection(),\n  outro: leaveInObjectDirection(),\n})`;
+    const cardSpeed = (card) => Number(card.querySelector(".show-speed")?.value ?? "0.5");
+    const periodFor = (speed) => Math.round(3600 / speed);
+
+    const motionDemos = [
+      {
+        title: "Plane",
+        config: () => cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.plane}",\n`),
+        create: () =>
+          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
+      },
+      {
+        title: "Car (facing + slower)",
+        config: () =>
+          cfg("figureEightMotion({ periodMs: 5400 })", `  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "-z",\n  size: 1.8,\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => parseObj(carObj),
+            color: PRIMARY.car,
+            facing: "-z",
+            size: 1.8,
+            periodMs: 5400,
+          }),
+      },
+      {
+        title: "Cube primitive",
+        config: () =>
+          cfg("figureEightMotion()", `  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.3,\n  tail: { count: 20, gapMs: 60 },\n  rotation: { spinY: 0.002 },\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => cube(),
+            color: PRIMARY.cube,
+            size: 0.3,
+            tail: { count: 20, gapMs: 60 },
+            rotation: { spinY: 0.002 },
+          }),
+      },
+      {
+        title: "Tetrahedron primitive",
+        config: () =>
+          cfg("figureEightMotion({ periodMs: 7200 })", `  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.2,\n  tail: { count: 50, gapMs: 40 },\n  rotation: { spinX: 0.004 },\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => tetrahedron(),
+            color: PRIMARY.tetra,
+            size: 0.2,
+            tail: { count: 50, gapMs: 40 },
+            rotation: { spinX: 0.004 },
+            periodMs: 7200,
+          }),
+      },
+      {
+        title: "Objects with tail",
+        config: () =>
+          cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, gapMs: 90 },\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: PRIMARY.tail,
+            size: 0.6,
+            tail: { count: 20, gapMs: 90 },
+          }),
+      },
+      {
+        title: "Speed (configurable)",
+        speedControl: true,
+        config: (card) =>
+          cfg(`figureEightMotion({ periodMs: ${periodFor(cardSpeed(card))} })`, `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.speed}",\n`),
+        create: (card) =>
+          flight({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: PRIMARY.speed,
+            periodMs: periodFor(cardSpeed(card)),
+          }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("motion-showcase");
+      grid.replaceChildren();
+      motionDemos.forEach((demo) => {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        card.innerHTML = `<h2>${demo.title}
+          <span class="card-playback">
+            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-stop">Stop</button>
+          </span></h2>`;
+        if (demo.speedControl) {
+          const control = document.createElement("div");
+          control.className = "card-control";
+          control.innerHTML = `<label><span>speed</span>
+            <select class="show-speed">
+              <option value="0.25">0.25&times;</option>
+              <option value="0.5" selected>0.5&times;</option>
+              <option value="1">1&times;</option>
+              <option value="2">2&times;</option>
+            </select></label>`;
+          card.appendChild(control);
+        }
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        card.append(stage, config);
+        grid.appendChild(card);
+
+        let spinner = null;
+        const refresh = () => { config.textContent = demo.config(card); };
+        refresh();
+        const startButton = card.querySelector(".card-start");
+        startButton.onclick = () => {
+          spinner?.destroy();
+          stage.replaceChildren();
+          spinner = createSpinner(stage, { type: "indeterminate", animation: demo.create(card) });
+        };
+        card.querySelector(".card-stop").onclick = () => spinner?.stop();
+        const speedSelect = card.querySelector(".show-speed");
+        if (speedSelect) {
+          speedSelect.onchange = () => {
+            refresh();
+            if (spinner) startButton.onclick();
+          };
+        }
+      });
+    }
+
+    syncControls();
+    mountAll();
+    buildShowcase();
+  </script>
+</body>
+
+</html>

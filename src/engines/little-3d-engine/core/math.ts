@@ -72,6 +72,11 @@ export function translation(x: number, y: number, z: number): Mat4 {
   return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
 }
 
+/** Uniform scale matrix. */
+export function scaleMatrix(s: number): Mat4 {
+  return [s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0, 0, 0, 0, 1];
+}
+
 /** Rotation matrix about the X axis (radians). */
 export function rotationX(rad: number): Mat4 {
   const c = Math.cos(rad);
