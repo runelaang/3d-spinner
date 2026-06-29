@@ -4,18 +4,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3d-spinner - progress examples</title>
+  <title>3d-spinner - spinner types</title>
   <link rel="stylesheet" href="/examples/examples.css" />
 </head>
 
 <body>
   <nav class="topbar">
     <a href="/examples/index.html">Shapes</a>
-    <a href="/examples/progress.html" class="active">Progress</a>
+    <a href="/examples/progress.html" class="active">Spinner types</a>
     <a href="/examples/motion.html">Motion</a>
   </nav>
 
-  <h1>3d-Spinner: progress &amp; indeterminate</h1>
+  <h1>3d-spinner: progress &amp; indeterminate types</h1>
 
   <p class="note">
     every animation runs under either spinner <strong>type</strong>: <code>progress</code> (Start
@@ -84,7 +84,7 @@
 
     <section class="spinner-card">
       <h2>
-        Plane (3D fly-through)
+        Plane (figure-8 flight)
         <span class="card-playback">
           <button type="button" class="card-start" data-index="1">Start</button>
           <button type="button" class="card-stop" data-index="1">Stop</button>
@@ -94,21 +94,35 @@
     </section>
   </div>
 
-  <h2 class="showcase-title">Object-flight configurations</h2>
+  <h2 class="showcase-title">Object-motion flight configurations</h2>
   <p class="note">
-    Each card is an always-running <code>indeterminate</code> object-flight; the exact config used
-    to build it is shown beneath. Mesh works with OBJ imports or engine primitives;
-    <code>facing</code> corrects a model that flies backwards/sideways, <code>tail</code> adds
+    Each card is an always-running <code>indeterminate</code> <code>ObjectMotionAnimation</code> on
+    a <code>figureEightMotion</code> path, flying in and out with the
+    <code>enterFromObjectDirection</code> / <code>leaveInObjectDirection</code> transitions; the
+    exact config is shown beneath. Mesh works with OBJ imports or engine primitives;
+    <code>facing</code> corrects a model that points backwards/sideways, <code>tail</code> adds
     chasing copies, and <code>rotation</code> adds local spin or tilt on top of path following.
   </p>
-  <div class="spinner-grid" id="flight-showcase"></div>
+  <div class="spinner-grid" id="motion-showcase"></div>
 
   <script type="module">
     import { createSpinner } from "/dist/index.js";
     import { SpinAnimation } from "/dist/animations/spin.js";
-    import { ObjectFlightAnimation } from "/dist/animations/object-flight.js";
+    import { ObjectMotionAnimation } from "/dist/animations/object-motion.js";
+    import { figureEightMotion } from "/dist/motion/motion.js";
+    import { enterFromObjectDirection, leaveInObjectDirection } from "/dist/motion/transitions.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
     import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+
+    // A flight-style object-motion: follows the figure-8 path, flies in along the
+    // path direction, and flies off the same way (the velocity-aware transitions).
+    const flight = ({ periodMs, ...options }) =>
+      new ObjectMotionAnimation({
+        motion: figureEightMotion(periodMs ? { periodMs } : {}),
+        intro: enterFromObjectDirection(),
+        outro: leaveInObjectDirection(),
+        ...options,
+      });
 
     const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
     const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
@@ -140,7 +154,7 @@
       {
         target: document.getElementById("stage-plane"),
         create: () =>
-          new ObjectFlightAnimation({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
+          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
       },
     ];
 
@@ -335,98 +349,97 @@
       applySliderProgress();
     };
 
-    // Showcase of object-flight configs (independent of the controls above).
+    // Showcase of object-motion flight configs (independent of the controls above).
     // Each card has its own Start/Stop and does not auto-start; the exact config
-    // used to build it is shown beneath.
-    const cfg = (body) => `new ObjectFlightAnimation({\n${body}\n})`;
+    // used to build it is shown beneath. All share the figure-8 path and the
+    // velocity-aware fly-in / fly-out transitions via the `flight` helper above.
+    const cfg = (motion, body) =>
+      `new ObjectMotionAnimation({\n  motion: ${motion},\n${body}  intro: enterFromObjectDirection(),\n  outro: leaveInObjectDirection(),\n})`;
     const cardSpeed = (card) => Number(card.querySelector(".show-speed")?.value ?? "0.5");
+    const periodFor = (speed) => Math.round(3600 / speed);
 
-    const flightDemos = [
+    const motionDemos = [
       {
         title: "Plane",
-        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.plane}",`),
+        config: () => cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.plane}",\n`),
         create: () =>
-          new ObjectFlightAnimation({
-            backend: backend(),
-            mesh: () => parseObj(planeObj),
-            color: PRIMARY.plane,
-          }),
+          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
       },
       {
-        title: "Car (facing + 2/3 speed)",
+        title: "Car (facing + slower)",
         config: () =>
-          cfg(`  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "-z",\n  size: 1.8,\n  speed: 2 / 3,`),
+          cfg("figureEightMotion({ periodMs: 5400 })", `  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "-z",\n  size: 1.8,\n`),
         create: () =>
-          new ObjectFlightAnimation({
+          flight({
             backend: backend(),
             mesh: () => parseObj(carObj),
             color: PRIMARY.car,
             facing: "-z",
             size: 1.8,
-            speed: 2 / 3,
+            periodMs: 5400,
           }),
       },
       {
         title: "Cube primitive",
         config: () =>
-          cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.3,\n  tail: { count: 20, distance: 0.5 },\n  rotation: { spinY: 0.002 },`),
+          cfg("figureEightMotion()", `  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.3,\n  tail: { count: 20, gapMs: 60 },\n  rotation: { spinY: 0.002 },\n`),
         create: () =>
-          new ObjectFlightAnimation({
+          flight({
             backend: backend(),
             mesh: () => cube(),
             color: PRIMARY.cube,
             size: 0.3,
-            tail: { count: 20, distance: 0.5 },
+            tail: { count: 20, gapMs: 60 },
             rotation: { spinY: 0.002 },
           }),
       },
       {
         title: "Tetrahedron primitive",
         config: () =>
-          cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.2,\n  tail: { count: 50, distance: 0.6 },\n  rotation: { spinX: 0.004 },\n  speed: 0.5,`),
+          cfg("figureEightMotion({ periodMs: 7200 })", `  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.2,\n  tail: { count: 50, gapMs: 40 },\n  rotation: { spinX: 0.004 },\n`),
         create: () =>
-          new ObjectFlightAnimation({
+          flight({
             backend: backend(),
             mesh: () => tetrahedron(),
             color: PRIMARY.tetra,
             size: 0.2,
-            tail: { count: 50, distance: 0.6 },
+            tail: { count: 50, gapMs: 40 },
             rotation: { spinX: 0.004 },
-            speed: 0.5,
+            periodMs: 7200,
           }),
       },
       {
         title: "Objects with tail",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, distance: 1.2 },`),
+          cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, gapMs: 90 },\n`),
         create: () =>
-          new ObjectFlightAnimation({
+          flight({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: PRIMARY.tail,
             size: 0.6,
-            tail: { count: 20, distance: 1.2 },
+            tail: { count: 20, gapMs: 90 },
           }),
       },
       {
         title: "Speed (configurable)",
         speedControl: true,
         config: (card) =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.speed}",\n  speed: ${cardSpeed(card)},`),
+          cfg(`figureEightMotion({ periodMs: ${periodFor(cardSpeed(card))} })`, `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.speed}",\n`),
         create: (card) =>
-          new ObjectFlightAnimation({
+          flight({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: PRIMARY.speed,
-            speed: cardSpeed(card),
+            periodMs: periodFor(cardSpeed(card)),
           }),
       },
     ];
 
     function buildShowcase() {
-      const grid = document.getElementById("flight-showcase");
+      const grid = document.getElementById("motion-showcase");
       grid.replaceChildren();
-      flightDemos.forEach((demo) => {
+      motionDemos.forEach((demo) => {
         const card = document.createElement("section");
         card.className = "spinner-card";
         card.innerHTML = `<h2>${demo.title}
