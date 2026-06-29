@@ -103,8 +103,8 @@ const LABEL_STYLE = [
 
 const WORLD_UP: Vec3 = { x: 0, y: 1, z: 0 };
 
-const DEFAULT_INTRO_MS = 450;
-const DEFAULT_OUTRO_MS = 400;
+const DEFAULT_INTRO_MS = 2100;
+const DEFAULT_OUTRO_MS = 2100;
 
 const BANK_GAIN = 26;
 const BANK_LIMIT = 0.7;
