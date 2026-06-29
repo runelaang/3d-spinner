@@ -124,7 +124,7 @@ on the mode.
 | --- | --- | --- |
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `loop` | `"bounce" \| "restart"` | `"bounce"` ramps 0 to 1 and back; `"restart"` repeats 0 to 1. Default `"bounce"`. |
-| `periodMs` | `number` | Milliseconds for one sweep. Default `2000`. |
+| `periodMs` | `number` | Milliseconds for one sweep. Must be finite and greater than zero. Default `2000`. |
 
 ### `Spinner`
 
@@ -132,7 +132,7 @@ on the mode.
 | --- | --- |
 | `setProgress(target)` | Advance progress toward `target` (`0..1`). No-op for an indeterminate spinner. |
 | `stop()` | Play the outro, then stop animating. Keeps the injected element. |
-| `destroy()` | Stop immediately and remove the injected element. |
+| `destroy()` | Stop immediately and remove the injected element. Safe to call more than once. |
 
 ## Rendering backend
 

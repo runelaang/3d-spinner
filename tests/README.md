@@ -17,12 +17,12 @@ npm test          # rebuilds dist, then runs every *.test.mjs
 rebuilding (dist must already exist):
 
 ```sh
-node --test
+node --test tests/*.test.mjs
 ```
 
 ## What is covered
 
-Pure, DOM-free logic only:
+Zero-dependency lifecycle and pure logic:
 
 - `motion.test.mjs` - the motion controllers (`figureEightMotion`, `circleMotion`,
   `squareMotion`, `wanderMotion`): loop seamlessness, the circle radius invariant, the square
@@ -34,7 +34,12 @@ Pure, DOM-free logic only:
   the `Rz` rotation convention.
 - `mesh.test.mjs` - `centerAndScaleMesh`: origin centering, uniform fit to `targetSize`, and
   input immutability.
+- `progress-animation.test.mjs` - every observable progress-animation lifecycle stage, including
+  done-label fading and immediate completion when the fade is disabled.
+- `spinner-lifecycle.test.mjs` - `createSpinner` mounting, reported and timed completion,
+  indeterminate stop, immediate/idempotent destroy, and invalid-period rejection using a fake
+  animation, element, and animation-frame scheduler.
 
-DOM/canvas rendering (mounting the engine, drawing) is intentionally **not** covered here - it
-would require a DOM environment (jsdom or a browser runner) and thus an external dependency.
+Real DOM/canvas rendering (mounting the engine, drawing) is intentionally **not** covered here -
+it would require a DOM environment (jsdom or a browser runner) and thus an external dependency.
 Keeping this suite dependency-free is a deliberate constraint.
