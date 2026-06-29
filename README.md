@@ -1,4 +1,4 @@
-# 3d-spinner
+# 3d-spinner and beyond
 
 [![tests](https://img.shields.io/github/actions/workflow/status/runelaang/3d-spinner/ci.yml?label=tests&logo=github)](https://github.com/runelaang/3d-spinner/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/3d-spinner?logo=npm)](https://www.npmjs.com/package/3d-spinner)
