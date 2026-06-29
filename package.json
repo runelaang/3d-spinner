@@ -11,14 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./animations/test": {
-      "types": "./dist/animations/test.d.ts",
-      "import": "./dist/animations/test.js"
-    },
-    "./animations/progress-bar": {
-      "types": "./dist/animations/progress-bar.d.ts",
-      "import": "./dist/animations/progress-bar.js"
-    },
     "./animations/spin": {
       "types": "./dist/animations/spin.d.ts",
       "import": "./dist/animations/spin.js"
