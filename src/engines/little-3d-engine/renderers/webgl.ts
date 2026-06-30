@@ -1,6 +1,14 @@
 import { expandToTriangles, parseColor } from "../core/geometry.js";
 import type { Mesh } from "../core/mesh.js";
-import type { Renderer, RenderFrame, RendererOptions } from "../renderer.js";
+import {
+  DEFAULT_BACK_OPACITY,
+  DEFAULT_FRONT_OPACITY,
+  DEFAULT_ONE_SIDED_OPACITY,
+  opacity,
+  type Renderer,
+  type RenderFrame,
+  type RendererOptions,
+} from "../renderer.js";
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPos;
@@ -23,11 +31,12 @@ in vec3 vColor;
 uniform vec3 uToLight;
 uniform float uIntensity;
 uniform float uAmbient;
+uniform float uOpacity;
 out vec4 fragColor;
 void main() {
   float lambert = max(dot(normalize(vNormal), normalize(uToLight)), 0.0);
   float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
-  fragColor = vec4(vColor * brightness, 1.0);
+  fragColor = vec4(vColor * brightness, uOpacity);
 }`;
 
 interface MeshBuffers {
@@ -44,6 +53,7 @@ interface Locations {
   uToLight: WebGLUniformLocation | null;
   uIntensity: WebGLUniformLocation | null;
   uAmbient: WebGLUniformLocation | null;
+  uOpacity: WebGLUniformLocation | null;
 }
 
 function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
@@ -98,6 +108,7 @@ export class WebGLRenderer implements Renderer {
       uToLight: gl.getUniformLocation(this.program, "uToLight"),
       uIntensity: gl.getUniformLocation(this.program, "uIntensity"),
       uAmbient: gl.getUniformLocation(this.program, "uAmbient"),
+      uOpacity: gl.getUniformLocation(this.program, "uOpacity"),
     };
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
@@ -149,13 +160,44 @@ export class WebGLRenderer implements Renderer {
     gl.uniform3f(loc.uToLight, frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z);
     gl.uniform1f(loc.uIntensity, frame.light.intensity);
     gl.uniform1f(loc.uAmbient, frame.light.ambient);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+    gl.cullFace(gl.BACK);
 
     for (const item of frame.items) {
+      if (item.transparency) continue;
       const mesh = this.buffers(item.mesh);
       gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      gl.uniform1f(loc.uOpacity, 1);
       gl.bindVertexArray(mesh.vao);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
     }
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    for (const item of frame.items) {
+      const transparency = item.transparency;
+      if (!transparency) continue;
+      const mesh = this.buffers(item.mesh);
+      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      gl.bindVertexArray(mesh.vao);
+      if (transparency.mode === "two-sided") {
+        gl.cullFace(gl.FRONT);
+        gl.uniform1f(loc.uOpacity, opacity(transparency.backOpacity, DEFAULT_BACK_OPACITY));
+        gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+        gl.cullFace(gl.BACK);
+        gl.uniform1f(loc.uOpacity, opacity(transparency.frontOpacity, DEFAULT_FRONT_OPACITY));
+        gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+      } else {
+        gl.cullFace(gl.BACK);
+        gl.uniform1f(loc.uOpacity, opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY));
+        gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+      }
+    }
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    gl.cullFace(gl.BACK);
     gl.bindVertexArray(null);
   }
 

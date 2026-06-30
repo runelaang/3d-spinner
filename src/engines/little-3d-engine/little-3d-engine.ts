@@ -9,8 +9,19 @@ import {
   scaleMatrix,
   translation,
 } from "./core/math.js";
-import { type Mesh, type Transform, transform as makeTransform } from "./core/mesh.js";
-import { type Backend, type Renderer, type RenderItem, createRenderer } from "./renderer.js";
+import {
+  type Mesh,
+  type Transform,
+  type Transparency,
+  transform as makeTransform,
+} from "./core/mesh.js";
+import {
+  type Backend,
+  type Renderer,
+  type RenderItem,
+  createRenderer,
+  orderRenderItems,
+} from "./renderer.js";
 
 /** Options for {@link Little3dEngine}. */
 export interface Little3dEngineOptions {
@@ -26,8 +37,15 @@ export interface Little3dEngineOptions {
 export interface MeshHandle {
   readonly mesh: Mesh;
   readonly transform: Transform;
+  /** Optional per-instance transparency. Mutate or replace it between frames. */
+  transparency?: Transparency;
   /** Remove this mesh from the scene. */
   remove(): void;
+}
+
+/** Initial state for one mesh instance. */
+export interface MeshInstanceOptions extends Partial<Transform> {
+  transparency?: Transparency;
 }
 
 function modelMatrix(t: Transform): Mat4 {
@@ -52,7 +70,7 @@ export class Little3dEngine {
   private readonly light: Light;
   private readonly backend: Backend;
   private readonly background?: string;
-  private readonly scene: { mesh: Mesh; transform: Transform }[] = [];
+  private readonly scene: MeshHandle[] = [];
 
   private canvas?: HTMLCanvasElement;
   private observer?: ResizeObserver;
@@ -119,17 +137,18 @@ export class Little3dEngine {
   }
 
   /** Add a mesh to the scene and return a handle for animating it. */
-  add(mesh: Mesh, init?: Partial<Transform>): MeshHandle {
-    const entry = { mesh, transform: makeTransform(init) };
-    this.scene.push(entry);
-    return {
+  add(mesh: Mesh, init?: MeshInstanceOptions): MeshHandle {
+    const entry: MeshHandle = {
       mesh,
-      transform: entry.transform,
+      transform: makeTransform(init),
+      transparency: init?.transparency,
       remove: () => {
         const i = this.scene.indexOf(entry);
         if (i >= 0) this.scene.splice(i, 1);
       },
     };
+    this.scene.push(entry);
+    return entry;
   }
 
   private resize(): void {
@@ -153,12 +172,15 @@ export class Little3dEngine {
     const items: RenderItem[] = this.scene.map((entry) => ({
       mesh: entry.mesh,
       model: modelMatrix(entry.transform),
+      transparency: entry.transparency,
     }));
 
+    const eye = this.camera.options.position;
+
     this.renderer.render({
-      items,
+      items: orderRenderItems(items, eye),
       viewProjection: this.camera.viewProjection(width / height),
-      eye: this.camera.options.position,
+      eye,
       light: this.light.params,
       width,
       height,
@@ -209,9 +231,17 @@ export { icosphere } from "./shapes/icosphere.js";
 export { octaSphere } from "./shapes/octa-sphere.js";
 export { cubeSphere } from "./shapes/cube-sphere.js";
 export { expandToTriangles } from "./core/geometry.js";
-export type { Mesh, Face, Transform } from "./core/mesh.js";
+export type {
+  Mesh,
+  Face,
+  Transform,
+  Transparency,
+  OneSidedTransparency,
+  TwoSidedTransparency,
+} from "./core/mesh.js";
 export { transform } from "./core/mesh.js";
 export type { Backend, Renderer, RenderFrame, RenderItem, RendererOptions } from "./renderer.js";
+export { orderRenderItems } from "./renderer.js";
 export {
   type Vec3,
   vec3,

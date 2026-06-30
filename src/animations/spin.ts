@@ -5,6 +5,7 @@ import {
   type Backend,
   type Mesh,
   type MeshHandle,
+  type Transparency,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import {
   ProgressAnimation,
@@ -23,6 +24,8 @@ export interface SpinAnimationOptions {
   spinY?: number;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
+  /** Optional one-sided or two-sided mesh transparency. */
+  transparency?: Transparency;
   /**
    * Enable the start/end pop and progress-driven scale, with an optional overlay
    * label. Omit to spin at constant size with no progress reaction.
@@ -68,6 +71,7 @@ export class SpinAnimation implements SpinnerAnimation {
   private readonly spinX: number;
   private readonly spinY: number;
   private readonly backend?: Backend;
+  private readonly transparency?: Transparency;
   private readonly progress?: ProgressAnimation;
   private exited = false;
 
@@ -76,6 +80,7 @@ export class SpinAnimation implements SpinnerAnimation {
     this.spinX = options.spinX ?? 0.0007;
     this.spinY = options.spinY ?? 0.0011;
     this.backend = options.backend;
+    this.transparency = options.transparency;
     this.progress = options.progressAnimation
       ? new ProgressAnimation(options.progressAnimation)
       : undefined;
@@ -87,7 +92,7 @@ export class SpinAnimation implements SpinnerAnimation {
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: 2.8 } },
     });
-    this.handle = engine.add(this.mesh);
+    this.handle = engine.add(this.mesh, { transparency: this.transparency });
     this.engine = engine;
     engine.mount(target).catch((error) => {
       target.textContent = error instanceof Error ? error.message : String(error);

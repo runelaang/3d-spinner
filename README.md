@@ -145,6 +145,21 @@ do not use is never fetched.
 new SpinAnimation({ backend: "webgl" }); // "canvas2d" (default), "webgl", or "webgpu"
 ```
 
+Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
+particular, transparent shapes are an approximate visual effect rather than a pixel-identical
+cross-renderer result.
+
+Use `transparency.mode` to choose visible-front-face transparency or a two-pass transparent-solid
+effect. Opacities default to `0.35` for one-sided rendering and `0.18`/`0.38` for the back/front
+passes of two-sided rendering.
+
+```js
+new SpinAnimation({
+  backend: "webgl",
+  transparency: { mode: "two-sided", backOpacity: 0.18, frontOpacity: 0.38 },
+});
+```
+
 ## The engine
 
 The renderer is a small, self-contained 3D engine, exported on its own in case you want it
