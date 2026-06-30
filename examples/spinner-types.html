@@ -103,7 +103,8 @@
     <code>enterFromObjectDirection</code> / <code>leaveInObjectDirection</code> transitions; the
     exact config is shown beneath. Mesh works with OBJ imports or engine primitives;
     <code>facing</code> corrects a model that points backwards/sideways, <code>tail</code> adds
-    chasing copies, and <code>rotation</code> adds local spin or tilt on top of path following.
+    chasing copies, <code>transparency</code> supports one-sided and two-sided rendering, and
+    <code>rotation</code> adds local spin or tilt on top of path following.
   </p>
   <div class="spinner-grid" id="motion-showcase"></div>
 
@@ -411,6 +412,39 @@
           }),
       },
       {
+        title: "Cube tail (one-sided transparent)",
+        checker: true,
+        config: () =>
+          cfg("figureEightMotion()", `  mesh: () => cube(),\n  color: "${PRIMARY.plane}",\n  size: 0.3,\n  tail: { count: 20, gapMs: 70 },\n  transparency: { mode: "one-sided", opacity: 0.35 },\n  rotation: { spinY: 0.002 },\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => cube(),
+            color: PRIMARY.plane,
+            size: 0.3,
+            tail: { count: 20, gapMs: 70 },
+            transparency: { mode: "one-sided", opacity: 0.35 },
+            rotation: { spinY: 0.002 },
+          }),
+      },
+      {
+        title: "Tetra tail (two-sided transparent)",
+        checker: true,
+        config: () =>
+          cfg("figureEightMotion({ periodMs: 6400 })", `  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.24,\n  tail: { count: 28, gapMs: 55 },\n  transparency: { mode: "two-sided", opacity: 0.56 },\n  rotation: { spinX: 0.003 },\n`),
+        create: () =>
+          flight({
+            backend: backend(),
+            mesh: () => tetrahedron(),
+            color: PRIMARY.tetra,
+            size: 0.24,
+            tail: { count: 28, gapMs: 55 },
+            transparency: { mode: "two-sided", opacity: 0.56 },
+            rotation: { spinX: 0.003 },
+            periodMs: 6400,
+          }),
+      },
+      {
         title: "Objects with tail",
         config: () =>
           cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, gapMs: 90 },\n`),
@@ -462,7 +496,7 @@
           card.appendChild(control);
         }
         const stage = document.createElement("div");
-        stage.className = "stage";
+        stage.className = demo.checker ? "stage checker-stage" : "stage";
         const config = document.createElement("pre");
         config.className = "config";
         card.append(stage, config);
