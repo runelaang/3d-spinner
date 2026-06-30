@@ -2,10 +2,9 @@ import { expandToTriangles, parseColor } from "../core/geometry.js";
 import { type Mat4, multiply } from "../core/math.js";
 import type { Mesh } from "../core/mesh.js";
 import {
-  DEFAULT_BACK_OPACITY,
-  DEFAULT_FRONT_OPACITY,
   DEFAULT_ONE_SIDED_OPACITY,
   opacity,
+  resolveTwoSidedOpacity,
   type RenderItem,
   type Renderer,
   type RenderFrame,
@@ -223,14 +222,15 @@ export class WebGPURenderer implements Renderer {
       const transparency = item.transparency;
       if (!transparency) continue;
       if (transparency.mode === "two-sided") {
+        const resolved = resolveTwoSidedOpacity(transparency);
         draws.push({
           item,
-          opacity: opacity(transparency.backOpacity, DEFAULT_BACK_OPACITY),
+          opacity: resolved.back,
           pipeline: this.transparentBackPipeline,
         });
         draws.push({
           item,
-          opacity: opacity(transparency.frontOpacity, DEFAULT_FRONT_OPACITY),
+          opacity: resolved.front,
           pipeline: this.transparentFrontPipeline,
         });
       } else {

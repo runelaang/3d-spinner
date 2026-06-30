@@ -150,15 +150,18 @@ particular, transparent shapes are an approximate visual effect rather than a pi
 cross-renderer result.
 
 Use `transparency.mode` to choose visible-front-face transparency or a two-pass transparent-solid
-effect. Opacities default to `0.35` for one-sided rendering and `0.18`/`0.38` for the back/front
-passes of two-sided rendering.
+effect. Opacity defaults to `0.35` for one-sided rendering. Two-sided rendering defaults to
+front `0.56` and back `0.84`.
 
 ```js
 new SpinAnimation({
   backend: "webgl",
-  transparency: { mode: "two-sided", backOpacity: 0.18, frontOpacity: 0.38 },
+  transparency: { mode: "two-sided", opacity: 0.6 }, // front 0.6, back 0.4
 });
 ```
+
+For two-sided rendering, explicit `frontOpacity` and `backOpacity` values override the shorthand
+for their respective sides.
 
 ## The engine
 

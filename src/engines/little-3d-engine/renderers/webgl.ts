@@ -1,10 +1,9 @@
 import { expandToTriangles, parseColor } from "../core/geometry.js";
 import type { Mesh } from "../core/mesh.js";
 import {
-  DEFAULT_BACK_OPACITY,
-  DEFAULT_FRONT_OPACITY,
   DEFAULT_ONE_SIDED_OPACITY,
   opacity,
+  resolveTwoSidedOpacity,
   type Renderer,
   type RenderFrame,
   type RendererOptions,
@@ -183,11 +182,12 @@ export class WebGLRenderer implements Renderer {
       gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
       gl.bindVertexArray(mesh.vao);
       if (transparency.mode === "two-sided") {
+        const resolved = resolveTwoSidedOpacity(transparency);
         gl.cullFace(gl.FRONT);
-        gl.uniform1f(loc.uOpacity, opacity(transparency.backOpacity, DEFAULT_BACK_OPACITY));
+        gl.uniform1f(loc.uOpacity, resolved.back);
         gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
         gl.cullFace(gl.BACK);
-        gl.uniform1f(loc.uOpacity, opacity(transparency.frontOpacity, DEFAULT_FRONT_OPACITY));
+        gl.uniform1f(loc.uOpacity, resolved.front);
         gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
       } else {
         gl.cullFace(gl.BACK);
