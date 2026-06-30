@@ -76,12 +76,31 @@
 
     <section class="spinner-card">
       <h2>One-sided transparency</h2>
-      <div id="stage-transparent-one" class="stage"></div>
+      <div class="transparency-controls">
+        <label for="one-front-opacity">
+          <span>Front</span>
+          <input id="one-front-opacity" type="range" min="0" max="1" step="0.01" value="0.35" autocomplete="off" />
+          <output id="one-front-opacity-value" for="one-front-opacity">0.35</output>
+        </label>
+      </div>
+      <div id="stage-transparent-one" class="stage checker-stage"></div>
     </section>
 
     <section class="spinner-card">
       <h2>Two-sided transparency</h2>
-      <div id="stage-transparent-two" class="stage"></div>
+      <div class="transparency-controls">
+        <label for="two-front-opacity">
+          <span>Front</span>
+          <input id="two-front-opacity" type="range" min="0" max="1" step="0.01" value="0.38" autocomplete="off" />
+          <output id="two-front-opacity-value" for="two-front-opacity">0.38</output>
+        </label>
+        <label for="two-back-opacity">
+          <span>Back</span>
+          <input id="two-back-opacity" type="range" min="0" max="1" step="0.01" value="0.18" autocomplete="off" />
+          <output id="two-back-opacity-value" for="two-back-opacity">0.18</output>
+        </label>
+      </div>
+      <div id="stage-transparent-two" class="stage checker-stage"></div>
     </section>
   </div>
 
@@ -156,6 +175,43 @@
     const detailLabel = document.getElementById("detail-label");
     const detailLevel = () => Number(detail.value);
     detailLabel.textContent = detail.value;
+    const oneFrontOpacity = document.getElementById("one-front-opacity");
+    const twoFrontOpacity = document.getElementById("two-front-opacity");
+    const twoBackOpacity = document.getElementById("two-back-opacity");
+    const oneSidedTransparency = {
+      mode: "one-sided",
+      opacity: Number(oneFrontOpacity.value),
+    };
+    const twoSidedTransparency = {
+      mode: "two-sided",
+      frontOpacity: Number(twoFrontOpacity.value),
+      backOpacity: Number(twoBackOpacity.value),
+    };
+
+    const opacityControls = [
+      {
+        input: oneFrontOpacity,
+        output: document.getElementById("one-front-opacity-value"),
+        update: (value) => { oneSidedTransparency.opacity = value; },
+      },
+      {
+        input: twoFrontOpacity,
+        output: document.getElementById("two-front-opacity-value"),
+        update: (value) => { twoSidedTransparency.frontOpacity = value; },
+      },
+      {
+        input: twoBackOpacity,
+        output: document.getElementById("two-back-opacity-value"),
+        update: (value) => { twoSidedTransparency.backOpacity = value; },
+      },
+    ];
+    opacityControls.forEach(({ input, output, update }) => {
+      input.oninput = () => {
+        const value = Number(input.value);
+        output.value = value.toFixed(2);
+        update(value);
+      };
+    });
 
     let spinners = [];
 
@@ -205,7 +261,7 @@
             shape: icosphere,
             color: "#2563eb",
             backend: backend(),
-            transparency: { mode: "one-sided", opacity: 0.35 },
+            transparency: oneSidedTransparency,
           }),
       },
       {
@@ -215,7 +271,7 @@
             shape: icosphere,
             color: "#16a34a",
             backend: backend(),
-            transparency: { mode: "two-sided", backOpacity: 0.18, frontOpacity: 0.38 },
+            transparency: twoSidedTransparency,
           }),
       },
       {
