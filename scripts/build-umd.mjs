@@ -1,11 +1,27 @@
 import { build } from "esbuild";
 
-// Browser <script>-tag build: a single global-exposing bundle of the main
-// entry point. esbuild has no "umd" format, so this is IIFE-only — there's
-// no AMD/CJS interop shim. Node consumers should use the "require"/"import"
-// conditions in package.json instead.
+// Browser <script>-tag build: a single global-exposing bundle of the whole
+// public API surface (every subpath in package.json "exports"), so
+// window.Spinner3D is usable standalone without an import map. esbuild has
+// no "umd" format, so this is IIFE-only — there's no AMD/CJS interop shim.
+// Node consumers should use the "require"/"import" exports conditions instead.
+const entry = {
+  contents: `
+    export * from "../src/index.ts";
+    export * from "../src/animations/spin.ts";
+    export * from "../src/animations/object-motion.ts";
+    export * from "../src/motion/motion.ts";
+    export * from "../src/motion/transitions.ts";
+    export * from "../src/engines/little-3d-engine/little-3d-engine.ts";
+    export * from "../src/engines/little-3d-engine/loaders/obj.ts";
+    export * from "../src/engines/little-tween-engine/little-tween-engine.ts";
+  `,
+  resolveDir: "scripts",
+  loader: "ts",
+};
+
 const shared = {
-  entryPoints: ["src/index.ts"],
+  stdin: entry,
   bundle: true,
   format: "iife",
   globalName: "Spinner3D",
