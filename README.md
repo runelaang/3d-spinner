@@ -178,8 +178,7 @@ Each has no dependencies of its own.
 
 ## Module formats
 
-Every example above is **ES modules** - the primary, tree-shakeable format, and the one to reach
-for by default. Use a bundler or native `<script type="module">`; the engine draws to a canvas, so
+Every example above is **ES modules** - the primary, tree-shakeable format. Use a bundler or native `<script type="module">`; the engine draws to a canvas, so
 there is no server-side rendering. ES modules do not load over `file://`, so serve the page over
 HTTP rather than opening the file directly.
 
