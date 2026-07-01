@@ -24,8 +24,8 @@ function resolveIndex(token: string, vertexCount: number): number {
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
  * computes a flat normal per face - as are groups, materials, and other
- * statements. Face winding is preserved, so models should be wound CCW as seen
- * from outside for correct backface culling and shading.
+ * statements. Face winding is preserved as-is; the engine expects CCW
+ * winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.
  * @param options Color palette to apply to the faces.
