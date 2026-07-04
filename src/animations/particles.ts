@@ -1,4 +1,6 @@
-import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
+import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { mountAnimationLabel, type MountedAnimationLabel } from "../animation-label.js";
+import type { MotionController } from "../motion/controller.js";
 import type { AdjustableQuality, AdjustableQualitySetting } from "../quality.js";
 import {
   Little3dEngine,
@@ -37,6 +39,8 @@ export interface ParticlesOptions {
   seed?: number;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
+  /** Optional moving emission origin. Each particle keeps the origin where it was emitted. */
+  emitter?: MotionController;
   /**
    * Image applied to every particle (a URL or a drawable element), tinted by
    * the particle color; the image's alpha shapes the particle. Renders
@@ -45,7 +49,7 @@ export interface ParticlesOptions {
    */
   texture?: string | TexImageSource;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
-  label?: string;
+  label?: AnimationLabel;
 }
 
 /** State of one live particle: where it is and how it looks. */
@@ -75,20 +79,6 @@ export interface ParticleField {
    */
   sample(index: number, t: number): ParticleSample | undefined;
 }
-
-const LABEL_STYLE = [
-  "position:absolute",
-  "inset:0",
-  "display:flex",
-  "align-items:center",
-  "justify-content:center",
-  "pointer-events:none",
-  "font:700 1.6rem/1 system-ui,sans-serif",
-  "letter-spacing:0.02em",
-  "color:rgba(255,255,255,0.9)",
-  "text-shadow:0 1px 10px rgba(0,0,0,0.6)",
-  "z-index:1",
-].join(";");
 
 const DEFAULT_COLORS = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
 const FADE_IN_END = 0.15;
@@ -191,14 +181,15 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
  */
 export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
   private engine?: Little3dEngine;
-  private label?: HTMLDivElement;
+  private label?: MountedAnimationLabel;
   private readonly handles: MeshHandle[] = [];
   private readonly fades: OneSidedTransparency[] = [];
   private readonly field: ParticleField;
   private readonly colors: string[];
   private readonly backend?: Backend;
   private readonly texture?: string | TexImageSource;
-  private readonly labelText?: string;
+  private readonly labelContent?: AnimationLabel;
+  private readonly emitter?: MotionController;
 
   private enterAt = Infinity;
   private exitAt = Infinity;
@@ -211,7 +202,8 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
     this.colors = options.colors ?? DEFAULT_COLORS;
     this.backend = options.backend;
     this.texture = options.texture;
-    this.labelText = options.label;
+    this.labelContent = options.label;
+    this.emitter = options.emitter;
     this.particleLimit = this.field.maxLive;
     const animation = this;
     this.particleQuality = {
@@ -267,11 +259,7 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
       target.textContent = error instanceof Error ? error.message : String(error);
     });
 
-    const label = document.createElement("div");
-    label.style.cssText = LABEL_STYLE;
-    label.setAttribute("role", "status");
-    target.appendChild(label);
-    this.label = label;
+    this.label = mountAnimationLabel(target, this.labelContent);
   }
 
   enter(now: number): void {
@@ -306,23 +294,24 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
         if (!sample) continue;
         const slot = index % this.handles.length;
         const transform = this.handles[slot].transform;
-        transform.position.x = sample.position.x;
-        transform.position.y = sample.position.y;
-        transform.position.z = sample.position.z;
+        const origin = this.emitter?.positionAt(this.enterAt + index * gap);
+        transform.position.x = sample.position.x + (origin?.x ?? 0);
+        transform.position.y = sample.position.y + (origin?.y ?? 0);
+        transform.position.z = sample.position.z + (origin?.z ?? 0);
         transform.rotation.z = sample.roll;
         transform.scale = sample.size;
         this.fades[slot].opacity = sample.opacity;
       }
     }
 
-    this.label.textContent = frame.indeterminate
-      ? (this.labelText ?? "")
-      : `${Math.round(frame.progress * 100)}%`;
+    this.label.setText(frame.indeterminate
+      ? (typeof this.labelContent === "string" ? this.labelContent : "")
+      : `${Math.round(frame.progress * 100)}%`);
     this.engine.render();
   }
 
   destroy(): void {
-    this.label?.remove();
+    this.label?.container.remove();
     this.label = undefined;
     this.engine?.destroy();
     this.engine = undefined;

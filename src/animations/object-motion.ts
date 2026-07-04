@@ -1,4 +1,5 @@
-import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
+import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { mountAnimationLabel, type MountedAnimationLabel } from "../animation-label.js";
 import {
   Little3dEngine,
   type Backend,
@@ -76,7 +77,7 @@ export interface ObjectMotionOptions {
   /** Trailing copies that chase the lead in single file. Omit for a single object. */
   tail?: ObjectMotionTail;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
-  label?: string;
+  label?: AnimationLabel;
 }
 
 interface ResolvedObjectMotionTransition {
@@ -89,20 +90,6 @@ interface ObjectMotionSample {
   size: number;
   orientation?: Vec3;
 }
-
-const LABEL_STYLE = [
-  "position:absolute",
-  "inset:0",
-  "display:flex",
-  "align-items:center",
-  "justify-content:center",
-  "pointer-events:none",
-  "font:700 1.6rem/1 system-ui,sans-serif",
-  "letter-spacing:0.02em",
-  "color:rgba(255,255,255,0.9)",
-  "text-shadow:0 1px 10px rgba(0,0,0,0.6)",
-  "z-index:1",
-].join(";");
 
 const WORLD_UP: Vec3 = { x: 0, y: 1, z: 0 };
 
@@ -256,7 +243,7 @@ function resolveTransition(
  */
 export class ObjectMotionAnimation implements SpinnerAnimation {
   private engine?: Little3dEngine;
-  private label?: HTMLDivElement;
+  private label?: MountedAnimationLabel;
   private readonly handles: MeshHandle[] = [];
   private readonly banks: number[] = [];
   private readonly headings: Vec3[] = [];
@@ -264,7 +251,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private readonly motion: MotionController;
   private readonly backend?: Backend;
   private readonly transparency?: Transparency;
-  private readonly labelText?: string;
+  private readonly labelContent?: AnimationLabel;
   private readonly tailCount: number;
   private readonly tailGap: number;
   private readonly intro: ResolvedObjectMotionTransition;
@@ -288,7 +275,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.motion = options.motion;
     this.backend = options.backend;
     this.transparency = options.transparency;
-    this.labelText = options.label;
+    this.labelContent = options.label;
     this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
     this.intro = resolveTransition(options.intro, grow(), DEFAULT_INTRO_MS);
@@ -326,11 +313,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       target.textContent = error instanceof Error ? error.message : String(error);
     });
 
-    const label = document.createElement("div");
-    label.style.cssText = LABEL_STYLE;
-    label.setAttribute("role", "status");
-    target.appendChild(label);
-    this.label = label;
+    this.label = mountAnimationLabel(target, this.labelContent);
   }
 
   enter(now: number): void {
@@ -396,14 +379,14 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       transform.rotation.z = euler.z;
     }
 
-    this.label.textContent = frame.indeterminate
-      ? (this.labelText ?? "")
-      : `${Math.round(frame.progress * 100)}%`;
+    this.label.setText(frame.indeterminate
+      ? (typeof this.labelContent === "string" ? this.labelContent : "")
+      : `${Math.round(frame.progress * 100)}%`);
     this.engine.render();
   }
 
   destroy(): void {
-    this.label?.remove();
+    this.label?.container.remove();
     this.label = undefined;
     this.engine?.destroy();
     this.engine = undefined;

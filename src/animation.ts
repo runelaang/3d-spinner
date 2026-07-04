@@ -11,6 +11,9 @@ export interface AnimationFrame {
   readonly indeterminate: boolean;
 }
 
+/** Text or custom HTML displayed over an animation. */
+export type AnimationLabel = string | HTMLElement;
+
 /**
  * A reusable visual: a cube spin, a flying plane, a progress bar. The animation
  * owns its intro/loop/outro visuals but does not decide *when* to play them -

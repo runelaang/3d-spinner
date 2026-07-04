@@ -35,6 +35,11 @@
       "import": "./dist/plugins/adaptive-quality.js",
       "require": "./dist/cjs/plugins/adaptive-quality.cjs"
     },
+    "./prefabs": {
+      "types": "./dist/prefabs/prefabs.d.ts",
+      "import": "./dist/prefabs/prefabs.js",
+      "require": "./dist/cjs/prefabs/prefabs.cjs"
+    },
     "./motion": {
       "types": "./dist/motion/motion.d.ts",
       "import": "./dist/motion/motion.js",
