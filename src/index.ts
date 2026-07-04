@@ -1,10 +1,14 @@
 import type { SpinnerAnimation } from "./animation.js";
+import { FrameRateMonitor } from "./frame-rate.js";
+import type { SpinnerPlugin } from "./plugin.js";
 
 /** A spinner driven by real progress the caller reports via {@link Spinner.setProgress}. */
 export interface ProgressSpinnerOptions {
   type?: "progress";
   /** The visual to play. */
   animation: SpinnerAnimation;
+  /** Optional helpers attached to this spinner's frame loop. */
+  plugins?: ReadonlyArray<SpinnerPlugin>;
   /**
    * Initial progress 0..1. A value above 0 plays the intro immediately; omit it
    * to start idle until {@link Spinner.setProgress} is called.
@@ -21,6 +25,8 @@ export interface IndeterminateSpinnerOptions {
   type: "indeterminate";
   /** The visual to play. */
   animation: SpinnerAnimation;
+  /** Optional helpers attached to this spinner's frame loop. */
+  plugins?: ReadonlyArray<SpinnerPlugin>;
   /** `"bounce"` ramps 0->1->0; `"restart"` ramps 0->1 then repeats. Default `"bounce"`. */
   loop?: "bounce" | "restart";
   /** Milliseconds for one 0->1 sweep. Must be finite and greater than zero. Default `2000`. */
@@ -32,6 +38,8 @@ export type SpinnerOptions = ProgressSpinnerOptions | IndeterminateSpinnerOption
 export interface Spinner {
   /** Set the progress target (0..1). No-op for an indeterminate spinner. */
   setProgress(target: number): void;
+  /** Poll the current rolling frames-per-second estimate. */
+  getFrameRate(): number;
   /** Play the outro, then stop animating (keeps the injected DOM in place). */
   stop(): void;
   /** Stop immediately and remove the injected DOM (no outro). Safe to call more than once. */
@@ -53,6 +61,8 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   }
 
   const { animation } = options;
+  const plugins = options.plugins ?? [];
+  const frameRate = new FrameRateMonitor();
   const indeterminate = options.type === "indeterminate";
   if (
     indeterminate &&
@@ -69,6 +79,10 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   let destroyed = false;
   let entered = false;
   let exiting = false;
+  let pluginsDestroyed = false;
+
+  const pluginContext = { animation, getFrameRate: () => frameRate.getFrameRate() };
+  for (const plugin of plugins) plugin.start(pluginContext);
 
   // Progress source (determinate only).
   let current = 0;
@@ -114,6 +128,8 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 
     const target = indeterminate ? progress : targetProgress;
     animation.render(now, { progress, targetProgress: target, indeterminate });
+    frameRate.record(now);
+    for (const plugin of plugins) plugin.update(now);
 
     if (exiting && animation.isFinished()) {
       halt();
@@ -127,6 +143,13 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     stopped = true;
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
+    destroyPlugins();
+  }
+
+  function destroyPlugins(): void {
+    if (pluginsDestroyed) return;
+    pluginsDestroyed = true;
+    for (const plugin of plugins) plugin.destroy();
   }
 
   function setProgress(value: number): void {
@@ -151,7 +174,10 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   }
 
   rafId = requestAnimationFrame(frame);
-  return { setProgress, stop, destroy };
+  return { setProgress, getFrameRate: () => frameRate.getFrameRate(), stop, destroy };
 }
 
 export type { SpinnerAnimation, AnimationFrame } from "./animation.js";
+export type { SpinnerPlugin, SpinnerPluginContext } from "./plugin.js";
+export type { AdjustableQuality, AdjustableQualitySetting } from "./quality.js";
+export { FrameRateMonitor } from "./frame-rate.js";
