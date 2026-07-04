@@ -9,10 +9,10 @@ import {
   type RendererOptions,
   type RenderItem,
 } from "../renderer.js";
-import { planarUVs, type TextureSource } from "./planar-uvs.js";
+import { planarUVs, type TextureSource } from "./textured-helpers.js";
 import { WebGPURenderer } from "./webgpu.js";
 
-export type { TextureSource } from "./planar-uvs.js";
+export type { TextureSource } from "./textured-helpers.js";
 
 const WGSL = `
 struct Uniforms {

@@ -9,7 +9,7 @@ import {
   type RendererOptions,
   type RenderItem,
 } from "../renderer.js";
-import { planarUVs, type TextureSource } from "./planar-uvs.js";
+import { planarUVs, type TextureSource } from "./textured-helpers.js";
 import { WebGLRenderer } from "./webgl.js";
 
 const VERTEX_SHADER = `#version 300 es
@@ -38,7 +38,7 @@ void main() {
   fragColor = vec4(t.rgb * vColor, t.a * uOpacity);
 }`;
 
-export type { TextureSource } from "./planar-uvs.js";
+export type { TextureSource } from "./textured-helpers.js";
 
 interface TexturedBuffers {
   vao: WebGLVertexArrayObject;
