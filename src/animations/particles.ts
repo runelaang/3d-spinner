@@ -1,4 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
+import type { AdjustableQuality, AdjustableQualitySetting } from "../quality.js";
 import {
   Little3dEngine,
   quad,
@@ -188,7 +189,7 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
  * starts emission, {@link exit} stops it and lets the live particles die out
  * as the outro.
  */
-export class ParticlesAnimation implements SpinnerAnimation {
+export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
   private engine?: Little3dEngine;
   private label?: HTMLDivElement;
   private readonly handles: MeshHandle[] = [];
@@ -202,6 +203,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
   private enterAt = Infinity;
   private exitAt = Infinity;
   private finished = false;
+  private particleLimit: number;
+  private readonly particleQuality: AdjustableQualitySetting;
 
   constructor(options: ParticlesOptions = {}) {
     this.field = particleField(options);
@@ -209,6 +212,22 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.backend = options.backend;
     this.texture = options.texture;
     this.labelText = options.label;
+    this.particleLimit = this.field.maxLive;
+    const animation = this;
+    this.particleQuality = {
+      name: "particles",
+      requested: this.field.maxLive,
+      minimum: 1,
+      get current() { return animation.particleLimit; },
+      set: (value) => {
+        this.particleLimit = Math.max(1, Math.min(this.field.maxLive, Math.round(value)));
+      },
+    };
+  }
+
+  /** Runtime-adjustable settings available to quality plugins. */
+  getQualitySettings(): ReadonlyArray<AdjustableQualitySetting> {
+    return [this.particleQuality];
   }
 
   mount(target: HTMLElement): void {
@@ -222,9 +241,13 @@ export class ParticlesAnimation implements SpinnerAnimation {
               ? new (
                   await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
                 ).WebGPUTexturedRenderer(rendererOptions)
+              : this.backend === "webgl"
+                ? new (
+                    await import("../engines/little-3d-engine/renderers/webgl-textured.js")
+                  ).WebGLTexturedRenderer(rendererOptions)
               : new (
-                  await import("../engines/little-3d-engine/renderers/webgl-textured.js")
-                ).WebGLTexturedRenderer(rendererOptions);
+                  await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
+                ).Canvas2DTexturedRenderer(rendererOptions);
           for (const mesh of meshes) renderer.setTexture(mesh, texture);
           return renderer;
         }
@@ -272,11 +295,12 @@ export class ParticlesAnimation implements SpinnerAnimation {
     if (this.enterAt !== Infinity) {
       const t = now - this.enterAt;
       const gap = this.field.spawnGapMs;
-      const first = Math.max(0, Math.ceil((t - this.field.lifeMs) / gap));
+      let first = Math.max(0, Math.ceil((t - this.field.lifeMs) / gap));
       let last = Math.floor(t / gap);
       if (this.exitAt !== Infinity) {
         last = Math.min(last, Math.floor((this.exitAt - this.enterAt) / gap));
       }
+      first = Math.max(first, last - this.particleLimit + 1);
       for (let index = first; index <= last; index++) {
         const sample = this.field.sample(index, t);
         if (!sample) continue;
