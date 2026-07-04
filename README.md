@@ -112,8 +112,8 @@ starts on enter and stops on exit; the live particles fading out is the outro.
 
 A `texture` option (an image URL or a drawable element such as a canvas) puts an image on every
 particle, tinted by the particle color, with the image's alpha shaping the particle. Textures
-render through a textured renderer fetched on demand: the WebGPU one when `backend` is
-`"webgpu"`, otherwise the WebGL one.
+render through a backend-specific textured renderer fetched on demand for Canvas 2D, WebGL, or
+WebGPU. Canvas 2D texture mapping is limited to planar four-vertex billboards.
 
 ```js
 import { createSpinner } from "3d-spinner";
@@ -126,6 +126,23 @@ const spinner = createSpinner(document.getElementById("app"), {
     gravity: { x: 0, y: -1.6, z: 0 },
     speed: 1.5,
   }),
+});
+
+console.log(spinner.getFrameRate()); // rolling FPS, available without a visible meter
+```
+
+Adaptive quality can reduce the live particle count in small steps when FPS falls below its target,
+then restore it after FPS stabilizes. The plugin samples once per second and targets 60 FPS by
+default. Its named-setting interface can also support other animation quality controls.
+
+```js
+import { adaptiveQuality } from "3d-spinner/plugins/adaptive-quality";
+
+const animation = new ParticlesAnimation({ rate: 80, lifeMs: 2400 });
+const spinner = createSpinner(document.getElementById("app"), {
+  type: "indeterminate",
+  animation,
+  plugins: [adaptiveQuality({ targetFps: 60 })],
 });
 ```
 
