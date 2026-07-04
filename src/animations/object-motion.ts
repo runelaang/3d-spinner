@@ -428,7 +428,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     const delta = transition.durationMs === 0 ? 1 : clamp01(elapsedMs / transition.durationMs);
     const input = this.transitionInput(phase, delta, elapsedMs, transition.durationMs, start);
     const output = transition.transition(input);
-    return this.applyTransitionOutput(input, output);
+    return this.applyTransitionOutput(input, output, phase, t);
   }
 
   private transitionInput(
@@ -467,9 +467,12 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private applyTransitionOutput(
     input: ObjectMotionTransitionInput,
     output: ObjectMotionTransitionOutput,
+    phase: ObjectMotionTransitionPhase,
+    t: number,
   ): ObjectMotionSample {
     return {
-      position: output.position ?? input.position,
+      position:
+        output.position ?? (phase === "intro" ? this.motion.positionAt(t) : input.position),
       size: output.size ?? input.size ?? 1,
       orientation: output.orientation,
     };
