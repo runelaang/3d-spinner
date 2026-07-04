@@ -110,6 +110,11 @@ effect: `direction` and `spread` aim it, `gravity` bends it, and `rate`, `lifeMs
 `size`, `spin`, and `colors` style it. The stream is deterministic for a given `seed`. Emission
 starts on enter and stops on exit; the live particles fading out is the outro.
 
+A `texture` option (an image URL or a drawable element such as a canvas) puts an image on every
+particle, tinted by the particle color, with the image's alpha shaping the particle. Textures
+render through a WebGL-only textured renderer that is fetched on demand and replaces the
+`backend` option.
+
 ```js
 import { createSpinner } from "3d-spinner";
 import { ParticlesAnimation } from "3d-spinner/animations/particles";

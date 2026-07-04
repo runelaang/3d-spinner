@@ -5,6 +5,7 @@ import {
   type Backend,
   type MeshHandle,
   type OneSidedTransparency,
+  type RendererFactory,
   type Vec3,
   cross,
   normalize,
@@ -35,6 +36,13 @@ export interface ParticlesOptions {
   seed?: number;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
+  /**
+   * Image applied to every particle (a URL or a drawable element), tinted by
+   * the particle color; the image's alpha shapes the particle. Renders
+   * through the WebGL textured renderer, which is fetched on demand and
+   * replaces the `backend` option.
+   */
+  texture?: string | TexImageSource;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
   label?: string;
 }
@@ -188,6 +196,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
   private readonly field: ParticleField;
   private readonly colors: string[];
   private readonly backend?: Backend;
+  private readonly texture?: string | TexImageSource;
   private readonly labelText?: string;
 
   private enterAt = Infinity;
@@ -198,17 +207,29 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.field = particleField(options);
     this.colors = options.colors ?? DEFAULT_COLORS;
     this.backend = options.backend;
+    this.texture = options.texture;
     this.labelText = options.label;
   }
 
   mount(target: HTMLElement): void {
     target.style.position = "relative";
+    const meshes = this.colors.map((color) => quad(1, [color]));
+    const texture = this.texture;
+    const backend: Backend | RendererFactory | undefined = texture
+      ? async (rendererOptions) => {
+          const { WebGLTexturedRenderer } = await import(
+            "../engines/little-3d-engine/renderers/webgl-textured.js"
+          );
+          const renderer = new WebGLTexturedRenderer(rendererOptions);
+          for (const mesh of meshes) renderer.setTexture(mesh, texture);
+          return renderer;
+        }
+      : this.backend;
     const engine = new Little3dEngine({
-      backend: this.backend,
+      backend,
       camera: { position: { x: 0, y: 0, z: 3 } },
       light: { intensity: 0, ambient: 1 },
     });
-    const meshes = this.colors.map((color) => quad(1, [color]));
     for (let slot = 0; slot < this.field.maxLive; slot++) {
       const fade: OneSidedTransparency = { mode: "one-sided", opacity: 0 };
       this.fades.push(fade);

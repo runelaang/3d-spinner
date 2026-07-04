@@ -18,6 +18,7 @@ import {
 import {
   type Backend,
   type Renderer,
+  type RendererFactory,
   type RenderItem,
   createRenderer,
   orderRenderItems,
@@ -25,8 +26,8 @@ import {
 
 /** Options for {@link Little3dEngine}. */
 export interface Little3dEngineOptions {
-  /** Rendering backend. Loaded on demand. Default `"canvas2d"`. */
-  backend?: Backend;
+  /** Rendering backend, or a factory building a custom renderer. Loaded on demand. Default `"canvas2d"`. */
+  backend?: Backend | RendererFactory;
   camera?: Partial<CameraOptions>;
   light?: Partial<LightOptions>;
   /** Solid background color; omit for a transparent canvas (overlay use). */
@@ -68,7 +69,7 @@ function modelMatrix(t: Transform): Mat4 {
 export class Little3dEngine {
   private readonly camera: Camera;
   private readonly light: Light;
-  private readonly backend: Backend;
+  private readonly backend: Backend | RendererFactory;
   private readonly background?: string;
   private readonly scene: MeshHandle[] = [];
 
@@ -241,7 +242,14 @@ export type {
   TwoSidedTransparency,
 } from "./core/mesh.js";
 export { transform } from "./core/mesh.js";
-export type { Backend, Renderer, RenderFrame, RenderItem, RendererOptions } from "./renderer.js";
+export type {
+  Backend,
+  Renderer,
+  RendererFactory,
+  RenderFrame,
+  RenderItem,
+  RendererOptions,
+} from "./renderer.js";
 export { orderRenderItems } from "./renderer.js";
 export {
   type Vec3,

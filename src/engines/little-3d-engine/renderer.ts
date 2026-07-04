@@ -80,6 +80,13 @@ export interface RendererOptions {
 }
 
 /**
+ * Builds a custom {@link Renderer}; an alternative to naming a built-in
+ * backend. Load the renderer module inside the factory with a dynamic
+ * `import()` to keep it out of the bundle until it is used.
+ */
+export type RendererFactory = (options: RendererOptions) => Renderer | Promise<Renderer>;
+
+/**
  * A pluggable drawing backend. The engine owns the canvas and sizing; a
  * renderer only initializes its context, reacts to resizes, and draws frames.
  * Renderer-specific features can produce intentional visual differences.
@@ -97,9 +104,10 @@ export interface Renderer {
  * backends you do not use are never downloaded or compiled.
  */
 export async function createRenderer(
-  backend: Backend,
+  backend: Backend | RendererFactory,
   options: RendererOptions = {},
 ): Promise<Renderer> {
+  if (typeof backend === "function") return backend(options);
   switch (backend) {
     case "webgl":
       return new (await import("./renderers/webgl.js")).WebGLRenderer(options);
