@@ -30,6 +30,11 @@
       "import": "./dist/animations/particles.js",
       "require": "./dist/cjs/animations/particles.cjs"
     },
+    "./plugins/adaptive-quality": {
+      "types": "./dist/plugins/adaptive-quality.d.ts",
+      "import": "./dist/plugins/adaptive-quality.js",
+      "require": "./dist/cjs/plugins/adaptive-quality.cjs"
+    },
     "./motion": {
       "types": "./dist/motion/motion.d.ts",
       "import": "./dist/motion/motion.js",
@@ -49,6 +54,11 @@
       "types": "./dist/engines/little-3d-engine/renderers/webgl-textured.d.ts",
       "import": "./dist/engines/little-3d-engine/renderers/webgl-textured.js",
       "require": "./dist/cjs/engines/little-3d-engine/renderers/webgl-textured.cjs"
+    },
+    "./engines/little-3d-engine/renderers/canvas2d-textured": {
+      "types": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.d.ts",
+      "import": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.js",
+      "require": "./dist/cjs/engines/little-3d-engine/renderers/canvas2d-textured.cjs"
     },
     "./engines/little-3d-engine/renderers/webgpu-textured": {
       "types": "./dist/engines/little-3d-engine/renderers/webgpu-textured.d.ts",
