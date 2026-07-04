@@ -39,8 +39,8 @@ export interface ParticlesOptions {
   /**
    * Image applied to every particle (a URL or a drawable element), tinted by
    * the particle color; the image's alpha shapes the particle. Renders
-   * through the WebGL textured renderer, which is fetched on demand and
-   * replaces the `backend` option.
+   * through a textured renderer, fetched on demand: the WebGPU one when
+   * `backend` is `"webgpu"`, otherwise the WebGL one.
    */
   texture?: string | TexImageSource;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
@@ -217,10 +217,14 @@ export class ParticlesAnimation implements SpinnerAnimation {
     const texture = this.texture;
     const backend: Backend | RendererFactory | undefined = texture
       ? async (rendererOptions) => {
-          const { WebGLTexturedRenderer } = await import(
-            "../engines/little-3d-engine/renderers/webgl-textured.js"
-          );
-          const renderer = new WebGLTexturedRenderer(rendererOptions);
+          const renderer =
+            this.backend === "webgpu"
+              ? new (
+                  await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
+                ).WebGPUTexturedRenderer(rendererOptions)
+              : new (
+                  await import("../engines/little-3d-engine/renderers/webgl-textured.js")
+                ).WebGLTexturedRenderer(rendererOptions);
           for (const mesh of meshes) renderer.setTexture(mesh, texture);
           return renderer;
         }

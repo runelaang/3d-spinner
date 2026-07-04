@@ -162,11 +162,12 @@
           }),
       },
       {
-        title: "Textured glow (always WebGL)",
+        title: "Textured glow (WebGL / WebGPU)",
         config: () =>
           cfg(`  texture: glowTexture(), // any image URL or canvas\n  size: 0.3,\n  rate: 26,\n  spin: 0,\n  label: "Just a sec",`),
         create: () =>
           new ParticlesAnimation({
+            backend: backend(),
             texture: glowTexture(),
             size: 0.3,
             rate: 26,
@@ -175,11 +176,12 @@
           }),
       },
       {
-        title: "Textured stars (always WebGL)",
+        title: "Textured stars (WebGL / WebGPU)",
         config: () =>
           cfg(`  texture: starTexture(),\n  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.8,\n  speed: 1.2,\n  gravity: { x: 0, y: -1.1, z: 0 },\n  spin: 0.008,\n  size: 0.2,\n  colors: ["#fde047", "#f472b6", "#5eead4"],\n  label: "Fetching data",`),
         create: () =>
           new ParticlesAnimation({
+            backend: backend(),
             texture: starTexture(),
             direction: { x: 0, y: 1, z: 0 },
             spread: 0.8,

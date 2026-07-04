@@ -9,6 +9,7 @@ import {
   type RendererOptions,
   type RenderItem,
 } from "../renderer.js";
+import { planarUVs, type TextureSource } from "./planar-uvs.js";
 import { WebGLRenderer } from "./webgl.js";
 
 const VERTEX_SHADER = `#version 300 es
@@ -37,8 +38,7 @@ void main() {
   fragColor = vec4(t.rgb * vColor, t.a * uOpacity);
 }`;
 
-/** An image source accepted for a mesh texture: a URL or a drawable element. */
-export type TextureSource = string | TexImageSource;
+export type { TextureSource } from "./planar-uvs.js";
 
 interface TexturedBuffers {
   vao: WebGLVertexArrayObject;
@@ -74,39 +74,6 @@ function link(gl: WebGL2RenderingContext): WebGLProgram {
     throw new Error(`3d-spinner: program link failed: ${gl.getProgramInfoLog(program)}`);
   }
   return program;
-}
-
-// UVs are a planar projection of the mesh's XY bounds (u right, v up), emitted
-// in the same face-fan order as expandToTriangles so the arrays stay aligned.
-function planarUVs(mesh: Mesh): Float32Array {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const v of mesh.vertices) {
-    minX = Math.min(minX, v.x);
-    minY = Math.min(minY, v.y);
-    maxX = Math.max(maxX, v.x);
-    maxY = Math.max(maxY, v.y);
-  }
-  const width = maxX - minX || 1;
-  const height = maxY - minY || 1;
-
-  let triangles = 0;
-  for (const face of mesh.faces) triangles += Math.max(0, face.indices.length - 2);
-  const uvs = new Float32Array(triangles * 6);
-  let o = 0;
-  for (const face of mesh.faces) {
-    for (let k = 1; k < face.indices.length - 1; k++) {
-      for (const index of [face.indices[0], face.indices[k], face.indices[k + 1]]) {
-        const v = mesh.vertices[index];
-        uvs[o] = (v.x - minX) / width;
-        uvs[o + 1] = 1 - (v.y - minY) / height;
-        o += 2;
-      }
-    }
-  }
-  return uvs;
 }
 
 function itemOpacity(transparency: Transparency | undefined): number {

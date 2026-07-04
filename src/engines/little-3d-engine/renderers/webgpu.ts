@@ -65,18 +65,18 @@ interface Draw {
 /** Hardware renderer using WebGPU: GPU transforms with a real depth buffer. */
 export class WebGPURenderer implements Renderer {
   private canvas?: HTMLCanvasElement;
-  private device: any;
-  private context: any;
+  protected device: any;
+  protected context: any;
   private pipeline: any;
   private transparentBackPipeline: any;
   private transparentFrontPipeline: any;
   private uniformBuffer: any;
   private uniformCapacity = 0;
-  private depthTexture: any;
+  protected depthTexture: any;
   private depthSize = "";
-  private destroyed = false;
+  protected destroyed = false;
   private readonly cache = new Map<Mesh, MeshBuffers>();
-  private readonly clearValue: { r: number; g: number; b: number; a: number };
+  protected readonly clearValue: { r: number; g: number; b: number; a: number };
   private readonly alphaMode: string;
 
   constructor(options: RendererOptions = {}) {
@@ -162,7 +162,7 @@ export class WebGPURenderer implements Renderer {
     this.ensureDepth();
   }
 
-  private ensureDepth(): void {
+  protected ensureDepth(): void {
     const canvas = this.canvas;
     if (!this.device || !canvas) return;
     const width = Math.max(1, canvas.width);
