@@ -223,7 +223,7 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
   }
 
   mount(target: HTMLElement): void {
-    target.style.position = "relative";
+    if (!target.style.position) target.style.position = "relative";
     const meshes = this.colors.map((color) => quad(1, [color]));
     const texture = this.texture;
     const backend: Backend | RendererFactory | undefined = texture
