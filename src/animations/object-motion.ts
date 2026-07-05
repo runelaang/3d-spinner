@@ -21,8 +21,8 @@ import {
 } from "../engines/little-3d-engine/core/math.js";
 import type { MotionController } from "../motion/controller.js";
 import {
-  grow,
-  shrink,
+  enterFromObjectDirection,
+  leaveInObjectDirection,
   type ObjectMotionTransition,
   type ObjectMotionTransitionConfig,
   type ObjectMotionTransitionInput,
@@ -70,9 +70,9 @@ export interface ObjectMotionOptions {
   facing?: Facing;
   /** Additional local-space rotation on top of path orientation. */
   rotation?: ObjectMotionRotation;
-  /** Intro transition. Defaults to `grow()`. */
+  /** Intro transition. Defaults to `enterFromObjectDirection()` (fly in along the path). */
   intro?: ObjectMotionTransitionConfig;
-  /** Outro transition. Defaults to `shrink()`. */
+  /** Outro transition. Defaults to `leaveInObjectDirection()` (fly out along the path). */
   outro?: ObjectMotionTransitionConfig;
   /** Trailing copies that chase the lead in single file. Omit for a single object. */
   tail?: ObjectMotionTail;
@@ -237,7 +237,7 @@ function resolveTransition(
  * An object that moves along a {@link MotionController}'s path (a circle, a
  * square, a figure-8, a smooth wander, or any custom controller) with its nose
  * following the path tangent. The runner triggers the lifecycle: {@link enter}
- * pops it in, {@link exit} pops it out. Any mesh works (OBJ imports or engine
+ * flies it in along the path, {@link exit} flies it out. Any mesh works (OBJ imports or engine
  * primitives); `facing` corrects a model that points the wrong way, and
  * `rotation` adds local spin or tilt on top of path following.
  */
@@ -278,8 +278,8 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.labelContent = options.label;
     this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
-    this.intro = resolveTransition(options.intro, grow(), DEFAULT_INTRO_MS);
-    this.outro = resolveTransition(options.outro, shrink(), DEFAULT_OUTRO_MS);
+    this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
+    this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
 
     const rotation = options.rotation;
     this.rotationOffset = { x: rotation?.x ?? 0, y: rotation?.y ?? 0, z: rotation?.z ?? 0 };
