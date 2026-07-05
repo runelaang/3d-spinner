@@ -60,10 +60,7 @@
       leaveInObjectDirection,
       shrink,
     } from "/dist/motion/transitions.js";
-    import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
-    import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
-
-    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
+    import { cube, planeMesh, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
 
     const COLOR = {
       circle: "#2563eb",
@@ -111,11 +108,11 @@
       {
         title: "Square (plane)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.square}",\n  size: 0.9,\n  label: "${WAIT.pleaseWait}",\n  motion: squareMotion({ size: 2.6 }),`),
+          cfg(`  mesh: planeMesh,\n  color: "${COLOR.square}",\n  size: 0.9,\n  label: "${WAIT.pleaseWait}",\n  motion: squareMotion({ size: 2.6 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: COLOR.square,
             size: 0.9,
             label: WAIT.pleaseWait,
@@ -125,11 +122,11 @@
       {
         title: "Figure-8 (plane)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.eight}",\n  label: "${WAIT.oneMoment}",\n  motion: figureEightMotion(),`),
+          cfg(`  mesh: planeMesh,\n  color: "${COLOR.eight}",\n  label: "${WAIT.oneMoment}",\n  motion: figureEightMotion(),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: COLOR.eight,
             label: WAIT.oneMoment,
             motion: figureEightMotion(),
@@ -138,11 +135,11 @@
       {
         title: "Wander (plane, stays in frame)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.wander}",\n  label: "${WAIT.holdOn}",\n  motion: wanderMotion({ seed: 7 }),`),
+          cfg(`  mesh: planeMesh,\n  color: "${COLOR.wander}",\n  label: "${WAIT.holdOn}",\n  motion: wanderMotion({ seed: 7 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: COLOR.wander,
             label: WAIT.holdOn,
             motion: wanderMotion({ seed: 7 }),
@@ -151,11 +148,11 @@
       {
         title: "Circle (tilted, faster)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.tilt}",\n  label: "${WAIT.working}",\n  motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),`),
+          cfg(`  mesh: planeMesh,\n  color: "${COLOR.tilt}",\n  label: "${WAIT.working}",\n  motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: COLOR.tilt,
             label: WAIT.working,
             motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),
@@ -194,11 +191,11 @@
       {
         title: "Circle with directional intro/outro",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  label: "${WAIT.fetching}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection(),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection(),\n    durationMs: 1900,\n  },`),
+          cfg(`  mesh: planeMesh,\n  color: "${COLOR.enter}",\n  label: "${WAIT.fetching}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection(),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection(),\n    durationMs: 1900,\n  },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: COLOR.enter,
             label: WAIT.fetching,
             motion: circleMotion({ radius: 1.25 }),
