@@ -178,7 +178,6 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 }
 
 export type { SpinnerAnimation, AnimationFrame, AnimationLabel } from "./animation.js";
-export { CompositeAnimation, type CompositeAnimationLayer } from "./composite-animation.js";
+export type { CompositeAnimationLayer } from "./composite-animation.js";
 export type { SpinnerPlugin, SpinnerPluginContext } from "./plugin.js";
 export type { AdjustableQuality, AdjustableQualitySetting } from "./quality.js";
-export { FrameRateMonitor } from "./frame-rate.js";
