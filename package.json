@@ -35,16 +35,6 @@
       "import": "./dist/composite-animation.js",
       "require": "./dist/cjs/composite-animation.cjs"
     },
-    "./frame-rate": {
-      "types": "./dist/frame-rate.d.ts",
-      "import": "./dist/frame-rate.js",
-      "require": "./dist/cjs/frame-rate.cjs"
-    },
-    "./plugins/adaptive-quality": {
-      "types": "./dist/plugins/adaptive-quality.d.ts",
-      "import": "./dist/plugins/adaptive-quality.js",
-      "require": "./dist/cjs/plugins/adaptive-quality.cjs"
-    },
     "./prefabs": {
       "types": "./dist/prefabs/prefabs.d.ts",
       "import": "./dist/prefabs/prefabs.js",

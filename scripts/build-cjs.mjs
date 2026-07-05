@@ -9,8 +9,6 @@ const entryPoints = [
   "src/animations/object-motion.ts",
   "src/animations/particles.ts",
   "src/composite-animation.ts",
-  "src/frame-rate.ts",
-  "src/plugins/adaptive-quality.ts",
   "src/prefabs/prefabs.ts",
   "src/motion/motion.ts",
   "src/motion/transitions.ts",

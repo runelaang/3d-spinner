@@ -10,8 +10,6 @@ import {
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import { figureEightMotion } from "../motion/figure-eight.js";
 import { wanderMotion } from "../motion/wander.js";
-import type { SpinnerPlugin } from "../plugin.js";
-import { adaptiveQuality } from "../plugins/adaptive-quality.js";
 
 export interface PrefabOptions {
   /** Rendering backend used by every layer. Default `"canvas2d"`. */
@@ -22,8 +20,6 @@ export interface PrefabOptions {
   loop?: "bounce" | "restart";
   /** Milliseconds for one progress sweep. Default `2000`. */
   periodMs?: number;
-  /** Spinner plugins. Defaults to adaptive particle quality. */
-  plugins?: ReadonlyArray<SpinnerPlugin>;
 }
 
 export interface MotionPrefabOptions extends PrefabOptions {
@@ -47,7 +43,6 @@ function spinner(
     animation,
     loop: options.loop,
     periodMs: options.periodMs,
-    plugins: options.plugins ?? [adaptiveQuality()],
   };
 }
 
