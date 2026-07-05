@@ -1,5 +1,9 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
-import { mountAnimationLabel, type MountedAnimationLabel } from "../animation-label.js";
+import {
+  animationLabelOpacity,
+  mountAnimationLabel,
+  type MountedAnimationLabel,
+} from "../animation-label.js";
 import type { MotionController } from "../motion/controller.js";
 import {
   Little3dEngine,
@@ -43,6 +47,13 @@ export interface ParticlesOptions {
   /** Optional moving emission origin. Each particle keeps the origin where it was emitted. */
   emitter?: MotionController;
   /**
+   * Milliseconds to keep emitting after {@link ParticlesAnimation.exit}. Default `0`
+   * (emission stops at exit). Give it a moving `emitter`'s outro duration so fresh
+   * particles keep trailing the emitter as it flies out, instead of freezing where
+   * the loop left off.
+   */
+  outroMs?: number;
+  /**
    * Image applied to every particle (a URL or a drawable element), tinted by
    * the particle color; the image's alpha shapes the particle. Renders
    * through a textured renderer, fetched on demand: the WebGPU one when
@@ -51,6 +62,8 @@ export interface ParticlesOptions {
   texture?: string | TexImageSource;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
   label?: AnimationLabel;
+  /** Fade the label as particles appear and drain away. Default `true`. */
+  fadeLabel?: boolean;
 }
 
 /** State of one live particle: where it is and how it looks. */
@@ -199,7 +212,9 @@ export class ParticlesAnimation implements SpinnerAnimation {
   private readonly backend?: Backend;
   private readonly texture?: string | TexImageSource;
   private readonly labelContent?: AnimationLabel;
+  private readonly fadeLabel: boolean;
   private readonly emitter?: MotionController;
+  private readonly outroMs: number;
 
   private enterAt = Infinity;
   private exitAt = Infinity;
@@ -211,7 +226,9 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.backend = options.backend;
     this.texture = options.texture;
     this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
     this.emitter = options.emitter;
+    this.outroMs = Math.max(0, options.outroMs ?? 0);
   }
 
   mount(target: HTMLElement): void {
@@ -252,6 +269,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
     });
 
     this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
   }
 
   enter(now: number): void {
@@ -268,7 +286,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
 
   render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.label) return;
-    if (this.exitAt !== Infinity && now >= this.exitAt + this.field.lifeMs) this.finished = true;
+    if (this.exitAt !== Infinity && now >= this.exitAt + this.outroMs + this.field.lifeMs) this.finished = true;
 
     for (const handle of this.handles) handle.transform.scale = 0;
 
@@ -278,7 +296,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
       let first = Math.max(0, Math.ceil((t - this.field.lifeMs) / gap));
       let last = Math.floor(t / gap);
       if (this.exitAt !== Infinity) {
-        last = Math.min(last, Math.floor((this.exitAt - this.enterAt) / gap));
+        last = Math.min(last, Math.floor((this.exitAt - this.enterAt + this.outroMs) / gap));
       }
       first = Math.max(first, last - this.field.maxLive + 1);
       for (let index = first; index <= last; index++) {
@@ -299,6 +317,15 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.label.setText(frame.indeterminate
       ? (typeof this.labelContent === "string" ? this.labelContent : "")
       : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(
+        now,
+        this.enterAt,
+        this.field.lifeMs * FADE_IN_END,
+        this.exitAt,
+        this.field.lifeMs,
+      ));
+    }
     this.engine.render();
   }
 
