@@ -62,7 +62,7 @@ export interface ObjectMotionOptions {
   mesh: Mesh | (() => Mesh);
   /** How the object moves: a circle, square, figure-8, wander, or any custom controller. */
   motion: MotionController;
-  /** Face color applied to every triangle. Default `"#cbd5e1"`. */
+  /** Face color applied to every triangle. Omit to retain the mesh's face colors. */
   color?: string;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
@@ -125,7 +125,8 @@ function resolveMesh(mesh: ObjectMotionOptions["mesh"]): Mesh {
   return typeof mesh === "function" ? mesh() : mesh;
 }
 
-function applyColor(mesh: Mesh, color: string): Mesh {
+function applyColor(mesh: Mesh, color: string | undefined): Mesh {
+  if (color === undefined) return mesh;
   return { vertices: mesh.vertices, faces: mesh.faces.map((face) => ({ ...face, color })) };
 }
 
@@ -278,7 +279,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   constructor(options: ObjectMotionOptions) {
     const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.size ?? 1);
     const facing = faceForward(centered, options.facing ?? "+x");
-    this.mesh = applyColor(facing, options.color ?? "#cbd5e1");
+    this.mesh = applyColor(facing, options.color);
     this.motion = options.motion;
     this.backend = options.backend;
     this.transparency = options.transparency;
