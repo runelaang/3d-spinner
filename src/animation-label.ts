@@ -17,6 +17,24 @@ const LABEL_STYLE = [
 export interface MountedAnimationLabel {
   readonly container: HTMLDivElement;
   setText(value: string): void;
+  setOpacity(value: number): void;
+}
+
+export function animationLabelOpacity(
+  now: number,
+  enterAt: number,
+  introDurationMs: number,
+  exitAt: number,
+  outroDurationMs: number,
+): number {
+  if (enterAt === Infinity) return 0;
+  const intro = introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
+  const outro = exitAt === Infinity
+    ? 1
+    : outroDurationMs <= 0
+      ? 0
+      : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
+  return Math.min(intro, outro);
 }
 
 export function mountAnimationLabel(
@@ -36,6 +54,9 @@ export function mountAnimationLabel(
     container,
     setText(value): void {
       if (typeof content !== "object") container.textContent = value;
+    },
+    setOpacity(value): void {
+      container.style.opacity = String(value);
     },
   };
 }
