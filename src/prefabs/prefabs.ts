@@ -87,6 +87,22 @@ function shineTexture(): HTMLCanvasElement {
   });
 }
 
+function streakTexture(): HTMLCanvasElement {
+  return texture((ctx) => {
+    const gradient = ctx.createLinearGradient(5, 0, 91, 0);
+    gradient.addColorStop(0, "rgba(255,255,255,0)");
+    gradient.addColorStop(0.72, "#fff");
+    gradient.addColorStop(1, "#fff");
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 7;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(5, 48);
+    ctx.lineTo(91, 48);
+    ctx.stroke();
+  });
+}
+
 function planeMesh(): Mesh {
   const vertices = [
     { x: 0.9, y: 0, z: 0 },
@@ -213,6 +229,28 @@ export function starSwarm(options: ParticlePrefabOptions = {}): IndeterminateSpi
     texture: particles.texture ?? starTexture(),
     emitter,
     seed: 91,
+    backend: options.backend,
+    ...particles,
+    label: options.label ?? particles.label ?? "Loading...",
+  }), options);
+}
+
+/** A fountain of black and white streaks that turn with their travel direction. */
+export function monochromeStreak(options: ParticlePrefabOptions = {}): IndeterminateSpinnerOptions {
+  const particles = options.particles ?? {};
+  return spinner(new ParticlesAnimation({
+    rate: 70,
+    lifeMs: 1300,
+    size: 0.38,
+    speed: 1.35,
+    direction: { x: 0, y: 1, z: 0 },
+    spread: 0.48,
+    gravity: { x: 0, y: -1.45, z: 0 },
+    colors: ["#fff", "#000"],
+    texture: particles.texture ?? streakTexture(),
+    spin: 0,
+    alignToMotion: true,
+    seed: 37,
     backend: options.backend,
     ...particles,
     label: options.label ?? particles.label ?? "Loading...",
