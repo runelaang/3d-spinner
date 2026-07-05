@@ -179,4 +179,8 @@
     let spinners = buildShowcase();
     renderTech.onchange = () => { spinners = buildShowcase(); };
     document.getElementById("restart").onclick = () => spinners.forEach((spinner) => spinner.start());
-    document.getElementById("stop").onclick = () => spinners.forE
+    document.getElementById("stop").onclick = () => spinners.forEach((spinner) => spinner.stop());
+  </script>
+</body>
+
+</html>
