@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner and beyond - particles</title>
+  <link rel="stylesheet" href="/3d-spinner/examples/examples.css" />
+  <script src="/3d-spinner/examples/theme.js"></script>
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/3d-spinner/examples/prefabs.html">Prefabs</a>
+    <a href="/3d-spinner/examples/prefabs-progress.html">Progress prefabs</a>
+    <a href="/3d-spinner/examples/shapes.html">Shapes</a>
+    <a href="/3d-spinner/examples/spinner-types.html">Spinner types</a>
+    <a href="/3d-spinner/examples/motion.html">Motion</a>
+    <a href="/3d-spinner/examples/particles.html" class="active">Particles</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Auto</button>
+  </nav>
+
+  <h1>3d-spinner and beyond: particles</h1>
+
+  <p class="note">
+    <code>ParticlesAnimation</code> renders a stream of camera-facing billboard particles. The
+    emission options shape the effect: <code>direction</code> and <code>spread</code> aim it,
+    <code>gravity</code> bends it, <code>speed</code>, <code>rate</code>, <code>lifeMs</code>,
+    <code>spin</code>, and <code>colors</code> style it. The stream is seeded and deterministic.
+    Each card runs as an <code>indeterminate</code> spinner; Stop halts emission and the live
+    particles fade out as the outro.
+  </p>
+
+  <div class="controls">
+    <label for="render-tech">
+      <span>Render tech</span>
+      <select id="render-tech" autocomplete="off">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+    <button id="restart">Restart all</button>
+    <button id="stop">Stop all</button>
+  </div>
+
+  <div class="spinner-grid" id="particles-showcase"></div>
+
+  <script type="module">
+    import { createSpinner } from "/3d-spinner/dist/index.js";
+    import { ParticlesAnimation } from "/3d-spinner/dist/animations/particles.js";
+
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+
+    const cfg = (body) => `new ParticlesAnimation({\n${body}\n})`;
+
+    function glowTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      return canvas;
+    }
+
+    function starTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.translate(32, 32);
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 30 : 12;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(r * Math.cos(a), r * Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.fill();
+      return canvas;
+    }
+
+    const demos = [
+      {
+        title: "Sparkle burst (defaults)",
+        config: () => cfg(`  label: "Loading...",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            label: "Loading...",
+          }),
+      },
+      {
+        title: "Fountain",
+        config: () =>
+          cfg(`  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.45,\n  speed: 1.5,\n  gravity: { x: 0, y: -1.6, z: 0 },\n  colors: ["#38bdf8", "#818cf8", "#e0f2fe"],\n  label: "Please wait",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            direction: { x: 0, y: 1, z: 0 },
+            spread: 0.45,
+            speed: 1.5,
+            gravity: { x: 0, y: -1.6, z: 0 },
+            colors: ["#38bdf8", "#818cf8", "#e0f2fe"],
+            label: "Please wait",
+          }),
+      },
+      {
+        title: "Rising embers",
+        config: () =>
+          cfg(`  direction: { x: 0, y: 1, z: 0 },\n  spread: 1.1,\n  speed: 0.35,\n  rate: 14,\n  lifeMs: 2600,\n  size: 0.1,\n  colors: ["#f97316", "#fbbf24", "#ef4444"],\n  label: "One moment",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            direction: { x: 0, y: 1, z: 0 },
+            spread: 1.1,
+            speed: 0.35,
+            rate: 14,
+            lifeMs: 2600,
+            size: 0.1,
+            colors: ["#f97316", "#fbbf24", "#ef4444"],
+            label: "One moment",
+          }),
+      },
+      {
+        title: "Snowfall",
+        config: () =>
+          cfg(`  direction: { x: 0, y: -1, z: 0 },\n  spread: 0.9,\n  speed: 0.4,\n  rate: 26,\n  lifeMs: 2400,\n  size: 0.07,\n  spin: 0.004,\n  colors: ["#f8fafc", "#e2e8f0", "#bae6fd"],\n  label: "Hold on...",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            direction: { x: 0, y: -1, z: 0 },
+            spread: 0.9,
+            speed: 0.4,
+            rate: 26,
+            lifeMs: 2400,
+            size: 0.07,
+            spin: 0.004,
+            colors: ["#f8fafc", "#e2e8f0", "#bae6fd"],
+            label: "Hold on...",
+          }),
+      },
+      {
+        title: "Confetti",
+        config: () =>
+          cfg(`  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.8,\n  speed: 1.3,\n  rate: 30,\n  gravity: { x: 0, y: -1.2, z: 0 },\n  spin: 0.012,\n  size: 0.12,\n  colors: ["#f43f5e", "#22d3ee", "#facc15", "#4ade80", "#a78bfa"],\n  label: "Almost there",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            direction: { x: 0, y: 1, z: 0 },
+            spread: 0.8,
+            speed: 1.3,
+            rate: 30,
+            gravity: { x: 0, y: -1.2, z: 0 },
+            spin: 0.012,
+            size: 0.12,
+            colors: ["#f43f5e", "#22d3ee", "#facc15", "#4ade80", "#a78bfa"],
+            label: "Almost there",
+          }),
+      },
+      {
+        title: () => `Textured glow (${backendLabel()})`,
+        config: () =>
+          cfg(`  texture: glowTexture(), // any image URL or canvas\n  size: 0.3,\n  rate: 26,\n  spin: 0,\n  label: "Just a sec",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            texture: glowTexture(),
+            size: 0.3,
+            rate: 26,
+            spin: 0,
+            label: "Just a sec",
+          }),
+      },
+      {
+        title: () => `Textured stars (${backendLabel()})`,
+        config: () =>
+          cfg(`  texture: starTexture(),\n  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.8,\n  speed: 1.2,\n  gravity: { x: 0, y: -1.1, z: 0 },\n  spin: 0.008,\n  size: 0.2,\n  colors: ["#fde047", "#f472b6", "#5eead4"],\n  label: "Fetching data",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            texture: starTexture(),
+            direction: { x: 0, y: 1, z: 0 },
+            spread: 0.8,
+            speed: 1.2,
+            gravity: { x: 0, y: -1.1, z: 0 },
+            spin: 0.008,
+            size: 0.2,
+            colors: ["#fde047", "#f472b6", "#5eead4"],
+            label: "Fetching data",
+          }),
+      },
+      {
+        title: "Sideways stream",
+        config: () =>
+          cfg(`  direction: { x: 1, y: 0.2, z: 0 },\n  spread: 0.25,\n  speed: 1.1,\n  rate: 36,\n  lifeMs: 1200,\n  size: 0.09,\n  colors: ["#34d399", "#a7f3d0"],\n  label: "Working...",`),
+        create: () =>
+          new ParticlesAnimation({
+            backend: backend(),
+            direction: { x: 1, y: 0.2, z: 0 },
+            spread: 0.25,
+            speed: 1.1,
+            rate: 36,
+            lifeMs: 1200,
+            size: 0.09,
+            colors: ["#34d399", "#a7f3d0"],
+            label: "Working...",
+          }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("particles-showcase");
+      grid.replaceChildren();
+      const spinners = [];
+      demos.forEach((demo) => {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        const title = typeof demo.title === "function" ? demo.title() : demo.title;
+        card.innerHTML = `<h2>${title}
+          <span class="card-playback">
+            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-stop">Stop</button>
+          </span></h2>`;
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        config.textContent = demo.config();
+        card.append(stage, config);
+        grid.appendChild(card);
+
+        let spinner = null;
+        const start = () => {
+          spinner?.destroy();
+          stage.replaceChildren();
+          spinner = createSpinner(stage, { type: "indeterminate", animation: demo.create() });
+        };
+        card.querySelector(".card-start").onclick = start;
+        card.querySelector(".card-stop").onclick = () => spinner?.stop();
+        start();
+        spinners.push({ start, stop: () => spinner?.stop() });
+      });
+      return spinners;
+    }
+
+    let spinners = buildShowcase();
+    renderTech.onchange = () => { spinners = buildShowcase(); };
+    document.getElementById("restart").onclick = () => spinners.forEach((s) => s.start());
+    document.getElementById("stop").onclick = () => spinners.forEach((s) => s.stop());
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner and beyond - progress prefabs</title>
+  <link rel="stylesheet" href="/3d-spinner/examples/examples.css" />
+  <script src="/3d-spinner/examples/theme.js"></script>
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/3d-spinner/examples/prefabs.html">Prefabs</a>
+    <a href="/3d-spinner/examples/prefabs-progress.html" class="active">Progress prefabs</a>
+    <a href="/3d-spinner/examples/shapes.html">Shapes</a>
+    <a href="/3d-spinner/examples/spinner-types.html">Spinner types</a>
+    <a href="/3d-spinner/examples/motion.html">Motion</a>
+    <a href="/3d-spinner/examples/particles.html">Particles</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Auto</button>
+  </nav>
+
+  <h1>3d-spinner and beyond: progress prefabs</h1>
+
+  <p class="note">
+    Progress prefabs tell a small story with a beginning, a middle, and an end: an intro plays as
+    loading starts, the scene evolves with the progress you report, and a finale plays at 100%.
+    Progress jumps stay smooth. Play runs the full story over ten seconds; grab the slider at any
+    time to take over and set progress manually.
+  </p>
+
+  <div class="controls">
+    <label>Renderer
+      <select id="render-tech">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="spinner-grid prefab-grid" id="prefab-showcase"></div>
+
+  <script type="module">
+    import { createSpinner } from "/3d-spinner/dist/index.js";
+    import {
+      chargedOrb,
+      ghostTrain,
+      gridAssembly,
+      rocketLaunch,
+    } from "/3d-spinner/dist/prefabs/prefabs.js";
+
+    const PLAY_MS = 10000;
+
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+
+    const demos = [
+      {
+        title: "Grid assembly",
+        story: "25 shapes circle the view edge, dock one by one into a 5x5 grid as progress climbs, hold for a beat at 100%, then dive into the center and pop away.",
+        code: `const spinner = createSpinner(target, gridAssembly());\nspinner.setProgress(0.4); // report progress as work completes`,
+        create: () => gridAssembly({ backend: backend() }),
+      },
+      {
+        title: "Charged orb",
+        story: "The center orb pops straight to full size; every 10% a mini orb pops out of it into an evenly spread satellite ring, each with its own spark stream. At 100% the satellites take one extra lap, dive back into the orb, and it pops away.",
+        code: `const spinner = createSpinner(target, chargedOrb());\nspinner.setProgress(0.4);`,
+        create: () => chargedOrb({ backend: backend() }),
+      },
+      {
+        title: "Rocket launch",
+        story: "A silver rocket glides in and patrols a slow loop on a column of embers; at 100% it pitches up and blasts off the top of the view.",
+        code: `const spinner = createSpinner(target, rocketLaunch());\nspinner.setProgress(0.4);`,
+        create: () => rocketLaunch({ backend: backend() }),
+      },
+      {
+        title: "Ghost train",
+        story: "A translucent convoy of ice cubes runs laps around a tilted track, shedding pale stars; at 100% the whole train flies off, cars following one by one.",
+        code: `const spinner = createSpinner(target, ghostTrain());\nspinner.setProgress(0.4);`,
+        create: () => ghostTrain({ backend: backend() }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("prefab-showcase");
+      grid.replaceChildren();
+      for (const demo of demos) {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        card.innerHTML = `<h2>${demo.title} (${backendLabel()})
+          <span class="card-playback">
+            <button type="button" class="card-start">Play</button>
+          </span></h2>
+          <div class="card-progress">
+            <span>Progress</span>
+            <input type="range" min="0" max="100" step="1" value="0" disabled />
+            <output>0%</output>
+          </div>`;
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        config.textContent = demo.code;
+        const note = document.createElement("p");
+        note.className = "card-story";
+        note.textContent = demo.story;
+        card.append(stage, note, config);
+        grid.appendChild(card);
+
+        const slider = card.querySelector("input[type=range]");
+        const output = card.querySelector("output");
+        let spinner;
+        let simId = 0;
+        const stopSim = () => {
+          if (simId) cancelAnimationFrame(simId);
+          simId = 0;
+        };
+        const show = (value) => {
+          slider.value = String(value);
+          output.textContent = `${value}%`;
+        };
+        card.querySelector(".card-start").onclick = () => {
+          spinner?.destroy();
+          stopSim();
+          stage.replaceChildren();
+          show(0);
+          slider.disabled = false;
+          spinner = createSpinner(stage, demo.create());
+          const startAt = performance.now();
+          const tick = (now) => {
+            const value = Math.min(100, Math.round(((now - startAt) / PLAY_MS) * 100));
+            show(value);
+            spinner.setProgress(value / 100);
+            simId = value < 100 ? requestAnimationFrame(tick) : 0;
+          };
+          simId = requestAnimationFrame(tick);
+        };
+        slider.oninput = () => {
+          stopSim();
+          show(Number(slider.value));
+          spinner?.setProgress(slider.value / 100);
+        };
+      }
+    }
+
+    buildShowcase();
+    renderTech.onchange = buildShowcase;
+  </script>
+</body>
+
+</html>
