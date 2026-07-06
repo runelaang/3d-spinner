@@ -20,14 +20,20 @@ export interface TriangleData {
   positions: Float32Array;
   normals: Float32Array;
   colors: Float32Array;
+  /**
+   * Per-vertex emissive (`Ke`) as linear `0..1` RGB, duplicated across each
+   * face's vertices. Faces with no material emit `(0,0,0)`, so a GPU shader can
+   * add this term unconditionally and unlit meshes stay identical.
+   */
+  emissives: Float32Array;
   /** Number of vertices (positions.length / 3). */
   count: number;
 }
 
 /**
  * Triangulate a mesh into a non-indexed soup where every vertex carries its
- * face's normal and color. This is what GPU backends upload to render flat
- * shading without per-primitive state.
+ * face's normal, color, and emissive. This is what GPU backends upload to
+ * render flat shading without per-primitive state.
  */
 export function expandToTriangles(mesh: Mesh): TriangleData {
   let triangles = 0;
@@ -36,6 +42,7 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
   const positions = new Float32Array(triangles * 9);
   const normals = new Float32Array(triangles * 9);
   const colors = new Float32Array(triangles * 9);
+  const emissives = new Float32Array(triangles * 9);
   let o = 0;
 
   for (const face of mesh.faces) {
@@ -47,6 +54,10 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
     const cr = r / 255;
     const cg = g / 255;
     const cb = b / 255;
+    const emissive = face.material?.emissive;
+    const er = emissive ? emissive[0] : 0;
+    const eg = emissive ? emissive[1] : 0;
+    const eb = emissive ? emissive[2] : 0;
 
     for (let k = 1; k < face.indices.length - 1; k++) {
       const tri = [face.indices[0], face.indices[k], face.indices[k + 1]];
@@ -61,12 +72,15 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
         colors[o] = cr;
         colors[o + 1] = cg;
         colors[o + 2] = cb;
+        emissives[o] = er;
+        emissives[o + 1] = eg;
+        emissives[o + 2] = eb;
         o += 3;
       }
     }
   }
 
-  return { positions, normals, colors, count: positions.length / 3 };
+  return { positions, normals, colors, emissives, count: positions.length / 3 };
 }
 
 function midpoint(a: Vec3, b: Vec3): Vec3 {
