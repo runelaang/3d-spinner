@@ -1,5 +1,5 @@
 import { sphereFromTriangles } from "../../../core/geometry.js";
-import type { Mesh } from "../../../core/mesh.js";
+import { attachMaterial, type Material, type Mesh } from "../../../core/mesh.js";
 
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 
@@ -29,7 +29,16 @@ const SEED_FACES = [
  * @param detail Subdivision level, `1` = base octahedron (8 faces). Each level
  *   splits every triangle into four. Defaults to `1`.
  * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function octaSphere(size = 1, detail = 1, colors: string[] = DEFAULT_COLORS): Mesh {
-  return sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors);
+export function octaSphere(
+  size = 1,
+  detail = 1,
+  colors: string[] = DEFAULT_COLORS,
+  material?: Material,
+): Mesh {
+  return attachMaterial(
+    sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
+    material,
+  );
 }

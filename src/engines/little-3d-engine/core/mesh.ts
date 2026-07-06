@@ -42,6 +42,18 @@ export interface Mesh {
   faces: Face[];
 }
 
+/**
+ * Assign one {@link Material} to every face of a mesh, in place, and return it.
+ * A no-op when `material` is omitted. Shape builders use this to apply a uniform
+ * surface material (specular, shininess, emissive) across all their faces.
+ */
+export function attachMaterial(mesh: Mesh, material?: Material): Mesh {
+  if (material) {
+    for (const face of mesh.faces) face.material = material;
+  }
+  return mesh;
+}
+
 /** Draw only outward-facing transparent surfaces. */
 export interface OneSidedTransparency {
   mode: "one-sided";
