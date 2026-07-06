@@ -13,6 +13,7 @@ import {
   type Transparency,
   type Vec3,
   cross,
+  dot,
   normalize,
   subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
@@ -40,15 +41,16 @@ const HALF_HEIGHT = Math.tan(FOV / 2) * CAMERA_Z;
 const RUN_GAP_MS = 130; // spacing between cars in path-time; 49 gaps stay under one lap
 const POP_MS = 320; // a new car pops into existence over this long
 const SAMPLE_MS = 8; // heading sample step
+const TURN_RATE = (0.4 * Math.PI) / 180; // max heading change per millisecond (smooth cornering)
 
-// Bounded blast-off: the whole convoy must clear the view within MAX_OUTRO_MS.
-// Cars peel off one after another (OUTRO_GAP apart) then accelerate away.
+// Blast-off: the whole convoy funnels through the lead car's exit point and
+// follows the exact same escape path. A time-warp accelerates every car's
+// path-time after exit so all of them clear the view within MAX_OUTRO_MS.
 const MAX_OUTRO_MS = 4000;
-const FLYOUT_MS = 900; // time for one car to accelerate clear of the view
-const OUTRO_GAP_MS = 60; // (MAX_OUTRO_MS - FLYOUT_MS) / (MAX_CARS - 1), rounded down
-const OUTRO_ACCEL = 12; // fly-out acceleration, scene units per second squared
+const WARP_ACCEL = 1000; // extra path-milliseconds accrued, = 0.5 * WARP_ACCEL * seconds^2
+const TRAIL_OUTRO_MS = 1200; // how long the lead keeps shedding stars into the outro
 
-const TRANSPARENCY: Transparency = { mode: "two-sided", opacity: 0.55 };
+const TRANSPARENCY: Transparency = { mode: "two-sided", opacity: 0.275 };
 const CAR_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"];
 const WORLD_UP: Vec3 = { x: 0, y: 1, z: 0 };
 
@@ -71,12 +73,30 @@ function orientationFor(forward: Vec3): Vec3 {
   };
 }
 
+/** Rotate unit vector `from` toward `to` by at most `maxRad`, for a rate-limited turn. */
+function rotateToward(from: Vec3, to: Vec3, maxRad: number): Vec3 {
+  const a = normalize(from);
+  const b = normalize(to);
+  const d = Math.max(-1, Math.min(1, dot(a, b)));
+  const angle = Math.acos(d);
+  if (angle <= maxRad || angle < 1e-4) return b;
+  const sin = Math.sin(angle);
+  if (sin < 1e-4) return b; // (near-)opposite: snap rather than spin unpredictably
+  const t = maxRad / angle;
+  const w1 = Math.sin((1 - t) * angle) / sin;
+  const w2 = Math.sin(t * angle) / sin;
+  return normalize({ x: a.x * w1 + b.x * w2, y: a.y * w1 + b.y * w2, z: a.z * w1 + b.z * w2 });
+}
+
 /**
  * A progress story: a translucent train of ice cubes runs laps around a tilted
- * square track. Every 2% of progress attaches one more car, popping it into
- * existence at the tail. At 100% the whole convoy peels off the track one after
- * another and accelerates away, clearing the view within four seconds. Car count
- * follows the reported progress, so scrubbing in either direction stays smooth.
+ * square track, cars turning smoothly through the corners as if seen from above.
+ * Every 2% of progress attaches one more car, popping it into existence at the
+ * tail. At 100% the lead car keeps going in its current direction of travel and
+ * every following car funnels through that same exit point along the exact same
+ * path, the convoy accelerating clear of the view within four seconds. Car
+ * count follows the
+ * reported progress, so scrubbing in either direction stays smooth.
  * {@link trailEmitter} exposes the lead car to a particle layer for the star trail.
  */
 export class GhostTrainAnimation implements SpinnerAnimation {
@@ -85,6 +105,7 @@ export class GhostTrainAnimation implements SpinnerAnimation {
   private observer?: ResizeObserver;
   private readonly cars: MeshHandle[] = [];
   private readonly appear: number[] = new Array(MAX_CARS).fill(0);
+  private readonly headings: Array<Vec3 | undefined> = new Array(MAX_CARS).fill(undefined);
   private readonly motion: MotionController;
   private readonly size: number;
   private readonly backend?: Backend;
@@ -95,14 +116,16 @@ export class GhostTrainAnimation implements SpinnerAnimation {
   private enterAt = Infinity;
   private outroAt = Infinity;
   private carsAtOutro = 0;
-  private exitDir: Vec3 = { x: 1, y: 0, z: 0 };
-  private exitSpeed = 1; // scene units per second, sampled from the track at blast-off
+  private exitPathTime = 0; // lead car's path-time at blast-off (the escape switch point)
+  private exitPoint: Vec3 = { x: 0, y: 0, z: 0 };
+  private exitDir: Vec3 = { x: 1, y: 0, z: 0 }; // shared escape direction, outward from the track
+  private exitSpeed = 0.001; // path-units per path-millisecond at the switch (keeps speed continuous)
   private lastNow = 0;
   private finished = false;
 
   constructor(options: GhostTrainOptions = {}) {
     this.motion = options.motion ?? squareMotion({ size: 1.7, periodMs: 6800, tilt: 0.5 });
-    this.size = options.size ?? 0.3;
+    this.size = options.size ?? 0.15;
     this.backend = options.backend;
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
@@ -144,14 +167,20 @@ export class GhostTrainAnimation implements SpinnerAnimation {
     if (this.outroAt !== Infinity || this.enterAt === Infinity) return;
     this.outroAt = now;
     this.carsAtOutro = this.appear.filter((a) => a > 0.5).length;
-    // Single exit direction and speed for the whole convoy: the lead car's tangent.
-    const to = now - this.enterAt;
-    const velocity = subtract(this.motion.positionAt(to + 1), this.motion.positionAt(to - 1));
+    this.exitPathTime = now - this.enterAt;
+
+    const from = this.motion.positionAt(this.exitPathTime);
+    const velocity = subtract(
+      this.motion.positionAt(this.exitPathTime + 1),
+      this.motion.positionAt(this.exitPathTime - 1),
+    );
     const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
-    if (speed > 1e-6) {
-      this.exitDir = { x: velocity.x / speed, y: velocity.y / speed, z: velocity.z / speed };
-      this.exitSpeed = speed * 1000; // per-ms sample -> per-second
-    }
+    this.exitPoint = from;
+    if (speed > 1e-6) this.exitSpeed = speed / 2;
+
+    // The lead car keeps going in its current direction of travel; every car
+    // funnels through the exit point and follows that same straight path out.
+    this.exitDir = speed > 1e-6 ? normalize(velocity) : { x: 1, y: 0, z: 0 };
   }
 
   isFinished(): boolean {
@@ -160,16 +189,21 @@ export class GhostTrainAnimation implements SpinnerAnimation {
 
   /** Milliseconds the lead car keeps moving into the outro; feed a trail layer's `outroMs`. */
   get outroDurationMs(): number {
-    return FLYOUT_MS;
+    return TRAIL_OUTRO_MS;
   }
 
   /**
    * A {@link MotionController} following the lead car's actual position, through
-   * laps and the accelerating blast-off. Feed it to a particle layer's `emitter`
+   * laps and the accelerating escape. Feed it to a particle layer's `emitter`
    * so the star trail stays behind the train.
    */
   trailEmitter(): MotionController {
-    return { positionAt: (t) => this.leadPositionAt(t) };
+    return {
+      positionAt: (t) =>
+        this.enterAt === Infinity
+          ? this.motion.positionAt(t)
+          : this.pathPosition(t - this.enterAt + this.warp(t)),
+    };
   }
 
   render(now: number, frame: AnimationFrame): void {
@@ -190,39 +224,53 @@ export class GhostTrainAnimation implements SpinnerAnimation {
       ? this.carsAtOutro
       : Math.min(MAX_CARS, Math.round(frame.progress * MAX_CARS));
     const halfWidth = HALF_HEIGHT * this.aspect;
+    const warp = this.warp(now);
+    let anyOnScreen = false;
 
     for (let k = 0; k < MAX_CARS; k++) {
       const target = k < want ? 1 : 0;
-      this.appear[k] += Math.sign(target - this.appear[k]) * (dt / POP_MS);
-      this.appear[k] = clamp01(this.appear[k]);
-      if (this.appear[k] <= 0) continue;
+      this.appear[k] = clamp01(this.appear[k] + Math.sign(target - this.appear[k]) * (dt / POP_MS));
+      if (this.appear[k] <= 0) {
+        this.headings[k] = undefined;
+        continue;
+      }
 
-      const pose = this.carPose(k, now);
-      if (!pose || Math.abs(pose.position.x) > halfWidth + this.size || Math.abs(pose.position.y) > HALF_HEIGHT + this.size) {
+      const p = now - this.enterAt - k * RUN_GAP_MS + warp;
+      const position = this.pathPosition(p);
+      if (Math.abs(position.x) > halfWidth + this.size || Math.abs(position.y) > HALF_HEIGHT + this.size) {
         continue; // off-screen: leave it hidden
       }
+
+      const ahead = subtract(this.pathPosition(p + SAMPLE_MS), position);
+      const targetDir = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5
+        ? ahead
+        : this.headings[k] ?? { x: 1, y: 0, z: 0 };
+      this.headings[k] = this.headings[k]
+        ? rotateToward(this.headings[k]!, targetDir, TURN_RATE * dt)
+        : normalize(targetDir);
+      const orientation = orientationFor(this.headings[k]!);
+
       const transform = this.cars[k].transform;
-      transform.position.x = pose.position.x;
-      transform.position.y = pose.position.y;
-      transform.position.z = pose.position.z;
-      transform.rotation.x = pose.orientation.x;
-      transform.rotation.y = pose.orientation.y;
-      transform.rotation.z = pose.orientation.z;
+      transform.position.x = position.x;
+      transform.position.y = position.y;
+      transform.position.z = position.z;
+      transform.rotation.x = orientation.x;
+      transform.rotation.y = orientation.y;
+      transform.rotation.z = orientation.z;
       transform.scale = this.size * easeOutBack(this.appear[k]);
+      anyOnScreen = true;
     }
 
     this.label.setText(frame.indeterminate
       ? (typeof this.labelContent === "string" ? this.labelContent : "")
       : `${Math.round(frame.progress * 100)}%`);
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, FLYOUT_MS));
+      this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
     }
 
-    if (this.outroAt !== Infinity) {
-      const span = this.carsAtOutro > 0
-        ? (this.carsAtOutro - 1) * OUTRO_GAP_MS + FLYOUT_MS + 150
-        : 300;
-      if (now >= this.outroAt + Math.min(MAX_OUTRO_MS, span)) this.finished = true;
+    if (this.outroAt !== Infinity && now > this.outroAt + 300 &&
+        (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
+      this.finished = true;
     }
     this.engine.render();
   }
@@ -237,49 +285,27 @@ export class GhostTrainAnimation implements SpinnerAnimation {
     this.cars.length = 0;
   }
 
-  /** Accelerating distance a car has travelled `ms` into its fly-out. */
-  private flyoutDistance(ms: number): number {
-    const s = ms / 1000;
-    return this.exitSpeed * s + 0.5 * OUTRO_ACCEL * s * s;
+  /** Extra path-time every car has accelerated forward by, `now` ms into the outro. */
+  private warp(now: number): number {
+    if (this.outroAt === Infinity) return 0;
+    const seconds = (now - this.outroAt) / 1000;
+    return 0.5 * WARP_ACCEL * seconds * seconds;
   }
 
-  /** Position and orientation of car `k` at time `now`, or `undefined` if it has no place yet. */
-  private carPose(k: number, now: number): { position: Vec3; orientation: Vec3 } | undefined {
-    if (this.enterAt === Infinity) return undefined;
-
-    if (this.outroAt !== Infinity) {
-      const peelStart = this.outroAt + k * OUTRO_GAP_MS;
-      const local = now - peelStart;
-      if (local >= 0) {
-        // Peel off the track and accelerate along the shared exit direction.
-        const phase = peelStart - this.enterAt - k * RUN_GAP_MS;
-        const from = this.motion.positionAt(phase);
-        const d = this.flyoutDistance(local);
-        return {
-          position: { x: from.x + this.exitDir.x * d, y: from.y + this.exitDir.y * d, z: from.z + this.exitDir.z * d },
-          orientation: orientationFor(this.exitDir),
-        };
-      }
+  /**
+   * The single trajectory every car rides, sampled at path-time `p`: the track
+   * up to the exit switch point, then a straight escape outward. Because the
+   * switch point and direction are shared, all cars follow the exact same path.
+   */
+  private pathPosition(p: number): Vec3 {
+    if (this.outroAt === Infinity || p <= this.exitPathTime) {
+      return this.motion.positionAt(p);
     }
-    return this.trackPose(now - this.enterAt - k * RUN_GAP_MS);
-  }
-
-  private trackPose(phase: number): { position: Vec3; orientation: Vec3 } {
-    const position = this.motion.positionAt(phase);
-    const ahead = subtract(this.motion.positionAt(phase + SAMPLE_MS), position);
-    const orientation = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5
-      ? orientationFor(ahead)
-      : { x: 0, y: 0, z: 0 };
-    return { position, orientation };
-  }
-
-  private leadPositionAt(t: number): Vec3 {
-    if (this.enterAt === Infinity) return this.motion.positionAt(t);
-    if (this.outroAt !== Infinity && t >= this.outroAt) {
-      const from = this.motion.positionAt(this.outroAt - this.enterAt);
-      const d = this.flyoutDistance(t - this.outroAt);
-      return { x: from.x + this.exitDir.x * d, y: from.y + this.exitDir.y * d, z: from.z + this.exitDir.z * d };
-    }
-    return this.motion.positionAt(t - this.enterAt);
+    const distance = this.exitSpeed * (p - this.exitPathTime);
+    return {
+      x: this.exitPoint.x + this.exitDir.x * distance,
+      y: this.exitPoint.y + this.exitDir.y * distance,
+      z: this.exitPoint.z + this.exitDir.z * distance,
+    };
   }
 }
