@@ -14,16 +14,22 @@ in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
 in vec3 aEmissive;
+in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
 out vec3 vEmissive;
+out vec4 vSpecular;
+out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
   vEmissive = aEmissive;
-  gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+  vSpecular = aSpecular;
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vWorldPos = world.xyz;
+  gl_Position = uViewProj * world;
 }`;
 
 const FRAGMENT_SHADER = `#version 300 es
@@ -31,15 +37,27 @@ precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
 in vec3 vEmissive;
+in vec4 vSpecular;
+in vec3 vWorldPos;
 uniform vec3 uToLight;
+uniform vec3 uEye;
 uniform float uIntensity;
 uniform float uAmbient;
 uniform float uOpacity;
 out vec4 fragColor;
 void main() {
-  float lambert = max(dot(normalize(vNormal), normalize(uToLight)), 0.0);
+  vec3 normal = normalize(vNormal);
+  vec3 toLight = normalize(uToLight);
+  float lambert = max(dot(normal, toLight), 0.0);
   float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
-  vec3 lit = vColor * brightness + vEmissive;
+  vec3 lit = vColor * brightness;
+  if (lambert > 0.0) {
+    vec3 viewDir = normalize(uEye - vWorldPos);
+    vec3 halfVec = normalize(toLight + viewDir);
+    float highlight = pow(max(dot(normal, halfVec), 0.0), vSpecular.w) * uIntensity;
+    lit += highlight * vSpecular.xyz;
+  }
+  lit += vEmissive;
   fragColor = vec4(lit, uOpacity);
 }`;
 
@@ -53,9 +71,11 @@ interface Locations {
   aNormal: number;
   aColor: number;
   aEmissive: number;
+  aSpecular: number;
   uViewProj: WebGLUniformLocation | null;
   uModel: WebGLUniformLocation | null;
   uToLight: WebGLUniformLocation | null;
+  uEye: WebGLUniformLocation | null;
   uIntensity: WebGLUniformLocation | null;
   uAmbient: WebGLUniformLocation | null;
   uOpacity: WebGLUniformLocation | null;
@@ -109,9 +129,11 @@ export class WebGLRenderer implements Renderer {
       aNormal: gl.getAttribLocation(this.program, "aNormal"),
       aColor: gl.getAttribLocation(this.program, "aColor"),
       aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
+      aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
       uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
       uModel: gl.getUniformLocation(this.program, "uModel"),
       uToLight: gl.getUniformLocation(this.program, "uToLight"),
+      uEye: gl.getUniformLocation(this.program, "uEye"),
       uIntensity: gl.getUniformLocation(this.program, "uIntensity"),
       uAmbient: gl.getUniformLocation(this.program, "uAmbient"),
       uOpacity: gl.getUniformLocation(this.program, "uOpacity"),
@@ -137,18 +159,19 @@ export class WebGLRenderer implements Renderer {
     const data = expandToTriangles(mesh);
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
-    const attribute = (location: number, array: Float32Array) => {
+    const attribute = (location: number, array: Float32Array, size = 3) => {
       if (location < 0) return;
       const buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(location);
-      gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
     };
     attribute(loc.aPos, data.positions);
     attribute(loc.aNormal, data.normals);
     attribute(loc.aColor, data.colors);
     attribute(loc.aEmissive, data.emissives);
+    attribute(loc.aSpecular, data.speculars, 4);
     gl.bindVertexArray(null);
     const result = { vao, count: data.count };
     this.cache.set(mesh, result);
@@ -165,6 +188,7 @@ export class WebGLRenderer implements Renderer {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(loc.uViewProj, false, new Float32Array(frame.viewProjection));
     gl.uniform3f(loc.uToLight, frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z);
+    gl.uniform3f(loc.uEye, frame.eye.x, frame.eye.y, frame.eye.z);
     gl.uniform1f(loc.uIntensity, frame.light.intensity);
     gl.uniform1f(loc.uAmbient, frame.light.ambient);
     gl.disable(gl.BLEND);
