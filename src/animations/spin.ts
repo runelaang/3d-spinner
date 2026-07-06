@@ -3,6 +3,7 @@ import {
   Little3dEngine,
   cube,
   type Backend,
+  type Material,
   type Mesh,
   type MeshHandle,
   type Transparency,
@@ -18,6 +19,8 @@ export interface SpinAnimationOptions {
   shape?: Mesh | (() => Mesh);
   /** Face color(s): one color for every face, or an array applied per face. */
   color?: string | string[];
+  /** Surface material (specular, shininess, emissive) applied to every face. */
+  material?: Material;
   /** Rotation speed around the X axis, in radians per millisecond. Default `0.0007`. */
   spinX?: number;
   /** Rotation speed around the Y axis, in radians per millisecond. Default `0.0011`. */
@@ -58,6 +61,11 @@ function applyColor(mesh: Mesh, color: SpinAnimationOptions["color"]): Mesh {
   return { vertices: mesh.vertices, faces: mesh.faces.map((f, i) => ({ ...f, color: pick(i) })) };
 }
 
+function applyMaterial(mesh: Mesh, material: Material | undefined): Mesh {
+  if (!material) return mesh;
+  return { vertices: mesh.vertices, faces: mesh.faces.map((f) => ({ ...f, material })) };
+}
+
 /**
  * A spinning, flat-lit 3D shape (a cube by default). With `progressAnimation`
  * set it pops in/out and its scale tracks progress, with an optional label;
@@ -76,7 +84,7 @@ export class SpinAnimation implements SpinnerAnimation {
   private exited = false;
 
   constructor(options: SpinAnimationOptions = {}) {
-    this.mesh = applyColor(resolveMesh(options.shape), options.color);
+    this.mesh = applyMaterial(applyColor(resolveMesh(options.shape), options.color), options.material);
     this.spinX = options.spinX ?? 0.0007;
     this.spinY = options.spinY ?? 0.0011;
     this.backend = options.backend;
