@@ -1,4 +1,4 @@
-import type { Mesh, Face } from "../core/mesh.js";
+import type { Mesh, Face, Material } from "../core/mesh.js";
 
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 
@@ -13,39 +13,103 @@ export interface ObjOptions {
   /** Contents of an `.mtl` file referenced by the OBJ. */
   mtl?: string;
   /**
-   * Use MTL diffuse (`Kd`) values for faces with matching `usemtl`
-   * statements. Default `false`.
+   * Use MTL material values for faces with matching `usemtl` statements: the
+   * diffuse color (`Kd`) becomes the face color, and specular (`Ks`/`Ns`) and
+   * emissive (`Ke`) become the face {@link Material}. Default `false`.
    */
   useMtlColors?: boolean;
+}
+
+/** One material parsed from MTL text: a face color plus its surface material. */
+interface ParsedMaterial {
+  /** Diffuse color (`Kd`) as a CSS hex string, if present. */
+  color?: string;
+  /** Specular, shininess, and emissive gathered from `Ks`/`Ns`/`Ke`. */
+  material?: Material;
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
 }
 
 function channelToHex(value: string): string | undefined {
   const channel = Number.parseFloat(value);
   if (!Number.isFinite(channel)) return undefined;
-  return Math.round(Math.min(1, Math.max(0, channel)) * 255)
+  return Math.round(clamp01(channel) * 255)
     .toString(16)
     .padStart(2, "0");
 }
 
-function parseMtlColors(text: string): Map<string, string> {
-  const colors = new Map<string, string>();
-  let material: string | undefined;
+/** Parse an `Ks`/`Ke`-style RGB triple into clamped `0..1` channels. */
+function parseRgb(parts: string[]): [number, number, number] | undefined {
+  const channels = parts.slice(1, 4).map(Number.parseFloat);
+  if (channels.length !== 3 || !channels.every(Number.isFinite)) return undefined;
+  return [clamp01(channels[0]), clamp01(channels[1]), clamp01(channels[2])];
+}
+
+/** Fold specular/shininess/emissive into a {@link Material}, or `undefined`. */
+function toMaterial(surface: {
+  specular?: [number, number, number];
+  shininess?: number;
+  emissive?: [number, number, number];
+}): Material | undefined {
+  const material: Material = {};
+  if (surface.specular) material.specular = surface.specular;
+  if (surface.shininess !== undefined) material.shininess = surface.shininess;
+  if (surface.emissive) material.emissive = surface.emissive;
+  return Object.keys(material).length > 0 ? material : undefined;
+}
+
+/**
+ * Parse MTL text into a map of material name to its color and surface material.
+ * Reads `Kd` (diffuse color), `Ks` (specular), `Ns` (shininess), and `Ke`
+ * (emissive); other statements are ignored.
+ */
+function parseMtl(text: string): Map<string, ParsedMaterial> {
+  const materials = new Map<string, ParsedMaterial>();
+  const surfaces = new Map<
+    string,
+    { specular?: [number, number, number]; shininess?: number; emissive?: [number, number, number] }
+  >();
+  let name: string | undefined;
 
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("#")) continue;
     const parts = trimmed.split(/\s+/);
-    if (parts[0] === "newmtl") {
-      material = parts.slice(1).join(" ");
-    } else if (parts[0] === "Kd" && material) {
+    const keyword = parts[0];
+
+    if (keyword === "newmtl") {
+      name = parts.slice(1).join(" ");
+      if (name && !materials.has(name)) {
+        materials.set(name, {});
+        surfaces.set(name, {});
+      }
+      continue;
+    }
+    if (!name) continue;
+    const entry = materials.get(name)!;
+    const surface = surfaces.get(name)!;
+
+    if (keyword === "Kd") {
       const channels = parts.slice(1, 4).map(channelToHex);
       if (channels.length === 3 && channels.every((channel) => channel !== undefined)) {
-        colors.set(material, `#${channels.join("")}`);
+        entry.color = `#${channels.join("")}`;
       }
+    } else if (keyword === "Ks") {
+      surface.specular = parseRgb(parts);
+    } else if (keyword === "Ns") {
+      const ns = Number.parseFloat(parts[1]);
+      if (Number.isFinite(ns)) surface.shininess = Math.max(0, ns);
+    } else if (keyword === "Ke") {
+      surface.emissive = parseRgb(parts);
     }
   }
 
-  return colors;
+  for (const [key, surface] of surfaces) {
+    materials.get(key)!.material = toMaterial(surface);
+  }
+  return materials;
 }
 
 function resolveIndex(token: string, vertexCount: number): number {
@@ -59,18 +123,18 @@ function resolveIndex(token: string, vertexCount: number): number {
  * Reads `v` vertex positions and `f` faces (triangles, quads, or n-gons, in
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
- * computes a flat normal per face. Material names can select diffuse colors
- * from supplied MTL text; groups and other statements are ignored. Face
- * winding is preserved as-is; the engine expects CCW winding as seen from
- * outside.
+ * computes a flat normal per face. Material names can select the diffuse color
+ * (`Kd`) and surface material (specular `Ks`/`Ns`, emissive `Ke`) from supplied
+ * MTL text; groups and other statements are ignored. Face winding is preserved
+ * as-is; the engine expects CCW winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.
- * @param options Face palette and optional MTL diffuse colors.
+ * @param options Face palette and optional MTL materials.
  */
 export function parseObj(text: string, options: ObjOptions = {}): Mesh {
   const colors = options.colors ?? DEFAULT_COLORS;
-  const materialColors = options.useMtlColors && options.mtl
-    ? parseMtlColors(options.mtl)
+  const materials = options.useMtlColors && options.mtl
+    ? parseMtl(options.mtl)
     : undefined;
   const vertices: Mesh["vertices"] = [];
   const faces: Face[] = [];
@@ -98,10 +162,12 @@ export function parseObj(text: string, options: ObjOptions = {}): Mesh {
         indices.push(resolveIndex(vertexToken, vertices.length));
       }
       if (indices.length >= 3) {
-        const mtlColor = material ? materialColors?.get(material) : undefined;
-        const color = mtlColor
-          ?? (materialColors ? (colors[0] ?? "#888888") : colors[faces.length % colors.length]);
-        faces.push({ indices, color });
+        const entry = material ? materials?.get(material) : undefined;
+        const color = entry?.color
+          ?? (materials ? (colors[0] ?? "#888888") : colors[faces.length % colors.length]);
+        const face: Face = { indices, color };
+        if (entry?.material) face.material = entry.material;
+        faces.push(face);
       }
     }
   }
