@@ -1693,43 +1693,9 @@ function tetrahedron(size = 1, colors = DEFAULT_COLORS3) {
   return { vertices, faces };
 }
 
-// src/engines/little-3d-engine/shapes/primitives/octahedron.ts
-var DEFAULT_COLORS4 = [
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-  "#f59e0b",
-  "#10b981",
-  "#ef4444",
-  "#06b6d4",
-  "#eab308"
-];
-function octahedron(size = 1, colors = DEFAULT_COLORS4) {
-  const r = size / 2;
-  const vertices = [
-    { x: r, y: 0, z: 0 },
-    { x: -r, y: 0, z: 0 },
-    { x: 0, y: r, z: 0 },
-    { x: 0, y: -r, z: 0 },
-    { x: 0, y: 0, z: r },
-    { x: 0, y: 0, z: -r }
-  ];
-  const faces = [
-    { indices: [4, 0, 2], color: colors[0 % colors.length] },
-    { indices: [4, 2, 1], color: colors[1 % colors.length] },
-    { indices: [4, 1, 3], color: colors[2 % colors.length] },
-    { indices: [4, 3, 0], color: colors[3 % colors.length] },
-    { indices: [5, 2, 0], color: colors[4 % colors.length] },
-    { indices: [5, 1, 2], color: colors[5 % colors.length] },
-    { indices: [5, 3, 1], color: colors[6 % colors.length] },
-    { indices: [5, 0, 3], color: colors[7 % colors.length] }
-  ];
-  return { vertices, faces };
-}
-
 // src/engines/little-3d-engine/shapes/primitives/pyramid.ts
-var DEFAULT_COLORS5 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
-function pyramid(size = 1, colors = DEFAULT_COLORS5) {
+var DEFAULT_COLORS4 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
+function pyramid(size = 1, colors = DEFAULT_COLORS4) {
   const h = size / 2;
   const vertices = [
     { x: -h, y: -h, z: h },
@@ -1750,7 +1716,7 @@ function pyramid(size = 1, colors = DEFAULT_COLORS5) {
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/icosphere.ts
 init_geometry();
-var DEFAULT_COLORS6 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
+var DEFAULT_COLORS5 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 var T = (1 + Math.sqrt(5)) / 2;
 var SEED_VERTICES = [
   { x: -1, y: T, z: 0 },
@@ -1788,7 +1754,7 @@ var SEED_FACES = [
   [8, 6, 7],
   [9, 8, 1]
 ];
-function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS6) {
+function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS5) {
   return sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors);
 }
 
@@ -1796,8 +1762,8 @@ function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS6) {
 init_geometry();
 
 // src/engines/little-3d-engine/shapes/complex/plane.ts
-var DEFAULT_COLORS7 = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#f8fafc"];
-function planeMesh(colors = DEFAULT_COLORS7) {
+var DEFAULT_COLORS6 = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#f8fafc"];
+function planeMesh(colors = DEFAULT_COLORS6) {
   return {
     vertices: [
       { x: 0.9, y: 0, z: 0 },
@@ -1811,20 +1777,20 @@ function planeMesh(colors = DEFAULT_COLORS7) {
       { x: -0.52, y: 0.38, z: 0 }
     ],
     faces: [
-      { indices: [6, 1, 0], color: colors[0] ?? DEFAULT_COLORS7[0] },
-      { indices: [6, 2, 1], color: colors[3] ?? DEFAULT_COLORS7[3] },
-      { indices: [6, 3, 2], color: colors[1] ?? DEFAULT_COLORS7[1] },
-      { indices: [6, 4, 3], color: colors[2] ?? DEFAULT_COLORS7[2] },
-      { indices: [6, 5, 4], color: colors[3] ?? DEFAULT_COLORS7[3] },
-      { indices: [6, 0, 5], color: colors[0] ?? DEFAULT_COLORS7[0] },
-      { indices: [7, 0, 1], color: colors[1] ?? DEFAULT_COLORS7[1] },
-      { indices: [7, 1, 2], color: colors[2] ?? DEFAULT_COLORS7[2] },
-      { indices: [7, 2, 3], color: colors[1] ?? DEFAULT_COLORS7[1] },
-      { indices: [7, 3, 4], color: colors[2] ?? DEFAULT_COLORS7[2] },
-      { indices: [7, 4, 5], color: colors[1] ?? DEFAULT_COLORS7[1] },
-      { indices: [7, 5, 0], color: colors[2] ?? DEFAULT_COLORS7[2] },
-      { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS7[0] },
-      { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS7[1] }
+      { indices: [6, 1, 0], color: colors[0] ?? DEFAULT_COLORS6[0] },
+      { indices: [6, 2, 1], color: colors[3] ?? DEFAULT_COLORS6[3] },
+      { indices: [6, 3, 2], color: colors[1] ?? DEFAULT_COLORS6[1] },
+      { indices: [6, 4, 3], color: colors[2] ?? DEFAULT_COLORS6[2] },
+      { indices: [6, 5, 4], color: colors[3] ?? DEFAULT_COLORS6[3] },
+      { indices: [6, 0, 5], color: colors[0] ?? DEFAULT_COLORS6[0] },
+      { indices: [7, 0, 1], color: colors[1] ?? DEFAULT_COLORS6[1] },
+      { indices: [7, 1, 2], color: colors[2] ?? DEFAULT_COLORS6[2] },
+      { indices: [7, 2, 3], color: colors[1] ?? DEFAULT_COLORS6[1] },
+      { indices: [7, 3, 4], color: colors[2] ?? DEFAULT_COLORS6[2] },
+      { indices: [7, 4, 5], color: colors[1] ?? DEFAULT_COLORS6[1] },
+      { indices: [7, 5, 0], color: colors[2] ?? DEFAULT_COLORS6[2] },
+      { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS6[0] },
+      { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS6[1] }
     ]
   };
 }
@@ -1839,18 +1805,30 @@ function canvasTexture(draw, size = 96) {
 }
 
 // src/engines/little-3d-engine/textures/dynamic/star.ts
-function starTexture() {
+function drawStar(ctx) {
+  ctx.save();
+  ctx.translate(48, 48);
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  for (let index = 0; index < 10; index++) {
+    const radius = index % 2 === 0 ? 43 : 16;
+    const angle = index * Math.PI / 5 - Math.PI / 2;
+    ctx.lineTo(radius * Math.cos(angle), radius * Math.sin(angle));
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+function starTexture(options = {}) {
+  const glow = Math.max(0, options.glow ?? 0);
   return canvasTexture((ctx) => {
-    ctx.translate(48, 48);
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    for (let index = 0; index < 10; index++) {
-      const radius = index % 2 === 0 ? 43 : 16;
-      const angle = index * Math.PI / 5 - Math.PI / 2;
-      ctx.lineTo(radius * Math.cos(angle), radius * Math.sin(angle));
+    if (glow > 0) {
+      ctx.save();
+      ctx.filter = `blur(${glow}px)`;
+      drawStar(ctx);
+      ctx.restore();
     }
-    ctx.closePath();
-    ctx.fill();
+    drawStar(ctx);
   });
 }
 
@@ -2034,7 +2012,7 @@ var Little3dEngine = class {
 };
 
 // src/animations/particles.ts
-var DEFAULT_COLORS8 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
+var DEFAULT_COLORS7 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
 var FADE_IN_END = 0.15;
 var FADE_OUT_START = 0.6;
 function rand01(seed, index, salt) {
@@ -2129,7 +2107,7 @@ var ParticlesAnimation = class {
     this.exitAt = Infinity;
     this.finished = false;
     this.field = particleField(options);
-    this.colors = options.colors ?? DEFAULT_COLORS8;
+    this.colors = options.colors ?? DEFAULT_COLORS7;
     this.backend = options.backend;
     this.texture = options.texture;
     this.labelContent = options.label;
@@ -2952,46 +2930,249 @@ function squareMotion(options = {}) {
   };
 }
 
+// src/animations/ghost-train.ts
+var MAX_CARS = 50;
+var CAMERA_Z2 = 3;
+var FOV = 55 * Math.PI / 180;
+var HALF_HEIGHT = Math.tan(FOV / 2) * CAMERA_Z2;
+var RUN_GAP_MS = 130;
+var POP_MS = 320;
+var SAMPLE_MS2 = 8;
+var TURN_RATE = 0.4 * Math.PI / 180;
+var MAX_OUTRO_MS = 4e3;
+var WARP_ACCEL = 1e3;
+var TRAIL_OUTRO_MS = 1200;
+var TRANSPARENCY = { mode: "two-sided", opacity: 0.275 };
+var CAR_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"];
+var WORLD_UP2 = { x: 0, y: 1, z: 0 };
+function clamp014(value) {
+  return Math.max(0, Math.min(1, value));
+}
+function orientationFor2(forward) {
+  const fwd = normalize(forward);
+  let right = cross(fwd, WORLD_UP2);
+  if (Math.hypot(right.x, right.y, right.z) < 1e-4) right = { x: 0, y: 0, z: 1 };
+  right = normalize(right);
+  const up = cross(right, fwd);
+  const w = normalize(cross(fwd, up));
+  return {
+    x: Math.atan2(cross(w, fwd).z, w.z),
+    y: Math.asin(Math.max(-1, Math.min(1, -fwd.z))),
+    z: Math.atan2(fwd.y, fwd.x)
+  };
+}
+function rotateToward(from, to, maxRad) {
+  const a = normalize(from);
+  const b = normalize(to);
+  const d = Math.max(-1, Math.min(1, dot(a, b)));
+  const angle = Math.acos(d);
+  if (angle <= maxRad || angle < 1e-4) return b;
+  const sin = Math.sin(angle);
+  if (sin < 1e-4) return b;
+  const t = maxRad / angle;
+  const w1 = Math.sin((1 - t) * angle) / sin;
+  const w2 = Math.sin(t * angle) / sin;
+  return normalize({ x: a.x * w1 + b.x * w2, y: a.y * w1 + b.y * w2, z: a.z * w1 + b.z * w2 });
+}
+var GhostTrainAnimation = class {
+  constructor(options = {}) {
+    this.cars = [];
+    this.appear = new Array(MAX_CARS).fill(0);
+    this.headings = new Array(MAX_CARS).fill(void 0);
+    this.aspect = 16 / 9;
+    this.enterAt = Infinity;
+    this.outroAt = Infinity;
+    this.carsAtOutro = 0;
+    this.exitPathTime = 0;
+    // lead car's path-time at blast-off (the escape switch point)
+    this.exitPoint = { x: 0, y: 0, z: 0 };
+    this.exitDir = { x: 1, y: 0, z: 0 };
+    // shared escape direction, outward from the track
+    this.exitSpeed = 1e-3;
+    // path-units per path-millisecond at the switch (keeps speed continuous)
+    this.lastNow = 0;
+    this.finished = false;
+    this.motion = options.motion ?? squareMotion({ size: 1.7, periodMs: 6800, tilt: 0.5 });
+    this.size = options.size ?? 0.15;
+    this.backend = options.backend;
+    this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
+  }
+  mount(target) {
+    if (!target.style.position) target.style.position = "relative";
+    const engine = new Little3dEngine({
+      backend: this.backend,
+      camera: { position: { x: 0, y: 0, z: CAMERA_Z2 }, fov: FOV }
+    });
+    const mesh = cube(1, CAR_COLORS);
+    for (let i = 0; i < MAX_CARS; i++) {
+      this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
+    }
+    this.engine = engine;
+    engine.mount(target).catch((error) => {
+      target.textContent = error instanceof Error ? error.message : String(error);
+    });
+    const measure = () => {
+      if (target.clientWidth > 0 && target.clientHeight > 0) {
+        this.aspect = target.clientWidth / target.clientHeight;
+      }
+    };
+    measure();
+    this.observer = new ResizeObserver(measure);
+    this.observer.observe(target);
+    this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
+  }
+  enter(now) {
+    if (this.enterAt === Infinity) this.enterAt = now;
+  }
+  exit(now) {
+    if (this.outroAt !== Infinity || this.enterAt === Infinity) return;
+    this.outroAt = now;
+    this.carsAtOutro = this.appear.filter((a) => a > 0.5).length;
+    this.exitPathTime = now - this.enterAt;
+    const from = this.motion.positionAt(this.exitPathTime);
+    const velocity = subtract(
+      this.motion.positionAt(this.exitPathTime + 1),
+      this.motion.positionAt(this.exitPathTime - 1)
+    );
+    const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+    this.exitPoint = from;
+    if (speed > 1e-6) this.exitSpeed = speed / 2;
+    this.exitDir = speed > 1e-6 ? normalize(velocity) : { x: 1, y: 0, z: 0 };
+  }
+  isFinished() {
+    return this.finished;
+  }
+  /** Milliseconds the lead car keeps moving into the outro; feed a trail layer's `outroMs`. */
+  get outroDurationMs() {
+    return TRAIL_OUTRO_MS;
+  }
+  /**
+   * A {@link MotionController} following the lead car's actual position, through
+   * laps and the accelerating escape. Feed it to a particle layer's `emitter`
+   * so the star trail stays behind the train.
+   */
+  trailEmitter() {
+    return {
+      positionAt: (t) => this.enterAt === Infinity ? this.motion.positionAt(t) : this.pathPosition(t - this.enterAt + this.warp(t))
+    };
+  }
+  render(now, frame) {
+    if (!this.engine || !this.label) return;
+    for (const car of this.cars) car.transform.scale = 0;
+    if (this.enterAt === Infinity) {
+      this.engine.render();
+      return;
+    }
+    const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
+    this.lastNow = now;
+    const want = this.outroAt !== Infinity ? this.carsAtOutro : Math.min(MAX_CARS, Math.round(frame.progress * MAX_CARS));
+    const halfWidth = HALF_HEIGHT * this.aspect;
+    const warp = this.warp(now);
+    let anyOnScreen = false;
+    for (let k = 0; k < MAX_CARS; k++) {
+      const target = k < want ? 1 : 0;
+      this.appear[k] = clamp014(this.appear[k] + Math.sign(target - this.appear[k]) * (dt / POP_MS));
+      if (this.appear[k] <= 0) {
+        this.headings[k] = void 0;
+        continue;
+      }
+      const p = now - this.enterAt - k * RUN_GAP_MS + warp;
+      const position = this.pathPosition(p);
+      if (Math.abs(position.x) > halfWidth + this.size || Math.abs(position.y) > HALF_HEIGHT + this.size) {
+        continue;
+      }
+      const ahead = subtract(this.pathPosition(p + SAMPLE_MS2), position);
+      const targetDir = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5 ? ahead : this.headings[k] ?? { x: 1, y: 0, z: 0 };
+      this.headings[k] = this.headings[k] ? rotateToward(this.headings[k], targetDir, TURN_RATE * dt) : normalize(targetDir);
+      const orientation = orientationFor2(this.headings[k]);
+      const transform2 = this.cars[k].transform;
+      transform2.position.x = position.x;
+      transform2.position.y = position.y;
+      transform2.position.z = position.z;
+      transform2.rotation.x = orientation.x;
+      transform2.rotation.y = orientation.y;
+      transform2.rotation.z = orientation.z;
+      transform2.scale = this.size * easeOutBack(this.appear[k]);
+      anyOnScreen = true;
+    }
+    this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
+    }
+    if (this.outroAt !== Infinity && now > this.outroAt + 300 && (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
+      this.finished = true;
+    }
+    this.engine.render();
+  }
+  destroy() {
+    this.observer?.disconnect();
+    this.observer = void 0;
+    this.label?.container.remove();
+    this.label = void 0;
+    this.engine?.destroy();
+    this.engine = void 0;
+    this.cars.length = 0;
+  }
+  /** Extra path-time every car has accelerated forward by, `now` ms into the outro. */
+  warp(now) {
+    if (this.outroAt === Infinity) return 0;
+    const seconds = (now - this.outroAt) / 1e3;
+    return 0.5 * WARP_ACCEL * seconds * seconds;
+  }
+  /**
+   * The single trajectory every car rides, sampled at path-time `p`: the track
+   * up to the exit switch point, then a straight escape outward. Because the
+   * switch point and direction are shared, all cars follow the exact same path.
+   */
+  pathPosition(p) {
+    if (this.outroAt === Infinity || p <= this.exitPathTime) {
+      return this.motion.positionAt(p);
+    }
+    const distance = this.exitSpeed * (p - this.exitPathTime);
+    return {
+      x: this.exitPoint.x + this.exitDir.x * distance,
+      y: this.exitPoint.y + this.exitDir.y * distance,
+      z: this.exitPoint.z + this.exitDir.z * distance
+    };
+  }
+};
+
 // src/prefabs/ghost-train.ts
 function ghostTrain(options = {}) {
-  const motion = options.object?.motion ?? squareMotion({ size: 1.7, periodMs: 6800, tilt: 0.5 });
   const particles = options.particles ?? {};
-  const object = new ObjectMotionAnimation({
-    mesh: () => cube(1, ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"]),
-    motion,
-    size: 0.3,
-    transparency: { mode: "two-sided", opacity: 0.55 },
-    tail: { count: 4, gapMs: 240 },
-    backend: options.backend,
-    ...options.object,
-    label: options.object?.label
+  const train = new GhostTrainAnimation({
+    motion: options.object?.motion,
+    backend: options.backend
   });
   const trail = new ParticlesAnimation({
     rate: 30,
     lifeMs: 1700,
-    size: 0.13,
-    speed: 0.07,
+    size: 0.15,
+    speed: 0.11,
     colors: ["#e0f2fe", "#a5f3fc", "#c4b5fd"],
-    texture: particles.texture ?? starTexture(),
-    emitter: object.trailEmitter(),
-    outroMs: object.outroDurationMs,
+    texture: particles.texture ?? starTexture({ glow: 5 }),
+    emitter: train.trailEmitter(),
+    outroMs: train.outroDurationMs,
     seed: 17,
     backend: options.backend,
     ...particles,
     label: options.label ?? particles.label,
     fadeLabel: options.fadeLabel ?? particles.fadeLabel
   });
-  return progressSpinner(new CompositeAnimation([trail, object]), options);
+  return progressSpinner(new CompositeAnimation([trail, train]), options);
 }
 
 // src/animations/grid-assembly.ts
 var GRID = 5;
 var COUNT = GRID * GRID;
-var CAMERA_Z2 = 4;
-var FOV = 55 * Math.PI / 180;
+var CAMERA_Z3 = 4;
+var FOV2 = 55 * Math.PI / 180;
 var TWO_PI2 = Math.PI * 2;
 var INTRO_MS = 900;
 var INTRO_STAGGER_MS = 60;
+var INTRO_DONE_MS = (COUNT - 1) * INTRO_STAGGER_MS + INTRO_MS;
 var GATE_DOCK = 0.35;
 var GATE_UNDOCK = 0.65;
 var EXIT_HURRY2 = 2.5;
@@ -3000,20 +3181,16 @@ var SPIN_MS = 380;
 var SPIN_STAGGER_MS = 80;
 var HOLD_MS = 1e3;
 var COLLAPSE_MS = 700;
-var POP_MS = 170;
+var COLLAPSE_SPREAD_MS = 500;
+var POP_MS2 = 170;
 var LABEL_FADE_MS = 600;
-var DEFAULT_MESHES = [
-  () => cube(1, ["#60a5fa", "#3b82f6", "#2563eb", "#38bdf8", "#0ea5e9", "#1d4ed8"]),
-  () => tetrahedron(1, ["#f472b6", "#ec4899", "#db2777", "#f9a8d4"]),
-  () => octahedron(1, ["#34d399", "#10b981", "#059669", "#6ee7b7", "#a7f3d0", "#047857", "#4ade80", "#065f46"]),
-  () => pyramid(1, ["#fbbf24", "#f59e0b", "#d97706", "#fde68a", "#fcd34d"]),
-  () => icosphere(1, 1, ["#a78bfa", "#8b5cf6", "#7c3aed", "#c4b5fd"])
-];
-function clamp014(value) {
+var CUBE_COLORS = ["#8397c6", "#7186b8", "#6176a8", "#93a6cf", "#556a9c", "#7a8fc0"];
+var DEFAULT_MESHES = [() => cube(1, CUBE_COLORS)];
+function clamp015(value) {
   return Math.max(0, Math.min(1, value));
 }
 function smooth01(value) {
-  const x = clamp014(value);
+  const x = clamp015(value);
   return x * x * (3 - 2 * x);
 }
 function resolveMesh2(mesh) {
@@ -3036,6 +3213,9 @@ var GridAssemblyAnimation = class {
     this.dockedAt = new Array(COUNT).fill(Infinity);
     this.tumbleX = [];
     this.tumbleY = [];
+    this.collapseDelay = [];
+    this.popStarted = new Array(COUNT).fill(false);
+    this.maxCollapseDelay = 0;
     this.fades = [];
     this.slots = [];
     this.aspect = 16 / 9;
@@ -3044,7 +3224,6 @@ var GridAssemblyAnimation = class {
     this.allDockedAt = Infinity;
     this.collapseAt = Infinity;
     this.lastNow = 0;
-    this.popFading = false;
     this.finished = false;
     const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
     this.meshes = sources.map(resolveMesh2);
@@ -3061,13 +3240,15 @@ var GridAssemblyAnimation = class {
       this.slots.push({ x: (col - 2) * spacing, y: (2 - row) * spacing, z: 0 });
       this.tumbleX.push(TWO_PI2 * hash01(i, 2) - Math.PI);
       this.tumbleY.push(TWO_PI2 * hash01(i, 4) - Math.PI);
+      this.collapseDelay.push(hash01(i, 7) * COLLAPSE_SPREAD_MS);
     }
+    this.maxCollapseDelay = Math.max(...this.collapseDelay);
   }
   mount(target) {
     if (!target.style.position) target.style.position = "relative";
     const engine = new Little3dEngine({
       backend: this.backend,
-      camera: { position: { x: 0, y: 0, z: CAMERA_Z2 }, fov: FOV }
+      camera: { position: { x: 0, y: 0, z: CAMERA_Z3 }, fov: FOV2 }
     });
     for (let i = 0; i < COUNT; i++) {
       this.fades.push({ mode: "one-sided", opacity: 1 });
@@ -3122,7 +3303,7 @@ var GridAssemblyAnimation = class {
         COLLAPSE_MS
       ));
     }
-    if (this.collapseAt !== Infinity && now >= this.collapseAt + COLLAPSE_MS + POP_MS) {
+    if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS2) {
       this.finished = true;
     }
     this.engine.render();
@@ -3139,7 +3320,8 @@ var GridAssemblyAnimation = class {
   }
   updateBlends(dt, progress, now) {
     const exiting = this.exitAt !== Infinity;
-    const want = exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+    const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
+    const want = !ringComplete ? 0 : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
     const rate = dt / this.dockMs * (exiting ? EXIT_HURRY2 : 1);
     for (let i = 0; i < COUNT; i++) {
       const target = i < want ? 1 : 0;
@@ -3164,14 +3346,14 @@ var GridAssemblyAnimation = class {
   }
   renderStory(now, dt) {
     const t = now - this.enterAt;
-    const halfHeight = Math.tan(FOV / 2) * CAMERA_Z2;
+    const halfHeight = Math.tan(FOV2 / 2) * CAMERA_Z3;
     const halfWidth = halfHeight * this.aspect;
     const radius = Math.max(0.6, Math.min(halfWidth, halfHeight) - this.size * 0.55);
     const spawnFactor = (Math.max(halfWidth, halfHeight) * 1.25 + this.size * 2) / radius;
     for (let i = 0; i < COUNT; i++) {
       const transform2 = this.handles[i].transform;
       const eased = smooth01(this.blends[i]);
-      const introT = clamp014((t - i * INTRO_STAGGER_MS) / INTRO_MS);
+      const introT = clamp015((t - i * INTRO_STAGGER_MS) / INTRO_MS);
       const reach = 1 + (spawnFactor - 1) * (1 - easeOutCubic(introT));
       const angle = Math.PI / 2 - i / COUNT * TWO_PI2 - t / this.orbitPeriodMs * TWO_PI2;
       const orbitX = Math.cos(angle) * radius * reach;
@@ -3202,25 +3384,30 @@ var GridAssemblyAnimation = class {
     if (!this.captured) {
       this.captured = this.handles.map((handle) => ({ ...handle.transform.position }));
     }
-    const u = clamp014((now - this.collapseAt) / COLLAPSE_MS);
-    const pull = easeInCubic(u);
     for (let i = 0; i < COUNT; i++) {
       const transform2 = this.handles[i].transform;
       const from = this.captured[i];
+      const local = now - this.collapseAt - this.collapseDelay[i];
+      if (local <= 0) {
+        transform2.position.x = from.x;
+        transform2.position.y = from.y;
+        transform2.position.z = from.z;
+        transform2.scale = this.size;
+        continue;
+      }
+      const pull = easeInCubic(clamp015(local / COLLAPSE_MS));
       transform2.position.x = from.x * (1 - pull);
       transform2.position.y = from.y * (1 - pull);
       transform2.position.z = from.z * (1 - pull);
       transform2.scale = this.size * (1 - 0.99 * pull);
-    }
-    if (u >= 1) {
-      if (!this.popFading) {
-        this.popFading = true;
-        for (let i = 0; i < COUNT; i++) this.handles[i].transparency = this.fades[i];
-      }
-      const v = clamp014((now - this.collapseAt - COLLAPSE_MS) / POP_MS);
-      for (let i = 0; i < COUNT; i++) {
+      if (local >= COLLAPSE_MS) {
+        if (!this.popStarted[i]) {
+          this.popStarted[i] = true;
+          this.handles[i].transparency = this.fades[i];
+        }
+        const v = clamp015((local - COLLAPSE_MS) / POP_MS2);
         this.fades[i].opacity = 1 - v;
-        this.handles[i].transform.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
+        transform2.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
       }
     }
   }
@@ -3320,68 +3507,347 @@ function pulsingStarfield(options = {}) {
   }), options);
 }
 
-// src/motion/circle.ts
-function circleMotion(options = {}) {
-  const radius = options.radius ?? 1.3;
-  const periodMs = options.periodMs ?? 3e3;
-  const tilt = options.tilt ?? 0.5;
-  const direction = options.direction ?? 1;
-  const cosTilt = Math.cos(tilt);
-  const sinTilt = Math.sin(tilt);
-  return {
-    positionAt(t) {
-      const angle = direction * t / periodMs * Math.PI * 2;
-      const x = radius * Math.cos(angle);
-      const flatY = radius * Math.sin(angle);
-      return { x, y: flatY * cosTilt, z: flatY * sinTilt };
-    }
-  };
+// src/animations/rocket-launch.ts
+var ROCKETS = 20;
+var CAMERA_Z4 = 3;
+var FOV3 = 55 * Math.PI / 180;
+var HALF_HEIGHT2 = Math.tan(FOV3 / 2) * CAMERA_Z4;
+var SIZE = 0.12;
+var ROW_Y = -0.5;
+var PARTICLE_Z = 0.3;
+var SLIDE_MS = 460;
+var SLIDE_GATE = 0.45;
+var EXIT_HURRY3 = 2.5;
+var LAUNCH_SPREAD_MS = 620;
+var ASCENT_G = 5.2;
+var FINISH_PAD_MS = 2e3;
+var TURNERS = 3;
+var TURN_MIN_Y = 0.2;
+var TURN_MAX_Y = 0.8;
+var TURN_MIN_DEG = 30;
+var TURN_MAX_DEG = 50;
+var DEG = Math.PI / 180;
+var SMOKE_LIFE_MS = 1400;
+var SMOKE_GAP_MS = 320;
+var SMOKE_RISE = 0.55;
+var SMOKE_SIZE = 0.17;
+var SMOKE_PEAK = 0.16;
+var SMOKE_POOL = 104;
+var FIRE_LIFE_MS = 420;
+var FIRE_GAP_MS = 55;
+var FIRE_ON_MS = 950;
+var FIRE_TRAIL = 0.25;
+var FIRE_SPREAD = 0.09;
+var FIRE_SIZE = 0.15;
+var FIRE_PEAK = 0.9;
+var FIRE_POOL = 140;
+var SMOKE_COLORS = ["#e2e8f0", "#cbd5e1"];
+var FIRE_COLORS = ["#fef3c7", "#fde047", "#fb923c", "#ef4444"];
+var ROCKET_COLORS = ["#e2e8f0", "#f8fafc", "#cbd5e1", "#94a3b8", "#e2e8f0"];
+function clamp016(value) {
+  return Math.max(0, Math.min(1, value));
 }
+function smoothstep2(edge0, edge1, value) {
+  const x = clamp016((value - edge0) / (edge1 - edge0));
+  return x * x * (3 - 2 * x);
+}
+function hash012(index, salt) {
+  let h = (Math.imul(index + 1, 2654435769) ^ Math.imul(salt + 1, 2246822507)) >>> 0;
+  h = Math.imul(h ^ h >>> 16, 73244475);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function puffTexture(coreAlpha, coreStop) {
+  return canvasTexture((ctx) => {
+    const g = ctx.createRadialGradient(48, 48, 1, 48, 48, 47);
+    g.addColorStop(0, `rgba(255,255,255,${coreAlpha})`);
+    g.addColorStop(coreStop, `rgba(255,255,255,${coreAlpha * 0.6})`);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 96, 96);
+  });
+}
+var RocketLaunchAnimation = class {
+  constructor(options = {}) {
+    this.rockets = [];
+    this.smoke = [];
+    this.fire = [];
+    this.smokeFades = [];
+    this.fireFades = [];
+    this.blends = new Array(ROCKETS).fill(0);
+    this.groundedAt = new Array(ROCKETS).fill(Infinity);
+    // Per-rocket veer parameters (turnS = Infinity for a rocket that climbs straight).
+    this.turnS = new Array(ROCKETS).fill(Infinity);
+    this.turnDir = [];
+    this.turnRoll = new Array(ROCKETS).fill(0);
+    this.stagger = new Array(ROCKETS).fill(0);
+    this.aspect = 16 / 9;
+    this.enterAt = Infinity;
+    this.exitAt = Infinity;
+    this.launchedAt = Infinity;
+    this.lastNow = 0;
+    this.finished = false;
+    this.backend = options.backend;
+    this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
+    for (let i = 0; i < ROCKETS; i++) {
+      this.turnDir.push({ x: 0, y: 1 });
+      this.stagger[i] = hash012(i, 7) * LAUNCH_SPREAD_MS;
+    }
+    const order = Array.from({ length: ROCKETS }, (_, i) => i).sort(
+      (a, b) => hash012(a, 11) - hash012(b, 11)
+    );
+    for (const i of order.slice(0, TURNERS)) {
+      const height = TURN_MIN_Y + hash012(i, 12) * (TURN_MAX_Y - TURN_MIN_Y);
+      const angle = (TURN_MIN_DEG + hash012(i, 13) * (TURN_MAX_DEG - TURN_MIN_DEG)) * DEG;
+      const sign = hash012(i, 14) < 0.5 ? -1 : 1;
+      this.turnS[i] = height - ROW_Y;
+      this.turnDir[i] = { x: sign * Math.sin(angle), y: Math.cos(angle) };
+      this.turnRoll[i] = -sign * angle;
+    }
+  }
+  mount(target) {
+    if (!target.style.position) target.style.position = "relative";
+    const smokeMeshes = SMOKE_COLORS.map((color) => quad(1, [color]));
+    const fireMeshes = FIRE_COLORS.map((color) => quad(1, [color]));
+    const smokeTexture = puffTexture(0.85, 0.5);
+    const fireTexture = puffTexture(1, 0.32);
+    const backend = async (rendererOptions) => {
+      const renderer = this.backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(rendererOptions) : this.backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(rendererOptions) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(rendererOptions);
+      for (const mesh of smokeMeshes) renderer.setTexture(mesh, smokeTexture);
+      for (const mesh of fireMeshes) renderer.setTexture(mesh, fireTexture);
+      return renderer;
+    };
+    const engine = new Little3dEngine({
+      backend,
+      camera: { position: { x: 0, y: 0, z: CAMERA_Z4 }, fov: FOV3 }
+    });
+    const rocketMesh = pyramid(1, ROCKET_COLORS);
+    for (let i = 0; i < ROCKETS; i++) this.rockets.push(engine.add(rocketMesh, { scale: 0 }));
+    for (let s = 0; s < SMOKE_POOL; s++) {
+      const fade = { mode: "one-sided", opacity: 0 };
+      this.smokeFades.push(fade);
+      this.smoke.push(engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }));
+    }
+    for (let f = 0; f < FIRE_POOL; f++) {
+      const fade = { mode: "one-sided", opacity: 0 };
+      this.fireFades.push(fade);
+      this.fire.push(engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }));
+    }
+    this.engine = engine;
+    engine.mount(target).catch((error) => {
+      target.textContent = error instanceof Error ? error.message : String(error);
+    });
+    const measure = () => {
+      if (target.clientWidth > 0 && target.clientHeight > 0) {
+        this.aspect = target.clientWidth / target.clientHeight;
+      }
+    };
+    measure();
+    this.observer = new ResizeObserver(measure);
+    this.observer.observe(target);
+    this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
+  }
+  enter(now) {
+    if (this.enterAt === Infinity) this.enterAt = now;
+  }
+  exit(now) {
+    if (this.exitAt === Infinity) this.exitAt = now;
+  }
+  isFinished() {
+    return this.finished;
+  }
+  render(now, frame) {
+    if (!this.engine || !this.label) return;
+    for (const handle of this.rockets) handle.transform.scale = 0;
+    for (const fade of this.smokeFades) fade.opacity = 0;
+    for (const fade of this.fireFades) fade.opacity = 0;
+    for (const handle of this.smoke) handle.transform.scale = 0;
+    for (const handle of this.fire) handle.transform.scale = 0;
+    if (this.enterAt === Infinity) {
+      this.engine.render();
+      return;
+    }
+    const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
+    this.lastNow = now;
+    const exiting = this.exitAt !== Infinity;
+    this.updateBlends(dt, frame.progress, now, exiting);
+    if (exiting && this.launchedAt === Infinity && this.blends.every((blend) => blend >= 1)) {
+      this.launchedAt = now;
+    }
+    const launched = this.launchedAt !== Infinity;
+    const halfWidth = HALF_HEIGHT2 * this.aspect;
+    const rowHalf = Math.min(halfWidth * 0.8, 1.18);
+    const spawnX = halfWidth + 0.6;
+    let smokeCursor = 0;
+    let fireCursor = 0;
+    for (let i = 0; i < ROCKETS; i++) {
+      const homeX = -rowHalf + 2 * rowHalf * i / (ROCKETS - 1);
+      const launchAt = launched ? this.launchedAt + this.stagger[i] : Infinity;
+      const la = now - launchAt;
+      if (launched && la >= 0) {
+        this.renderAscent(i, homeX, la, halfWidth);
+        fireCursor = this.emitFire(i, homeX, la, fireCursor);
+        continue;
+      }
+      const blend = this.blends[i];
+      if (blend <= 0) continue;
+      const transform2 = this.rockets[i].transform;
+      transform2.position.x = spawnX + (homeX - spawnX) * easeOutBack(blend);
+      transform2.position.y = ROW_Y;
+      transform2.position.z = 0;
+      transform2.rotation.x = 0;
+      transform2.rotation.y = 0;
+      transform2.rotation.z = 0;
+      transform2.scale = SIZE * smoothstep2(0, 0.6, blend);
+      if (this.groundedAt[i] !== Infinity) {
+        smokeCursor = this.emitSmoke(i, homeX, now, launchAt, smokeCursor);
+      }
+    }
+    this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(
+        now,
+        this.enterAt,
+        SLIDE_MS,
+        this.launchedAt,
+        LAUNCH_SPREAD_MS
+      ));
+    }
+    if (launched && now >= this.launchedAt + LAUNCH_SPREAD_MS + FINISH_PAD_MS) {
+      this.finished = true;
+    }
+    this.engine.render();
+  }
+  destroy() {
+    this.observer?.disconnect();
+    this.observer = void 0;
+    this.label?.container.remove();
+    this.label = void 0;
+    this.engine?.destroy();
+    this.engine = void 0;
+    this.rockets.length = 0;
+    this.smoke.length = 0;
+    this.fire.length = 0;
+    this.smokeFades.length = 0;
+    this.fireFades.length = 0;
+  }
+  updateBlends(dt, progress, now, exiting) {
+    const want = exiting ? ROCKETS : Math.min(ROCKETS, Math.round(progress * ROCKETS));
+    const rate = dt / SLIDE_MS * (exiting ? EXIT_HURRY3 : 1);
+    for (let i = 0; i < ROCKETS; i++) {
+      const target = i < want ? 1 : 0;
+      const blend = this.blends[i];
+      if (target > blend && (i === 0 || this.blends[i - 1] >= SLIDE_GATE)) {
+        this.blends[i] = Math.min(1, blend + rate);
+      } else if (target < blend && (i === ROCKETS - 1 || this.blends[i + 1] <= 1 - SLIDE_GATE)) {
+        this.blends[i] = Math.max(0, blend - rate);
+      }
+      if (this.blends[i] >= 1) {
+        if (this.groundedAt[i] === Infinity) this.groundedAt[i] = now;
+      } else {
+        this.groundedAt[i] = Infinity;
+      }
+    }
+  }
+  /** Along-track distance climbed `la` ms after this rocket's own blast-off. */
+  ascentDistance(la) {
+    const seconds = la / 1e3;
+    return 0.5 * ASCENT_G * seconds * seconds;
+  }
+  /** Rocket center, nose direction, and roll `la` ms into its climb. */
+  ascentPose(i, homeX, la) {
+    const s = this.ascentDistance(la);
+    const turnS = this.turnS[i];
+    if (s <= turnS) {
+      return { pos: { x: homeX, y: ROW_Y + s }, dir: { x: 0, y: 1 }, roll: 0 };
+    }
+    const post = s - turnS;
+    const dir = this.turnDir[i];
+    return {
+      pos: { x: homeX + dir.x * post, y: ROW_Y + turnS + dir.y * post },
+      dir,
+      roll: this.turnRoll[i]
+    };
+  }
+  renderAscent(i, homeX, la, halfWidth) {
+    const { pos, roll } = this.ascentPose(i, homeX, la);
+    if (pos.y > HALF_HEIGHT2 + 0.4 || Math.abs(pos.x) > halfWidth + 0.4) return;
+    const transform2 = this.rockets[i].transform;
+    transform2.position.x = pos.x;
+    transform2.position.y = pos.y;
+    transform2.position.z = 0;
+    transform2.rotation.x = 0;
+    transform2.rotation.y = 0;
+    transform2.rotation.z = roll;
+    transform2.scale = SIZE;
+  }
+  emitFire(i, homeX, la, cursor) {
+    const gap = FIRE_GAP_MS;
+    const last = Math.min(Math.floor(la / gap), Math.floor(FIRE_ON_MS / gap));
+    const first = Math.max(0, Math.ceil((la - FIRE_LIFE_MS) / gap));
+    for (let n = first; n <= last; n++) {
+      if (cursor >= this.fire.length) return cursor;
+      const emitLa = n * gap;
+      const age = la - emitLa;
+      if (age < 0 || age >= FIRE_LIFE_MS) continue;
+      const life = age / FIRE_LIFE_MS;
+      const seconds = age / 1e3;
+      const pose = this.ascentPose(i, homeX, emitLa);
+      const back = { x: -pose.dir.x, y: -pose.dir.y };
+      const perp = { x: -pose.dir.y, y: pose.dir.x };
+      const lat = (hash012(i * 97 + n, 1) - 0.5) * FIRE_SPREAD;
+      const baseX = pose.pos.x + back.x * SIZE * 0.5;
+      const baseY = pose.pos.y + back.y * SIZE * 0.5;
+      const transform2 = this.fire[cursor].transform;
+      transform2.position.x = baseX + back.x * FIRE_TRAIL * seconds + perp.x * lat;
+      transform2.position.y = baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
+      transform2.position.z = PARTICLE_Z;
+      transform2.rotation.z = hash012(i * 97 + n, 2) * Math.PI * 2;
+      transform2.scale = FIRE_SIZE * (0.7 + 0.5 * hash012(i * 97 + n, 3)) * (1 - 0.55 * life);
+      this.fireFades[cursor].opacity = FIRE_PEAK * smoothstep2(0, 0.15, life) * (1 - smoothstep2(0.55, 1, life));
+      cursor++;
+    }
+    return cursor;
+  }
+  emitSmoke(i, homeX, now, launchAt, cursor) {
+    const start = this.groundedAt[i];
+    const tr = now - start;
+    const gap = SMOKE_GAP_MS;
+    const emitUntil = Number.isFinite(launchAt) ? launchAt - start : tr;
+    const last = Math.min(Math.floor(tr / gap), Math.floor(emitUntil / gap));
+    const first = Math.max(0, Math.ceil((tr - SMOKE_LIFE_MS) / gap));
+    const baseY = ROW_Y - SIZE * 0.4;
+    for (let n = first; n <= last; n++) {
+      if (cursor >= this.smoke.length) return cursor;
+      const age = tr - n * gap;
+      if (age < 0 || age >= SMOKE_LIFE_MS) continue;
+      const life = age / SMOKE_LIFE_MS;
+      const drift = (hash012(i * 131 + n, 1) - 0.5) * 0.14;
+      const transform2 = this.smoke[cursor].transform;
+      transform2.position.x = homeX + drift * life;
+      transform2.position.y = baseY + SMOKE_RISE * life;
+      transform2.position.z = PARTICLE_Z;
+      transform2.rotation.z = hash012(i * 131 + n, 2) * Math.PI * 2;
+      transform2.scale = SMOKE_SIZE * (0.5 + 0.8 * life) * (0.7 + 0.6 * hash012(i * 131 + n, 3));
+      this.smokeFades[cursor].opacity = SMOKE_PEAK * smoothstep2(0, 0.25, life) * (1 - smoothstep2(0.5, 1, life));
+      cursor++;
+    }
+    return cursor;
+  }
+};
 
 // src/prefabs/rocket-launch.ts
-var launchUp = ({ delta, position, velocity, durationMs }) => {
-  const coast = durationMs * delta * (1 - 0.5 * delta);
-  const climb = 5.5 * easeInCubic(delta);
-  return {
-    position: {
-      x: position.x + (velocity?.x ?? 0) * coast,
-      y: position.y + (velocity?.y ?? 0) * coast + climb,
-      z: position.z + (velocity?.z ?? 0) * coast
-    }
-  };
-};
 function rocketLaunch(options = {}) {
-  const motion = options.object?.motion ?? circleMotion({ radius: 0.55, periodMs: 7e3, tilt: 0.15 });
-  const particles = options.particles ?? {};
-  const object = new ObjectMotionAnimation({
-    mesh: () => pyramid(1, ["#e2e8f0", "#f8fafc", "#cbd5e1", "#94a3b8", "#e2e8f0"]),
-    motion,
-    size: 0.44,
-    facing: "+y",
-    outro: { transition: launchUp, durationMs: 1300 },
-    backend: options.backend,
-    ...options.object,
-    label: options.object?.label
-  });
-  const exhaust = new ParticlesAnimation({
-    rate: 46,
-    lifeMs: 1100,
-    size: 0.18,
-    speed: 0.5,
-    direction: { x: 0, y: -1, z: 0 },
-    spread: 0.3,
-    gravity: { x: 0, y: -0.6, z: 0 },
-    colors: ["#fde047", "#fb923c", "#ef4444", "#fef3c7"],
-    texture: particles.texture ?? shineTexture(),
-    emitter: object.trailEmitter(),
-    outroMs: object.outroDurationMs,
-    seed: 9,
-    backend: options.backend,
-    ...particles,
-    label: options.label ?? particles.label,
-    fadeLabel: options.fadeLabel ?? particles.fadeLabel
-  });
-  return progressSpinner(new CompositeAnimation([exhaust, object]), options);
+  return progressSpinner(
+    new RocketLaunchAnimation({
+      backend: options.backend,
+      label: options.label,
+      fadeLabel: options.fadeLabel
+    }),
+    options
+  );
 }
 
 // src/motion/wander.ts

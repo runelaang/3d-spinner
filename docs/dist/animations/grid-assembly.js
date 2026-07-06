@@ -1,5 +1,5 @@
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, cube, tetrahedron, octahedron, pyramid, icosphere, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, cube, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { easeInCubic, easeInOutCubic, easeOutCubic, } from "../engines/little-tween-engine/core/tweens.js";
 const GRID = 5;
 const COUNT = GRID * GRID;
@@ -8,6 +8,8 @@ const FOV = (55 * Math.PI) / 180;
 const TWO_PI = Math.PI * 2;
 const INTRO_MS = 900;
 const INTRO_STAGGER_MS = 60;
+// The orbit ring is fully formed once the last-staggered shape finishes flying in.
+const INTRO_DONE_MS = (COUNT - 1) * INTRO_STAGGER_MS + INTRO_MS;
 const GATE_DOCK = 0.35;
 const GATE_UNDOCK = 0.65;
 const EXIT_HURRY = 2.5;
@@ -16,15 +18,12 @@ const SPIN_MS = 380;
 const SPIN_STAGGER_MS = 80;
 const HOLD_MS = 1000;
 const COLLAPSE_MS = 700;
+const COLLAPSE_SPREAD_MS = 500; // shapes leave a little staggered, not all at once
 const POP_MS = 170;
 const LABEL_FADE_MS = 600;
-const DEFAULT_MESHES = [
-    () => cube(1, ["#60a5fa", "#3b82f6", "#2563eb", "#38bdf8", "#0ea5e9", "#1d4ed8"]),
-    () => tetrahedron(1, ["#f472b6", "#ec4899", "#db2777", "#f9a8d4"]),
-    () => octahedron(1, ["#34d399", "#10b981", "#059669", "#6ee7b7", "#a7f3d0", "#047857", "#4ade80", "#065f46"]),
-    () => pyramid(1, ["#fbbf24", "#f59e0b", "#d97706", "#fde68a", "#fcd34d"]),
-    () => icosphere(1, 1, ["#a78bfa", "#8b5cf6", "#7c3aed", "#c4b5fd"]),
-];
+// Every shape is the same pastel dark-blue cube; the six face tints give it depth.
+const CUBE_COLORS = ["#8397c6", "#7186b8", "#6176a8", "#93a6cf", "#556a9c", "#7a8fc0"];
+const DEFAULT_MESHES = [() => cube(1, CUBE_COLORS)];
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
 }
@@ -48,13 +47,14 @@ function hash01(index, salt) {
     return (h >>> 0) / 4294967296;
 }
 /**
- * A progress story in three acts: 25 shapes fly in and circle just inside the
- * view edge; as progress climbs they leave the orbit one by one and dock into
- * a 5x5 grid at the center (docked shapes idle with a staggered spin every two
- * seconds); at completion the finished grid holds for a second, then every
- * shape dives into the center while shrinking away and vanishes with a small
- * pop. Docking is driven by time-based blends toward per-shape targets, so a
- * progress jump in either direction stays smooth.
+ * A progress story in three acts: 25 pastel dark-blue cubes fly in and circle
+ * just inside the view edge, completing the full ring before any of them move;
+ * once the circle is complete they leave the orbit one by one as progress climbs
+ * and dock into a 5x5 grid at the center (docked cubes idle with a staggered
+ * spin every two seconds); at completion the finished grid holds for a second,
+ * then the cubes dive into the center a little staggered, shrinking away and
+ * vanishing with a small pop. Docking is driven by time-based blends toward
+ * per-shape targets, so a progress jump in either direction stays smooth.
  */
 export class GridAssemblyAnimation {
     constructor(options = {}) {
@@ -63,6 +63,9 @@ export class GridAssemblyAnimation {
         this.dockedAt = new Array(COUNT).fill(Infinity);
         this.tumbleX = [];
         this.tumbleY = [];
+        this.collapseDelay = [];
+        this.popStarted = new Array(COUNT).fill(false);
+        this.maxCollapseDelay = 0;
         this.fades = [];
         this.slots = [];
         this.aspect = 16 / 9;
@@ -71,7 +74,6 @@ export class GridAssemblyAnimation {
         this.allDockedAt = Infinity;
         this.collapseAt = Infinity;
         this.lastNow = 0;
-        this.popFading = false;
         this.finished = false;
         const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
         this.meshes = sources.map(resolveMesh);
@@ -88,7 +90,9 @@ export class GridAssemblyAnimation {
             this.slots.push({ x: (col - 2) * spacing, y: (2 - row) * spacing, z: 0 });
             this.tumbleX.push(TWO_PI * hash01(i, 2) - Math.PI);
             this.tumbleY.push(TWO_PI * hash01(i, 4) - Math.PI);
+            this.collapseDelay.push(hash01(i, 7) * COLLAPSE_SPREAD_MS);
         }
+        this.maxCollapseDelay = Math.max(...this.collapseDelay);
     }
     mount(target) {
         if (!target.style.position)
@@ -153,7 +157,7 @@ export class GridAssemblyAnimation {
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.enterAt, LABEL_FADE_MS, this.collapseAt, COLLAPSE_MS));
         }
-        if (this.collapseAt !== Infinity && now >= this.collapseAt + COLLAPSE_MS + POP_MS) {
+        if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
             this.finished = true;
         }
         this.engine.render();
@@ -170,7 +174,12 @@ export class GridAssemblyAnimation {
     }
     updateBlends(dt, progress, now) {
         const exiting = this.exitAt !== Infinity;
-        const want = exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+        // Hold every shape on the orbit until the ring is fully formed: no shape
+        // starts diving to its grid cell before the circle is complete.
+        const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
+        const want = !ringComplete
+            ? 0
+            : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
         const rate = (dt / this.dockMs) * (exiting ? EXIT_HURRY : 1);
         for (let i = 0; i < COUNT; i++) {
             const target = i < want ? 1 : 0;
@@ -241,27 +250,32 @@ export class GridAssemblyAnimation {
         if (!this.captured) {
             this.captured = this.handles.map((handle) => ({ ...handle.transform.position }));
         }
-        const u = clamp01((now - this.collapseAt) / COLLAPSE_MS);
-        const pull = easeInCubic(u);
+        // Each shape dives and pops on its own small delay, so the grid empties a
+        // little staggered instead of all at once.
         for (let i = 0; i < COUNT; i++) {
             const transform = this.handles[i].transform;
             const from = this.captured[i];
+            const local = now - this.collapseAt - this.collapseDelay[i];
+            if (local <= 0) {
+                transform.position.x = from.x;
+                transform.position.y = from.y;
+                transform.position.z = from.z;
+                transform.scale = this.size;
+                continue;
+            }
+            const pull = easeInCubic(clamp01(local / COLLAPSE_MS));
             transform.position.x = from.x * (1 - pull);
             transform.position.y = from.y * (1 - pull);
             transform.position.z = from.z * (1 - pull);
             transform.scale = this.size * (1 - 0.99 * pull);
-        }
-        if (u >= 1) {
-            if (!this.popFading) {
-                this.popFading = true;
-                for (let i = 0; i < COUNT; i++)
+            if (local >= COLLAPSE_MS) {
+                if (!this.popStarted[i]) {
+                    this.popStarted[i] = true;
                     this.handles[i].transparency = this.fades[i];
-            }
-            const v = clamp01((now - this.collapseAt - COLLAPSE_MS) / POP_MS);
-            for (let i = 0; i < COUNT; i++) {
+                }
+                const v = clamp01((local - COLLAPSE_MS) / POP_MS);
                 this.fades[i].opacity = 1 - v;
-                this.handles[i].transform.scale =
-                    v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
+                transform.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
             }
         }
     }

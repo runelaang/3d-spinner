@@ -59,7 +59,7 @@
     const demos = [
       {
         title: "Grid assembly",
-        story: "25 shapes circle the view edge, dock one by one into a 5x5 grid as progress climbs, hold for a beat at 100%, then dive into the center and pop away.",
+        story: "25 pastel dark-blue cubes circle the view edge, completing the full ring before any move; then they dock one by one into a 5x5 grid as progress climbs, hold for a beat at 100%, and dive into the center a little staggered before popping away.",
         code: `const spinner = createSpinner(target, gridAssembly());\nspinner.setProgress(0.4); // report progress as work completes`,
         create: () => gridAssembly({ backend: backend() }),
       },
@@ -71,13 +71,13 @@
       },
       {
         title: "Rocket launch",
-        story: "A silver rocket glides in and patrols a slow loop on a column of embers; at 100% it pitches up and blasts off the top of the view.",
+        story: "Every 5% a small rocket slides in from the right and lines up under the counter, idling on a wisp of smoke. At 100% the whole row blasts off in a loose stagger on columns of fire; partway up, three of them veer 30-50 degrees and streak away.",
         code: `const spinner = createSpinner(target, rocketLaunch());\nspinner.setProgress(0.4);`,
         create: () => rocketLaunch({ backend: backend() }),
       },
       {
         title: "Ghost train",
-        story: "A translucent convoy of ice cubes runs laps around a tilted track, shedding pale stars; at 100% the whole train flies off, cars following one by one.",
+        story: "A translucent train of ice cubes laps a tilted track, turning smoothly through the corners and shedding glowing stars. Every 2% attaches one more car, popping it in at the tail; at 100% the lead keeps going in its current direction and every car funnels through that same exit along the exact same path, accelerating clear of the view within four seconds.",
         code: `const spinner = createSpinner(target, ghostTrain());\nspinner.setProgress(0.4);`,
         create: () => ghostTrain({ backend: backend() }),
       },

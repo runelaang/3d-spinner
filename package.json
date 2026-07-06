@@ -1,6 +1,6 @@
 {
   "name": "3d-spinner",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "A lightweight, zero-dependency 3D spinner, loader, and progress indicator for JavaScript.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
@@ -119,7 +119,7 @@
     "type": "git",
     "url": "git+https://github.com/runelaang/3d-spinner.git"
   },
-  "homepage": "https://github.com/runelaang/3d-spinner#readme",
+  "homepage": "https://runelaang.github.io/3d-spinner/",
   "bugs": {
     "url": "https://github.com/runelaang/3d-spinner/issues"
   },

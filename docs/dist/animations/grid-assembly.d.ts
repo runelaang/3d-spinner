@@ -19,13 +19,14 @@ export interface GridAssemblyOptions {
     fadeLabel?: boolean;
 }
 /**
- * A progress story in three acts: 25 shapes fly in and circle just inside the
- * view edge; as progress climbs they leave the orbit one by one and dock into
- * a 5x5 grid at the center (docked shapes idle with a staggered spin every two
- * seconds); at completion the finished grid holds for a second, then every
- * shape dives into the center while shrinking away and vanishes with a small
- * pop. Docking is driven by time-based blends toward per-shape targets, so a
- * progress jump in either direction stays smooth.
+ * A progress story in three acts: 25 pastel dark-blue cubes fly in and circle
+ * just inside the view edge, completing the full ring before any of them move;
+ * once the circle is complete they leave the orbit one by one as progress climbs
+ * and dock into a 5x5 grid at the center (docked cubes idle with a staggered
+ * spin every two seconds); at completion the finished grid holds for a second,
+ * then the cubes dive into the center a little staggered, shrinking away and
+ * vanishing with a small pop. Docking is driven by time-based blends toward
+ * per-shape targets, so a progress jump in either direction stays smooth.
  */
 export declare class GridAssemblyAnimation implements SpinnerAnimation {
     private engine?;
@@ -36,6 +37,9 @@ export declare class GridAssemblyAnimation implements SpinnerAnimation {
     private readonly dockedAt;
     private readonly tumbleX;
     private readonly tumbleY;
+    private readonly collapseDelay;
+    private readonly popStarted;
+    private maxCollapseDelay;
     private readonly fades;
     private readonly slots;
     private readonly meshes;
@@ -52,7 +56,6 @@ export declare class GridAssemblyAnimation implements SpinnerAnimation {
     private collapseAt;
     private captured?;
     private lastNow;
-    private popFading;
     private finished;
     constructor(options?: GridAssemblyOptions);
     mount(target: HTMLElement): void;
