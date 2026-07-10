@@ -1,4 +1,4 @@
-import type { Mesh } from "../../../core/mesh.js";
+import { attachMaterial, type Material, type Mesh } from "../../../core/mesh.js";
 
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 
@@ -9,8 +9,14 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "
  * @param detail Tessellation level, `1` = simplest. Higher values add rings and
  *   segments. Defaults to `1`.
  * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function uvSphere(size = 1, detail = 1, colors: string[] = DEFAULT_COLORS): Mesh {
+export function uvSphere(
+  size = 1,
+  detail = 1,
+  colors: string[] = DEFAULT_COLORS,
+  material?: Material,
+): Mesh {
   const r = size / 2;
   const d = Math.max(1, Math.floor(detail));
   const slices = Math.max(4, d * 4);
@@ -53,5 +59,5 @@ export function uvSphere(size = 1, detail = 1, colors: string[] = DEFAULT_COLORS
     });
   }
 
-  return { vertices, faces };
+  return attachMaterial({ vertices, faces }, material);
 }

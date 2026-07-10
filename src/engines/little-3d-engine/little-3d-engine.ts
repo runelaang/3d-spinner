@@ -240,12 +240,13 @@ export { expandToTriangles } from "./core/geometry.js";
 export type {
   Mesh,
   Face,
+  Material,
   Transform,
   Transparency,
   OneSidedTransparency,
   TwoSidedTransparency,
 } from "./core/mesh.js";
-export { transform } from "./core/mesh.js";
+export { transform, attachMaterial } from "./core/mesh.js";
 export type {
   Backend,
   Renderer,

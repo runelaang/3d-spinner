@@ -20,14 +20,27 @@ export interface TriangleData {
   positions: Float32Array;
   normals: Float32Array;
   colors: Float32Array;
+  /**
+   * Per-vertex emissive (`Ke`) as linear `0..1` RGB, duplicated across each
+   * face's vertices. Faces with no material emit `(0,0,0)`, so a GPU shader can
+   * add this term unconditionally and unlit meshes stay identical.
+   */
+  emissives: Float32Array;
+  /**
+   * Per-vertex specular packed as 4 floats: `Ks` linear RGB in `xyz` and the
+   * `Ns` shininess exponent in `w`. Faces with no specular emit `(0,0,0,1)`, so
+   * the highlight term multiplies to zero and unlit meshes stay identical.
+   * Note the stride is 4 floats here, not 3 like the other arrays.
+   */
+  speculars: Float32Array;
   /** Number of vertices (positions.length / 3). */
   count: number;
 }
 
 /**
  * Triangulate a mesh into a non-indexed soup where every vertex carries its
- * face's normal and color. This is what GPU backends upload to render flat
- * shading without per-primitive state.
+ * face's normal, color, and emissive. This is what GPU backends upload to
+ * render flat shading without per-primitive state.
  */
 export function expandToTriangles(mesh: Mesh): TriangleData {
   let triangles = 0;
@@ -36,7 +49,10 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
   const positions = new Float32Array(triangles * 9);
   const normals = new Float32Array(triangles * 9);
   const colors = new Float32Array(triangles * 9);
+  const emissives = new Float32Array(triangles * 9);
+  const speculars = new Float32Array(triangles * 12);
   let o = 0;
+  let so = 0;
 
   for (const face of mesh.faces) {
     const v0 = mesh.vertices[face.indices[0]];
@@ -47,6 +63,17 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
     const cr = r / 255;
     const cg = g / 255;
     const cb = b / 255;
+    const emissive = face.material?.emissive;
+    const er = emissive ? emissive[0] : 0;
+    const eg = emissive ? emissive[1] : 0;
+    const eb = emissive ? emissive[2] : 0;
+    const specular = face.material?.specular;
+    const sr = specular ? specular[0] : 0;
+    const sg = specular ? specular[1] : 0;
+    const sb = specular ? specular[2] : 0;
+    // Ns only matters where Ks is non-zero; default the exponent to 1 (32 is
+    // the flat-shading default when a specular is present but Ns is omitted).
+    const sn = specular ? face.material?.shininess ?? 32 : 1;
 
     for (let k = 1; k < face.indices.length - 1; k++) {
       const tri = [face.indices[0], face.indices[k], face.indices[k + 1]];
@@ -61,12 +88,20 @@ export function expandToTriangles(mesh: Mesh): TriangleData {
         colors[o] = cr;
         colors[o + 1] = cg;
         colors[o + 2] = cb;
+        emissives[o] = er;
+        emissives[o + 1] = eg;
+        emissives[o + 2] = eb;
+        speculars[so] = sr;
+        speculars[so + 1] = sg;
+        speculars[so + 2] = sb;
+        speculars[so + 3] = sn;
         o += 3;
+        so += 4;
       }
     }
   }
 
-  return { positions, normals, colors, count: positions.length / 3 };
+  return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
 }
 
 function midpoint(a: Vec3, b: Vec3): Vec3 {
