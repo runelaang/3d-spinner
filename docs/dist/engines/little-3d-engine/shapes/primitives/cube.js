@@ -1,3 +1,4 @@
+import { attachMaterial } from "../../core/mesh.js";
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 /**
  * Build a cube mesh centered on the origin.
@@ -5,8 +6,9 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "
  * @param size Edge length. Defaults to `1`.
  * @param colors Six CSS colors, one per face (front, back, top, bottom, right, left).
  *   Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function cube(size = 1, colors = DEFAULT_COLORS) {
+export function cube(size = 1, colors = DEFAULT_COLORS, material) {
     const h = size / 2;
     const vertices = [
         { x: -h, y: -h, z: h },
@@ -26,5 +28,5 @@ export function cube(size = 1, colors = DEFAULT_COLORS) {
         { indices: [1, 5, 6, 2], color: colors[4 % colors.length] },
         { indices: [4, 0, 3, 7], color: colors[5 % colors.length] },
     ];
-    return { vertices, faces };
+    return attachMaterial({ vertices, faces }, material);
 }

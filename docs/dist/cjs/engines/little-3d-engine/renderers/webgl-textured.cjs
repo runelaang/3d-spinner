@@ -60,7 +60,10 @@ function expandToTriangles(mesh) {
   const positions = new Float32Array(triangles * 9);
   const normals = new Float32Array(triangles * 9);
   const colors = new Float32Array(triangles * 9);
+  const emissives = new Float32Array(triangles * 9);
+  const speculars = new Float32Array(triangles * 12);
   let o = 0;
+  let so = 0;
   for (const face of mesh.faces) {
     const v0 = mesh.vertices[face.indices[0]];
     const v1 = mesh.vertices[face.indices[1]];
@@ -70,6 +73,15 @@ function expandToTriangles(mesh) {
     const cr = r / 255;
     const cg = g / 255;
     const cb = b / 255;
+    const emissive = face.material?.emissive;
+    const er = emissive ? emissive[0] : 0;
+    const eg = emissive ? emissive[1] : 0;
+    const eb = emissive ? emissive[2] : 0;
+    const specular = face.material?.specular;
+    const sr = specular ? specular[0] : 0;
+    const sg = specular ? specular[1] : 0;
+    const sb = specular ? specular[2] : 0;
+    const sn = specular ? face.material?.shininess ?? 32 : 1;
     for (let k = 1; k < face.indices.length - 1; k++) {
       const tri = [face.indices[0], face.indices[k], face.indices[k + 1]];
       for (const index of tri) {
@@ -83,11 +95,19 @@ function expandToTriangles(mesh) {
         colors[o] = cr;
         colors[o + 1] = cg;
         colors[o + 2] = cb;
+        emissives[o] = er;
+        emissives[o + 1] = eg;
+        emissives[o + 2] = eb;
+        speculars[so] = sr;
+        speculars[so + 1] = sg;
+        speculars[so + 2] = sb;
+        speculars[so + 3] = sn;
         o += 3;
+        so += 4;
       }
     }
   }
-  return { positions, normals, colors, count: positions.length / 3 };
+  return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
 }
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
@@ -151,28 +171,51 @@ var init_webgl = __esm({
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aEmissive;
+in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vEmissive;
+out vec4 vSpecular;
+out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
-  gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+  vEmissive = aEmissive;
+  vSpecular = aSpecular;
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vWorldPos = world.xyz;
+  gl_Position = uViewProj * world;
 }`;
     FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vEmissive;
+in vec4 vSpecular;
+in vec3 vWorldPos;
 uniform vec3 uToLight;
+uniform vec3 uEye;
 uniform float uIntensity;
 uniform float uAmbient;
 uniform float uOpacity;
 out vec4 fragColor;
 void main() {
-  float lambert = max(dot(normalize(vNormal), normalize(uToLight)), 0.0);
+  vec3 normal = normalize(vNormal);
+  vec3 toLight = normalize(uToLight);
+  float lambert = max(dot(normal, toLight), 0.0);
   float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
-  fragColor = vec4(vColor * brightness, uOpacity);
+  vec3 lit = vColor * brightness;
+  if (lambert > 0.0) {
+    vec3 viewDir = normalize(uEye - vWorldPos);
+    vec3 halfVec = normalize(toLight + viewDir);
+    float highlight = pow(max(dot(normal, halfVec), 0.0), vSpecular.w) * uIntensity;
+    lit += highlight * vSpecular.xyz;
+  }
+  lit += vEmissive;
+  fragColor = vec4(lit, uOpacity);
 }`;
     WebGLRenderer = class {
       constructor(options = {}) {
@@ -193,9 +236,12 @@ void main() {
           aPos: gl.getAttribLocation(this.program, "aPos"),
           aNormal: gl.getAttribLocation(this.program, "aNormal"),
           aColor: gl.getAttribLocation(this.program, "aColor"),
+          aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
+          aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
           uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
           uModel: gl.getUniformLocation(this.program, "uModel"),
           uToLight: gl.getUniformLocation(this.program, "uToLight"),
+          uEye: gl.getUniformLocation(this.program, "uEye"),
           uIntensity: gl.getUniformLocation(this.program, "uIntensity"),
           uAmbient: gl.getUniformLocation(this.program, "uAmbient"),
           uOpacity: gl.getUniformLocation(this.program, "uOpacity")
@@ -219,17 +265,19 @@ void main() {
         const data = expandToTriangles(mesh);
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
-        const attribute = (location, array) => {
+        const attribute = (location, array, size = 3) => {
           if (location < 0) return;
           const buffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
           gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
           gl.enableVertexAttribArray(location);
-          gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 0, 0);
+          gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
         };
         attribute(loc.aPos, data.positions);
         attribute(loc.aNormal, data.normals);
         attribute(loc.aColor, data.colors);
+        attribute(loc.aEmissive, data.emissives);
+        attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);
         const result = { vao, count: data.count };
         this.cache.set(mesh, result);
@@ -244,6 +292,7 @@ void main() {
         gl.useProgram(this.program);
         gl.uniformMatrix4fv(loc.uViewProj, false, new Float32Array(frame.viewProjection));
         gl.uniform3f(loc.uToLight, frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z);
+        gl.uniform3f(loc.uEye, frame.eye.x, frame.eye.y, frame.eye.z);
         gl.uniform1f(loc.uIntensity, frame.light.intensity);
         gl.uniform1f(loc.uAmbient, frame.light.ambient);
         gl.disable(gl.BLEND);

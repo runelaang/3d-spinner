@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner and beyond - shading</title>
+  <link rel="stylesheet" href="/3d-spinner/examples/examples.css" />
+  <script src="/3d-spinner/examples/theme.js"></script>
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/3d-spinner/examples/prefabs.html">Prefabs</a>
+    <a href="/3d-spinner/examples/prefabs-progress.html">Progress prefabs</a>
+    <a href="/3d-spinner/examples/shapes.html">Shapes</a>
+    <a href="/3d-spinner/examples/shading.html" class="active">Shading</a>
+    <a href="/3d-spinner/examples/spinner-types.html">Spinner types</a>
+    <a href="/3d-spinner/examples/motion.html">Motion</a>
+    <a href="/3d-spinner/examples/particles.html">Particles</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Auto</button>
+  </nav>
+
+  <h1>3d-spinner and beyond: shading &amp; materials</h1>
+
+  <p class="note">
+    Every shape takes an optional <code>material</code> (specular <code>Ks</code>/<code>Ns</code> and
+    emissive <code>Ke</code>), applied to all its faces. Flat shading is the baseline; a material
+    layers a Blinn-Phong highlight and an additive glow on top. Specular reads best on the WebGL and
+    WebGPU backends (per-pixel highlight); Canvas 2D approximates it per face.
+  </p>
+
+  <div class="controls">
+    <button id="restart">Restart</button>
+    <button id="stop">Stop</button>
+    <label for="render-tech">
+      <span>Render tech</span>
+      <select id="render-tech" autocomplete="off">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="section-head">
+    <h2>Material presets</h2>
+  </div>
+
+  <div class="spinner-grid" id="preset-grid"></div>
+
+  <div class="section-head">
+    <h2>Playground</h2>
+  </div>
+
+  <div class="spinner-grid">
+    <section class="spinner-card" style="grid-column: span 2;">
+      <div class="controls">
+        <label for="pg-shape">
+          <span>Shape</span>
+          <select id="pg-shape" autocomplete="off">
+            <option value="icosphere" selected>Icosphere</option>
+            <option value="cubeSphere">Cube sphere</option>
+            <option value="octahedron">Octahedron</option>
+            <option value="cube">Cube</option>
+          </select>
+        </label>
+        <label for="pg-specular">
+          <span>Specular</span>
+          <input id="pg-specular" type="range" min="0" max="1" step="0.05" value="0.8" autocomplete="off" />
+          <output id="pg-specular-value" for="pg-specular">0.80</output>
+        </label>
+        <label for="pg-shininess">
+          <span>Shininess (Ns)</span>
+          <input id="pg-shininess" type="range" min="1" max="200" step="1" value="40" autocomplete="off" />
+          <output id="pg-shininess-value" for="pg-shininess">40</output>
+        </label>
+        <label for="pg-emissive">
+          <span>Emissive</span>
+          <input id="pg-emissive" type="range" min="0" max="1" step="0.05" value="0" autocomplete="off" />
+          <output id="pg-emissive-value" for="pg-emissive">0.00</output>
+        </label>
+        <label for="pg-emissive-color">
+          <span>Emissive color</span>
+          <input id="pg-emissive-color" type="color" value="#22d3ee" autocomplete="off" />
+        </label>
+      </div>
+      <div id="stage-playground" class="stage"></div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { createSpinner } from "/3d-spinner/dist/index.js";
+    import { SpinAnimation } from "/3d-spinner/dist/animations/spin.js";
+    import {
+      cube,
+      octahedron,
+      icosphere,
+      cubeSphere,
+    } from "/3d-spinner/dist/engines/little-3d-engine/little-3d-engine.js";
+
+    // One neutral base color across presets so only the material differs.
+    const BASE = "#4b6584";
+
+    const presets = [
+      { title: "Matte (no material)", material: undefined },
+      { title: "Emissive glow (Ke)", material: { emissive: [0, 0.55, 0.75] } },
+      { title: "Soft sheen (Ns 6)", material: { specular: [1, 1, 1], shininess: 6 } },
+      { title: "Tight highlight (Ns 120)", material: { specular: [1, 1, 1], shininess: 120 } },
+      { title: "Gold specular", material: { specular: [1, 0.78, 0.34], shininess: 40 } },
+      {
+        title: "Emissive + specular",
+        material: { specular: [1, 1, 1], shininess: 60, emissive: [0.35, 0, 0.35] },
+      },
+    ];
+
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+
+    // --- preset cards ---
+    const presetGrid = document.getElementById("preset-grid");
+    const presetCards = presets.map((preset) => {
+      const card = document.createElement("section");
+      card.className = "spinner-card";
+      const h2 = document.createElement("h2");
+      h2.textContent = preset.title;
+      const stage = document.createElement("div");
+      stage.className = "stage";
+      card.append(h2, stage);
+      presetGrid.append(card);
+      return { preset, stage };
+    });
+
+    // --- playground ---
+    const pgShape = document.getElementById("pg-shape");
+    const pgSpecular = document.getElementById("pg-specular");
+    const pgShininess = document.getElementById("pg-shininess");
+    const pgEmissive = document.getElementById("pg-emissive");
+    const pgEmissiveColor = document.getElementById("pg-emissive-color");
+    const pgStage = document.getElementById("stage-playground");
+
+    const hexToRgb = (hex) => {
+      const n = parseInt(hex.slice(1), 16);
+      return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
+    };
+
+    const shapeFactory = (name, material) => {
+      switch (name) {
+        case "cube":
+          return () => cube(1.7, [BASE], material);
+        case "octahedron":
+          return () => octahedron(1.7, [BASE], material);
+        case "cubeSphere":
+          return () => cubeSphere(1.7, 3, [BASE], material);
+        case "icosphere":
+        default:
+          return () => icosphere(1.7, 3, [BASE], material);
+      }
+    };
+
+    const playgroundMaterial = () => {
+      const spec = Number(pgSpecular.value);
+      const emLevel = Number(pgEmissive.value);
+      const [er, eg, eb] = hexToRgb(pgEmissiveColor.value);
+      return {
+        specular: [spec, spec, spec],
+        shininess: Number(pgShininess.value),
+        emissive: [er * emLevel, eg * emLevel, eb * emLevel],
+      };
+    };
+
+    // Reflect slider values in their outputs.
+    const outputs = [
+      [pgSpecular, document.getElementById("pg-specular-value"), (v) => v.toFixed(2)],
+      [pgShininess, document.getElementById("pg-shininess-value"), (v) => String(v)],
+      [pgEmissive, document.getElementById("pg-emissive-value"), (v) => v.toFixed(2)],
+    ];
+    const syncOutputs = () => {
+      for (const [input, out, fmt] of outputs) out.value = fmt(Number(input.value));
+    };
+
+    let presetSpinners = [];
+    let playground;
+    const allSpinners = () => (playground ? [...presetSpinners, playground] : presetSpinners);
+
+    function mountPresets() {
+      presetSpinners = presetCards.map(({ preset, stage }) => {
+        stage.innerHTML = "";
+        return createSpinner(stage, {
+          animation: new SpinAnimation({
+            shape: () => icosphere(1.7, 3),
+            color: BASE,
+            material: preset.material,
+            backend: backend(),
+            spinX: 0.0009,
+            spinY: 0.0013,
+          }),
+        });
+      });
+    }
+
+    function mountPlayground() {
+      pgStage.innerHTML = "";
+      const material = playgroundMaterial();
+      playground = createSpinner(pgStage, {
+        animation: new SpinAnimation({
+          shape: shapeFactory(pgShape.value, material),
+          color: BASE,
+          backend: backend(),
+          spinX: 0.0009,
+          spinY: 0.0013,
+        }),
+      });
+    }
+
+    function mountAll() {
+      allSpinners().forEach((s) => s.destroy());
+      syncOutputs();
+      mountPresets();
+      mountPlayground();
+    }
+
+    function remountPlayground() {
+      syncOutputs();
+      playground?.destroy();
+      mountPlayground();
+    }
+
+    renderTech.onchange = () => mountAll();
+    document.getElementById("restart").onclick = () => mountAll();
+    document.getElementById("stop").onclick = () => allSpinners().forEach((s) => s.stop());
+    for (const el of [pgShape, pgSpecular, pgShininess, pgEmissive, pgEmissiveColor]) {
+      el.oninput = () => remountPlayground();
+    }
+
+    mountAll();
+  </script>
+</body>
+
+</html>

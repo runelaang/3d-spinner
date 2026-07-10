@@ -1,7 +1,13 @@
+import { attachMaterial } from "../../core/mesh.js";
 const DEFAULT_COLORS = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#f8fafc"];
-/** Build a low-poly plane mesh pointing along the positive X axis. */
-export function planeMesh(colors = DEFAULT_COLORS) {
-    return {
+/**
+ * Build a low-poly plane mesh pointing along the positive X axis.
+ *
+ * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
+ */
+export function planeMesh(colors = DEFAULT_COLORS, material) {
+    return attachMaterial({
         vertices: [
             { x: 0.9, y: 0, z: 0 },
             { x: -0.2, y: 0, z: 0.82 },
@@ -29,5 +35,5 @@ export function planeMesh(colors = DEFAULT_COLORS) {
             { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS[0] },
             { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS[1] },
         ],
-    };
+    }, material);
 }

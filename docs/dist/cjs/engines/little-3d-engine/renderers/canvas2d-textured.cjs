@@ -107,13 +107,42 @@ var init_geometry = __esm({
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
 }
-function shadeColor(normal, color, light) {
+function clamp255(value) {
+  return Math.round(Math.min(255, Math.max(0, value)));
+}
+function shade(normal, color, light, surface) {
   const lambert = Math.max(0, dot(normal, light.toLight));
   const brightness = clamp01(light.ambient + light.intensity * lambert);
-  const [r, g, b] = parseColor(color);
-  return `rgb(${Math.round(r * brightness)}, ${Math.round(g * brightness)}, ${Math.round(
-    b * brightness
-  )})`;
+  const [baseR, baseG, baseB] = parseColor(color);
+  let r = baseR * brightness;
+  let g = baseG * brightness;
+  let b = baseB * brightness;
+  const material = surface?.material;
+  const specular = material?.specular;
+  const viewDir = surface?.viewDir;
+  if (specular && viewDir && lambert > 0) {
+    const half = normalize({
+      x: light.toLight.x + viewDir.x,
+      y: light.toLight.y + viewDir.y,
+      z: light.toLight.z + viewDir.z
+    });
+    const shininess = material?.shininess ?? 32;
+    const highlight = Math.pow(Math.max(0, dot(normal, half)), shininess) * light.intensity * 255;
+    r += highlight * specular[0];
+    g += highlight * specular[1];
+    b += highlight * specular[2];
+  }
+  const emissive = material?.emissive;
+  if (emissive) {
+    r += emissive[0] * 255;
+    g += emissive[1] * 255;
+    b += emissive[2] * 255;
+  }
+  return [clamp255(r), clamp255(g), clamp255(b)];
+}
+function shadeColor(normal, color, light, surface) {
+  const [r, g, b] = shade(normal, color, light, surface);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 var init_light = __esm({
   "src/engines/little-3d-engine/core/light.ts"() {
@@ -183,9 +212,30 @@ var init_canvas2d = __esm({
               depth += dot(d, d);
             }
             depth /= face.indices.length;
+            let surface;
+            const material = face.material;
+            if (material) {
+              if (material.specular) {
+                let cx = 0;
+                let cy = 0;
+                let cz = 0;
+                for (const i of face.indices) {
+                  cx += world[i].x;
+                  cy += world[i].y;
+                  cz += world[i].z;
+                }
+                const inv = 1 / face.indices.length;
+                const viewDir = normalize(
+                  subtract(frame.eye, { x: cx * inv, y: cy * inv, z: cz * inv })
+                );
+                surface = { material, viewDir };
+              } else {
+                surface = { material };
+              }
+            }
             polygons.push({
               points,
-              color: shadeColor(normal, face.color, frame.light),
+              color: shadeColor(normal, face.color, frame.light, surface),
               depth,
               opacity: faceOpacity
             });

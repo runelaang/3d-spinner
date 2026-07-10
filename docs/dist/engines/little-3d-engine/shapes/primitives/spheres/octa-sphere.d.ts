@@ -1,4 +1,4 @@
-import type { Mesh } from "../../../core/mesh.js";
+import { type Material, type Mesh } from "../../../core/mesh.js";
 /**
  * Build an octa-sphere (subdivided octahedron) centered on the origin.
  *
@@ -6,5 +6,6 @@ import type { Mesh } from "../../../core/mesh.js";
  * @param detail Subdivision level, `1` = base octahedron (8 faces). Each level
  *   splits every triangle into four. Defaults to `1`.
  * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export declare function octaSphere(size?: number, detail?: number, colors?: string[]): Mesh;
+export declare function octaSphere(size?: number, detail?: number, colors?: string[], material?: Material): Mesh;

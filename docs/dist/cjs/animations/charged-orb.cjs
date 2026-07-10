@@ -136,7 +136,10 @@ function expandToTriangles(mesh) {
   const positions = new Float32Array(triangles * 9);
   const normals = new Float32Array(triangles * 9);
   const colors = new Float32Array(triangles * 9);
+  const emissives = new Float32Array(triangles * 9);
+  const speculars = new Float32Array(triangles * 12);
   let o = 0;
+  let so = 0;
   for (const face of mesh.faces) {
     const v0 = mesh.vertices[face.indices[0]];
     const v1 = mesh.vertices[face.indices[1]];
@@ -146,6 +149,15 @@ function expandToTriangles(mesh) {
     const cr = r / 255;
     const cg = g / 255;
     const cb = b / 255;
+    const emissive = face.material?.emissive;
+    const er = emissive ? emissive[0] : 0;
+    const eg = emissive ? emissive[1] : 0;
+    const eb = emissive ? emissive[2] : 0;
+    const specular = face.material?.specular;
+    const sr = specular ? specular[0] : 0;
+    const sg = specular ? specular[1] : 0;
+    const sb = specular ? specular[2] : 0;
+    const sn = specular ? face.material?.shininess ?? 32 : 1;
     for (let k = 1; k < face.indices.length - 1; k++) {
       const tri = [face.indices[0], face.indices[k], face.indices[k + 1]];
       for (const index of tri) {
@@ -159,11 +171,19 @@ function expandToTriangles(mesh) {
         colors[o] = cr;
         colors[o + 1] = cg;
         colors[o + 2] = cb;
+        emissives[o] = er;
+        emissives[o + 1] = eg;
+        emissives[o + 2] = eb;
+        speculars[so] = sr;
+        speculars[so + 1] = sg;
+        speculars[so + 2] = sb;
+        speculars[so + 3] = sn;
         o += 3;
+        so += 4;
       }
     }
   }
-  return { positions, normals, colors, count: positions.length / 3 };
+  return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
 }
 function midpoint(a, b) {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
@@ -201,13 +221,42 @@ var init_geometry = __esm({
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
 }
-function shadeColor(normal, color, light) {
+function clamp255(value) {
+  return Math.round(Math.min(255, Math.max(0, value)));
+}
+function shade(normal, color, light, surface) {
   const lambert = Math.max(0, dot(normal, light.toLight));
   const brightness = clamp01(light.ambient + light.intensity * lambert);
-  const [r, g, b] = parseColor(color);
-  return `rgb(${Math.round(r * brightness)}, ${Math.round(g * brightness)}, ${Math.round(
-    b * brightness
-  )})`;
+  const [baseR, baseG, baseB] = parseColor(color);
+  let r = baseR * brightness;
+  let g = baseG * brightness;
+  let b = baseB * brightness;
+  const material = surface?.material;
+  const specular = material?.specular;
+  const viewDir = surface?.viewDir;
+  if (specular && viewDir && lambert > 0) {
+    const half = normalize({
+      x: light.toLight.x + viewDir.x,
+      y: light.toLight.y + viewDir.y,
+      z: light.toLight.z + viewDir.z
+    });
+    const shininess = material?.shininess ?? 32;
+    const highlight = Math.pow(Math.max(0, dot(normal, half)), shininess) * light.intensity * 255;
+    r += highlight * specular[0];
+    g += highlight * specular[1];
+    b += highlight * specular[2];
+  }
+  const emissive = material?.emissive;
+  if (emissive) {
+    r += emissive[0] * 255;
+    g += emissive[1] * 255;
+    b += emissive[2] * 255;
+  }
+  return [clamp255(r), clamp255(g), clamp255(b)];
+}
+function shadeColor(normal, color, light, surface) {
+  const [r, g, b] = shade(normal, color, light, surface);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 var DEFAULTS2, Light;
 var init_light = __esm({
@@ -230,8 +279,8 @@ var init_light = __esm({
         };
       }
       /** Convenience wrapper around {@link shadeColor} using this light. */
-      shade(normal, color) {
-        return shadeColor(normal, color, this.params);
+      shade(normal, color, surface) {
+        return shadeColor(normal, color, this.params, surface);
       }
     };
   }
@@ -271,28 +320,51 @@ var init_webgl = __esm({
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aEmissive;
+in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vEmissive;
+out vec4 vSpecular;
+out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
-  gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+  vEmissive = aEmissive;
+  vSpecular = aSpecular;
+  vec4 world = uModel * vec4(aPos, 1.0);
+  vWorldPos = world.xyz;
+  gl_Position = uViewProj * world;
 }`;
     FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vEmissive;
+in vec4 vSpecular;
+in vec3 vWorldPos;
 uniform vec3 uToLight;
+uniform vec3 uEye;
 uniform float uIntensity;
 uniform float uAmbient;
 uniform float uOpacity;
 out vec4 fragColor;
 void main() {
-  float lambert = max(dot(normalize(vNormal), normalize(uToLight)), 0.0);
+  vec3 normal = normalize(vNormal);
+  vec3 toLight = normalize(uToLight);
+  float lambert = max(dot(normal, toLight), 0.0);
   float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
-  fragColor = vec4(vColor * brightness, uOpacity);
+  vec3 lit = vColor * brightness;
+  if (lambert > 0.0) {
+    vec3 viewDir = normalize(uEye - vWorldPos);
+    vec3 halfVec = normalize(toLight + viewDir);
+    float highlight = pow(max(dot(normal, halfVec), 0.0), vSpecular.w) * uIntensity;
+    lit += highlight * vSpecular.xyz;
+  }
+  lit += vEmissive;
+  fragColor = vec4(lit, uOpacity);
 }`;
     WebGLRenderer = class {
       constructor(options = {}) {
@@ -313,9 +385,12 @@ void main() {
           aPos: gl.getAttribLocation(this.program, "aPos"),
           aNormal: gl.getAttribLocation(this.program, "aNormal"),
           aColor: gl.getAttribLocation(this.program, "aColor"),
+          aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
+          aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
           uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
           uModel: gl.getUniformLocation(this.program, "uModel"),
           uToLight: gl.getUniformLocation(this.program, "uToLight"),
+          uEye: gl.getUniformLocation(this.program, "uEye"),
           uIntensity: gl.getUniformLocation(this.program, "uIntensity"),
           uAmbient: gl.getUniformLocation(this.program, "uAmbient"),
           uOpacity: gl.getUniformLocation(this.program, "uOpacity")
@@ -339,17 +414,19 @@ void main() {
         const data = expandToTriangles(mesh);
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
-        const attribute = (location, array) => {
+        const attribute = (location, array, size = 3) => {
           if (location < 0) return;
           const buffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
           gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
           gl.enableVertexAttribArray(location);
-          gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 0, 0);
+          gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
         };
         attribute(loc.aPos, data.positions);
         attribute(loc.aNormal, data.normals);
         attribute(loc.aColor, data.colors);
+        attribute(loc.aEmissive, data.emissives);
+        attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);
         const result = { vao, count: data.count };
         this.cache.set(mesh, result);
@@ -364,6 +441,7 @@ void main() {
         gl.useProgram(this.program);
         gl.uniformMatrix4fv(loc.uViewProj, false, new Float32Array(frame.viewProjection));
         gl.uniform3f(loc.uToLight, frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z);
+        gl.uniform3f(loc.uEye, frame.eye.x, frame.eye.y, frame.eye.z);
         gl.uniform1f(loc.uIntensity, frame.light.intensity);
         gl.uniform1f(loc.uAmbient, frame.light.ambient);
         gl.disable(gl.BLEND);
@@ -438,6 +516,7 @@ struct Uniforms {
   model: mat4x4<f32>,
   toLight: vec4<f32>,
   params: vec4<f32>,
+  eye: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -445,23 +524,40 @@ struct VSOut {
   @builtin(position) position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) color: vec3<f32>,
+  @location(2) emissive: vec3<f32>,
+  @location(3) specular: vec4<f32>,
+  @location(4) worldPos: vec3<f32>,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>) -> VSOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>, @location(4) specular: vec4<f32>) -> VSOut {
   var out: VSOut;
   let m = mat3x3<f32>(u.model[0].xyz, u.model[1].xyz, u.model[2].xyz);
   out.normal = m * normal;
   out.color = color;
-  out.position = u.viewProj * u.model * vec4<f32>(pos, 1.0);
+  out.emissive = emissive;
+  out.specular = specular;
+  let world = u.model * vec4<f32>(pos, 1.0);
+  out.worldPos = world.xyz;
+  out.position = u.viewProj * world;
   return out;
 }
 
 @fragment
 fn fs(in: VSOut) -> @location(0) vec4<f32> {
-  let lambert = max(dot(normalize(in.normal), normalize(u.toLight.xyz)), 0.0);
+  let normal = normalize(in.normal);
+  let toLight = normalize(u.toLight.xyz);
+  let lambert = max(dot(normal, toLight), 0.0);
   let brightness = clamp(u.params.y + u.params.x * lambert, 0.0, 1.0);
-  return vec4<f32>(in.color * brightness, u.params.z);
+  var lit = in.color * brightness;
+  if (lambert > 0.0) {
+    let viewDir = normalize(u.eye.xyz - in.worldPos);
+    let halfVec = normalize(toLight + viewDir);
+    let highlight = pow(max(dot(normal, halfVec), 0.0), in.specular.w) * u.params.x;
+    lit = lit + highlight * in.specular.xyz;
+  }
+  lit = lit + in.emissive;
+  return vec4<f32>(lit, u.params.z);
 }
 `;
     CLIP_Z_FIX = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1];
@@ -502,13 +598,15 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             {
               binding: 0,
               visibility: stage.VERTEX | stage.FRAGMENT,
-              buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: 160 }
+              buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: 176 }
             }
           ]
         });
-        const vertexBuffer = (location) => ({
-          arrayStride: 12,
-          attributes: [{ shaderLocation: location, offset: 0, format: "float32x3" }]
+        const vertexBuffer = (location, components = 3) => ({
+          arrayStride: components * 4,
+          attributes: [
+            { shaderLocation: location, offset: 0, format: `float32x${components}` }
+          ]
         });
         const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
         const blend = {
@@ -524,7 +622,13 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           vertex: {
             module: module2,
             entryPoint: "vs",
-            buffers: [vertexBuffer(0), vertexBuffer(1), vertexBuffer(2)]
+            buffers: [
+              vertexBuffer(0),
+              vertexBuffer(1),
+              vertexBuffer(2),
+              vertexBuffer(3),
+              vertexBuffer(4, 4)
+            ]
           },
           fragment: {
             module: module2,
@@ -577,6 +681,8 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           position: upload(data.positions),
           normal: upload(data.normals),
           color: upload(data.colors),
+          emissive: upload(data.emissives),
+          specular: upload(data.speculars),
           count: data.count
         };
         this.cache.set(mesh, result);
@@ -628,7 +734,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         const bindGroup = this.device.createBindGroup({
           layout,
           entries: [
-            { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 160 } }
+            { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 176 } }
           ]
         });
         draws.forEach((draw, i) => {
@@ -637,6 +743,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           data.set(draw.item.model, 16);
           data.set([frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z, 0], 32);
           data.set([frame.light.intensity, frame.light.ambient, draw.opacity, 0], 36);
+          data.set([frame.eye.x, frame.eye.y, frame.eye.z, 0], 40);
           this.device.queue.writeBuffer(this.uniformBuffer, i * UNIFORM_STRIDE, data);
         });
         const encoder = this.device.createCommandEncoder();
@@ -663,6 +770,8 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           pass.setVertexBuffer(0, mesh.position);
           pass.setVertexBuffer(1, mesh.normal);
           pass.setVertexBuffer(2, mesh.color);
+          pass.setVertexBuffer(3, mesh.emissive);
+          pass.setVertexBuffer(4, mesh.specular);
           pass.draw(mesh.count);
         });
         pass.end();
@@ -674,6 +783,8 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           mesh.position.destroy?.();
           mesh.normal.destroy?.();
           mesh.color.destroy?.();
+          mesh.emissive.destroy?.();
+          mesh.specular.destroy?.();
         }
         this.cache.clear();
         this.uniformBuffer?.destroy?.();
@@ -756,9 +867,30 @@ var init_canvas2d = __esm({
               depth += dot(d, d);
             }
             depth /= face.indices.length;
+            let surface;
+            const material = face.material;
+            if (material) {
+              if (material.specular) {
+                let cx = 0;
+                let cy = 0;
+                let cz = 0;
+                for (const i of face.indices) {
+                  cx += world[i].x;
+                  cy += world[i].y;
+                  cz += world[i].z;
+                }
+                const inv = 1 / face.indices.length;
+                const viewDir = normalize(
+                  subtract(frame.eye, { x: cx * inv, y: cy * inv, z: cz * inv })
+                );
+                surface = { material, viewDir };
+              } else {
+                surface = { material };
+              }
+            }
             polygons.push({
               points,
-              color: shadeColor(normal, face.color, frame.light),
+              color: shadeColor(normal, face.color, frame.light, surface),
               depth,
               opacity: faceOpacity
             });
@@ -888,6 +1020,12 @@ init_light();
 init_math();
 
 // src/engines/little-3d-engine/core/mesh.ts
+function attachMaterial(mesh, material) {
+  if (material) {
+    for (const face of mesh.faces) face.material = material;
+  }
+  return mesh;
+}
 function transform(init) {
   return {
     position: init?.position ?? { x: 0, y: 0, z: 0 },
@@ -940,8 +1078,11 @@ var SEED_FACES = [
   [8, 6, 7],
   [9, 8, 1]
 ];
-function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS) {
-  return sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors);
+function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
+  return attachMaterial(
+    sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
+    material
+  );
 }
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/octa-sphere.ts
@@ -1148,6 +1289,7 @@ var REENTER_STAGGER_MS = 45;
 var CENTER_POP_OUT_AT = REENTER_MS + (MINIS - 1) * REENTER_STAGGER_MS + 150;
 var CENTER_POP_OUT_MS = 420;
 var PARKED = { x: 0, y: 0, z: 50 };
+var ORB_MATERIAL = { specular: [1, 1, 1], shininess: 28 };
 var CENTER_COLORS = ["#67e8f9", "#22d3ee", "#0ea5e9", "#38bdf8", "#7dd3fc"];
 var MINI_COLORS = [
   ["#e0f2fe", "#bae6fd", "#7dd3fc"],
@@ -1176,9 +1318,9 @@ var ChargedOrbAnimation = class {
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z } }
     });
-    this.center = engine.add(icosphere(1, 2, CENTER_COLORS), { scale: 0 });
+    this.center = engine.add(icosphere(1, 2, CENTER_COLORS, ORB_MATERIAL), { scale: 0 });
     for (let i = 0; i < MINIS; i++) {
-      const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length]);
+      const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length], ORB_MATERIAL);
       this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
     }
     this.engine = engine;

@@ -171,6 +171,6 @@ export { starTexture } from "./textures/dynamic/star.js";
 export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
 export { expandToTriangles } from "./core/geometry.js";
-export { transform } from "./core/mesh.js";
+export { transform, attachMaterial } from "./core/mesh.js";
 export { orderRenderItems } from "./renderer.js";
 export { vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";
