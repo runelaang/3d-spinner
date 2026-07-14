@@ -19,7 +19,7 @@ export function quad(size = 1, colors: string[] = DEFAULT_COLORS, material?: Mat
     { x: -s, y: s, z: 0 },
   ];
   return attachMaterial(
-    { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0] }] },
+    { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0 % colors.length] }] },
     material,
   );
 }

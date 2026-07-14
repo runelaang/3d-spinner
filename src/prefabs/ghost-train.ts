@@ -1,10 +1,17 @@
 import { CompositeAnimation } from "../composite-animation.js";
-import { GhostTrainAnimation } from "../animations/ghost-train.js";
-import { ParticlesAnimation } from "../animations/particles.js";
+import { GhostTrainAnimation, type GhostTrainOptions } from "../animations/ghost-train.js";
+import { ParticlesAnimation, type ParticlesOptions } from "../animations/particles.js";
 import { starTexture } from "../engines/little-3d-engine/little-3d-engine.js";
 import type { ProgressSpinnerOptions } from "../index.js";
 import { progressSpinner } from "./spinner.js";
-import type { MotionProgressPrefabOptions } from "./types.js";
+import type { ProgressPrefabOptions } from "./types.js";
+
+export interface GhostTrainPrefabOptions extends ProgressPrefabOptions {
+  /** Overrides for the train layer. */
+  train?: GhostTrainOptions;
+  /** Overrides for the particle layer. */
+  particles?: ParticlesOptions;
+}
 
 /**
  * A progress story: a translucent train of ice cubes runs laps around a tilted
@@ -13,11 +20,11 @@ import type { MotionProgressPrefabOptions } from "./types.js";
  * peels off the track one after another and accelerates away, clearing the view
  * within four seconds as the star trail drains behind it.
  */
-export function ghostTrain(options: MotionProgressPrefabOptions = {}): ProgressSpinnerOptions {
+export function ghostTrain(options: GhostTrainPrefabOptions = {}): ProgressSpinnerOptions {
   const particles = options.particles ?? {};
   const train = new GhostTrainAnimation({
-    motion: options.object?.motion,
     backend: options.backend,
+    ...options.train,
   });
   // The lead car defines the primary direction; the stars trail its actual position
   // through the laps and the accelerating blast-off, so the two layers stay in sync.
