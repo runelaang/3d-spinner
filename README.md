@@ -15,7 +15,7 @@ import { starSwarm } from "3d-spinner/prefabs";
 createSpinner(document.getElementById("app"), starSwarm());
 ```
 
-- **Zero configuration.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
+- **Zero configuration needed.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
 - **Fully configurable when you want it.** Override any piece, compose your own from shapes,
   animations, motion paths, and materials, or drop in your own OBJ models.
 - **Hardware 3D, automatically.** By default it renders on the GPU through WebGPU or WebGL and
