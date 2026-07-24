@@ -26,7 +26,10 @@ import {
 
 /** Options for {@link Little3dEngine}. */
 export interface Little3dEngineOptions {
-  /** Rendering backend, or a factory building a custom renderer. Loaded on demand. Default `"canvas2d"`. */
+  /**
+   * Rendering backend, or a factory building a custom renderer. Loaded on
+   * demand. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D.
+   */
   backend?: Backend | RendererFactory;
   camera?: Partial<CameraOptions>;
   light?: Partial<LightOptions>;
@@ -86,7 +89,7 @@ export class Little3dEngine {
   constructor(options: Little3dEngineOptions = {}) {
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
-    this.backend = options.backend ?? "canvas2d";
+    this.backend = options.backend ?? "auto";
     this.background = options.background;
   }
 
@@ -249,13 +252,20 @@ export type {
 export { transform, attachMaterial } from "./core/mesh.js";
 export type {
   Backend,
+  BackendSupport,
+  ResolvedBackend,
   Renderer,
   RendererFactory,
   RenderFrame,
   RenderItem,
   RendererOptions,
 } from "./renderer.js";
-export { orderRenderItems } from "./renderer.js";
+export {
+  orderRenderItems,
+  chooseBackend,
+  detectBackendSupport,
+  resolveBackend,
+} from "./renderer.js";
 export {
   type Vec3,
   vec3,

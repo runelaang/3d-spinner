@@ -2,8 +2,71 @@ import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
 import type { Mesh, Transparency, TwoSidedTransparency } from "./core/mesh.js";
 
-/** Rendering backend. Each is loaded on demand; unused ones are never fetched. */
-export type Backend = "canvas2d" | "webgl" | "webgpu";
+/**
+ * Rendering backend. Each is loaded on demand; unused ones are never fetched.
+ * `"auto"` picks the best one the browser supports - WebGPU, then WebGL, then
+ * Canvas 2D - and is the default.
+ */
+export type Backend = "auto" | "canvas2d" | "webgl" | "webgpu";
+
+/** A backend that can be constructed directly, with `"auto"` already resolved. */
+export type ResolvedBackend = Exclude<Backend, "auto">;
+
+/** Which hardware backends the current browser can actually run. */
+export interface BackendSupport {
+  webgpu: boolean;
+  webgl: boolean;
+}
+
+/** Best supported backend, in descending order of capability. */
+export function chooseBackend(support: BackendSupport): ResolvedBackend {
+  if (support.webgpu) return "webgpu";
+  if (support.webgl) return "webgl";
+  return "canvas2d";
+}
+
+/**
+ * Test what the browser supports without loading any backend. The probes are a
+ * WebGPU adapter request and a throwaway WebGL2 context, so choosing `"auto"`
+ * never downloads or compiles the code for a backend it then rejects.
+ */
+export async function detectBackendSupport(): Promise<BackendSupport> {
+  return { webgpu: await hasWebGPU(), webgl: hasWebGL2() };
+}
+
+async function hasWebGPU(): Promise<boolean> {
+  const gpu = (globalThis as any).navigator?.gpu;
+  if (!gpu) return false;
+  try {
+    return Boolean(await gpu.requestAdapter());
+  } catch {
+    return false;
+  }
+}
+
+function hasWebGL2(): boolean {
+  const doc = (globalThis as any).document;
+  if (!doc?.createElement) return false;
+  try {
+    const gl = doc.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    // The probe holds a real context and browsers cap how many may be live, so
+    // release it rather than waiting for garbage collection.
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let supportProbe: Promise<BackendSupport> | undefined;
+
+/** Resolve `"auto"` once per page and reuse the answer for later mounts. */
+export async function resolveBackend(backend: Backend): Promise<ResolvedBackend> {
+  if (backend !== "auto") return backend;
+  supportProbe ??= detectBackendSupport();
+  return chooseBackend(await supportProbe);
+}
 
 /** A mesh plus its world transform, ready to draw. */
 export interface RenderItem {
@@ -101,14 +164,15 @@ export interface Renderer {
 /**
  * Load and construct a renderer for `backend`. Each backend lives in its own
  * module and is pulled in with a dynamic `import()`, so the bytes for the
- * backends you do not use are never downloaded or compiled.
+ * backends you do not use are never downloaded or compiled. `"auto"` resolves
+ * to the best supported backend before anything is imported.
  */
 export async function createRenderer(
   backend: Backend | RendererFactory,
   options: RendererOptions = {},
 ): Promise<Renderer> {
   if (typeof backend === "function") return backend(options);
-  switch (backend) {
+  switch (await resolveBackend(backend)) {
     case "webgl":
       return new (await import("./renderers/webgl.js")).WebGLRenderer(options);
     case "webgpu":

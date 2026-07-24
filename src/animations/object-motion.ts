@@ -64,7 +64,7 @@ export interface ObjectMotionOptions {
   motion: MotionController;
   /** Face color applied to every triangle. Omit to retain the mesh's face colors. */
   color?: string;
-  /** Rendering backend. Default `"canvas2d"`. */
+  /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
   /** Optional one-sided or two-sided mesh transparency. */
   transparency?: Transparency;

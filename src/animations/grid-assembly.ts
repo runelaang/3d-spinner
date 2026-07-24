@@ -30,7 +30,7 @@ export interface GridAssemblyOptions {
   orbitPeriodMs?: number;
   /** Milliseconds one shape takes to travel between the orbit and its grid cell. Default `800`. */
   dockMs?: number;
-  /** Rendering backend. Default `"canvas2d"`. */
+  /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
   /** Overlay label shown in indeterminate mode (progress mode shows a percentage). */
   label?: AnimationLabel;
