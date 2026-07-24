@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { expandToTriangles } from "../dist/engines/little-3d-engine/core/geometry.js";
+import { expandToTriangles, parseColor } from "../dist/engines/little-3d-engine/core/geometry.js";
 
 const tri = (material) => ({
   vertices: [
@@ -79,4 +79,20 @@ test("expandToTriangles defaults the Ns exponent to 32 when specular has no shin
 test("expandToTriangles specular array has 4 floats per vertex", () => {
   const data = expandToTriangles(tri({ specular: [1, 1, 1], shininess: 8 }));
   assert.equal(data.speculars.length, (data.positions.length / 3) * 4);
+});
+
+test("parseColor parses 6-digit hex into 0..255 RGB", () => {
+  assert.deepEqual(parseColor("#3b82f6"), [0x3b, 0x82, 0xf6]);
+  assert.deepEqual(parseColor("#000000"), [0, 0, 0]);
+  assert.deepEqual(parseColor("#ffffff"), [255, 255, 255]);
+});
+
+test("parseColor expands 3-digit shorthand hex", () => {
+  assert.deepEqual(parseColor("#fff"), [255, 255, 255]);
+  assert.deepEqual(parseColor("#f80"), [0xff, 0x88, 0x00]);
+});
+
+test("parseColor accepts surrounding whitespace and a missing #", () => {
+  assert.deepEqual(parseColor("  #38bdf8  "), [0x38, 0xbd, 0xf8]);
+  assert.deepEqual(parseColor("38bdf8"), [0x38, 0xbd, 0xf8]);
 });

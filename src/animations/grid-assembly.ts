@@ -20,7 +20,7 @@ import {
 } from "../engines/little-tween-engine/core/tweens.js";
 
 export interface GridAssemblyOptions {
-  /** Meshes (or factories) cycled across the 25 shapes. Defaults to a mixed primitive set. */
+  /** Meshes (or factories) cycled across the 25 shapes. Defaults to a single pastel dark-blue cube. */
   meshes?: Array<Mesh | (() => Mesh)>;
   /** Uniform shape size in scene units. Default `0.34`. */
   size?: number;

@@ -1,6 +1,6 @@
 {
   "name": "3d-spinner",
-  "version": "0.9.5",
+  "version": "0.9.8",
   "description": "A lightweight, zero-dependency 3D spinner, loader, and progress indicator for JavaScript.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
@@ -35,10 +35,20 @@
       "import": "./dist/animations/charged-orb.js",
       "require": "./dist/cjs/animations/charged-orb.cjs"
     },
+    "./animations/ghost-train": {
+      "types": "./dist/animations/ghost-train.d.ts",
+      "import": "./dist/animations/ghost-train.js",
+      "require": "./dist/cjs/animations/ghost-train.cjs"
+    },
     "./animations/grid-assembly": {
       "types": "./dist/animations/grid-assembly.d.ts",
       "import": "./dist/animations/grid-assembly.js",
       "require": "./dist/cjs/animations/grid-assembly.cjs"
+    },
+    "./animations/rocket-launch": {
+      "types": "./dist/animations/rocket-launch.d.ts",
+      "import": "./dist/animations/rocket-launch.js",
+      "require": "./dist/cjs/animations/rocket-launch.cjs"
     },
     "./composite-animation": {
       "types": "./dist/composite-animation.d.ts",
