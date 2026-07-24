@@ -5,10 +5,27 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/3d-spinner)](https://bundlephobia.com/package/3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
-A zero-dependency 3D spinner, loader, and progress indicator for the browser. It renders to a
-canvas and ships primarily as ES modules split across separate import paths, so a consumer loads
-only the animation, motion path, and rendering backend they actually use - nothing else is pulled
-in. CommonJS and a browser-global build are also published; see [Module formats](#module-formats).
+Real 3D spinners, loaders, and progress indicators for the browser - in one line, with no
+configuration:
+
+```js
+import { createSpinner } from "3d-spinner";
+import { starSwarm } from "3d-spinner/prefabs";
+
+createSpinner(document.getElementById("app"), starSwarm());
+```
+
+- **Zero configuration.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
+- **Fully configurable when you want it.** Override any piece, compose your own from shapes,
+  animations, motion paths, and materials, or drop in your own OBJ models.
+- **Hardware 3D, automatically.** By default it renders on the GPU through WebGPU or WebGL and
+  falls back to a Canvas 2D software renderer that needs no GPU at all - picked for you, or pin
+  one yourself. Same API either way.
+- **Tiny download, fast start.** Only the code you touch is loaded: a full prefab on WebGL is
+  under 9 kB gzipped, renderer included, and the renderer itself is fetched on mount. Zero
+  dependencies.
+- **Works with your stack.** ES modules, CommonJS, or a plain `<script>` tag; TypeScript types
+  included. See [Module formats](#module-formats).
 
 ## Screenshots
 
@@ -265,14 +282,35 @@ on the mode.
 
 ## Rendering backend
 
-By default the spinner uses a Canvas 2D software renderer, which has no dependencies and runs
-anywhere a canvas does. The engine can also render through WebGL or WebGPU; pass `backend` to
-any of the 3D animations to switch. Backends are loaded on demand, so the code for the ones you
-do not use is never fetched.
+By default the backend is `"auto"`: the spinner picks the best renderer the browser supports -
+WebGPU, then WebGL, then the Canvas 2D software renderer, which needs no GPU and runs anywhere a
+canvas does. Nothing to configure, and no capability checks to write.
 
 ```js
-new SpinAnimation({ backend: "webgl" }); // "canvas2d" (default), "webgl", or "webgpu"
+createSpinner(el, starSwarm());               // auto: WebGPU -> WebGL -> Canvas 2D
 ```
+
+Name a backend to pin it:
+
+```js
+new SpinAnimation({ backend: "webgl" }); // "auto" (default), "canvas2d", "webgl", or "webgpu"
+```
+
+Every prefab, animation, and the engine itself takes the same `backend` option:
+
+```js
+starSwarm({ backend: "webgpu" });             // a prefab
+new ParticlesAnimation({ backend: "webgl" }); // an animation
+new Little3dEngine({ backend: "canvas2d" });  // the engine directly
+```
+
+Before 0.10.0 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
+
+Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
+WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
+fetched. Pinning a backend the browser cannot run throws rather than falling back - `"auto"` is
+the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
+exported from the engine.
 
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
 particular, transparent shapes are an approximate visual effect rather than a pixel-identical

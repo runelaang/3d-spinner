@@ -8,6 +8,7 @@ import {
   Little3dEngine,
   pyramid,
   quad,
+  resolveBackend,
   type Backend,
   type Mesh,
   type MeshHandle,
@@ -18,7 +19,7 @@ import { canvasTexture } from "../engines/little-3d-engine/textures/dynamic/canv
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 
 export interface RocketLaunchOptions {
-  /** Rendering backend. Default `"canvas2d"`. */
+  /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
   /** Overlay label; progress mode shows a percentage. */
   label?: AnimationLabel;
@@ -170,12 +171,13 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     const fireTexture = puffTexture(1, 0.32);
 
     const backend: Backend | RendererFactory = async (rendererOptions) => {
+      const picked = await resolveBackend(this.backend ?? "auto");
       const renderer =
-        this.backend === "webgpu"
+        picked === "webgpu"
           ? new (
               await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
             ).WebGPUTexturedRenderer(rendererOptions)
-          : this.backend === "webgl"
+          : picked === "webgl"
             ? new (
                 await import("../engines/little-3d-engine/renderers/webgl-textured.js")
               ).WebGLTexturedRenderer(rendererOptions)

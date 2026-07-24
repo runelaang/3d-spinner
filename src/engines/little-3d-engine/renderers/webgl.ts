@@ -244,6 +244,10 @@ export class WebGLRenderer implements Renderer {
         for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
       }
       if (this.program) gl.deleteProgram(this.program);
+      // Browsers cap how many WebGL contexts may be live at once and only reclaim a dropped one
+      // on garbage collection, so a page that mounts and unmounts spinners can exhaust the cap
+      // before that happens. Losing the context releases it immediately.
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
     }
     this.cache.clear();
     this.gl = undefined;
