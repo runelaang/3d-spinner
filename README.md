@@ -5,8 +5,8 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/3d-spinner)](https://bundlephobia.com/package/3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
-Real 3D spinners, loaders, and progress indicators for the browser - in one line, with no
-configuration:
+Real 3D spinners, loaders, and progress indicators for the browser - in one line, configuration
+optional:
 
 ```js
 import { createSpinner } from "3d-spinner";
@@ -304,7 +304,7 @@ new ParticlesAnimation({ backend: "webgl" }); // an animation
 new Little3dEngine({ backend: "canvas2d" });  // the engine directly
 ```
 
-Before 0.10.0 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
+Before 0.9.9 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
 
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
