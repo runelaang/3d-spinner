@@ -4,7 +4,7 @@ import type { MotionController } from "../motion/controller.js";
 export interface GhostTrainOptions {
     /** How the convoy moves. Default a tilted square track. */
     motion?: MotionController;
-    /** Uniform car size in scene units. Default `0.3`. */
+    /** Uniform car size in scene units. Default `0.15`. */
     size?: number;
     /** Rendering backend. Default `"canvas2d"`. */
     backend?: Backend;

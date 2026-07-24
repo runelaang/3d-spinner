@@ -13,8 +13,8 @@ import { progressSpinner } from "./spinner.js";
 export function ghostTrain(options = {}) {
     const particles = options.particles ?? {};
     const train = new GhostTrainAnimation({
-        motion: options.object?.motion,
         backend: options.backend,
+        ...options.train,
     });
     // The lead car defines the primary direction; the stars trail its actual position
     // through the laps and the accelerating blast-off, so the two layers stay in sync.

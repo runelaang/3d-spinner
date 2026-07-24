@@ -417,9 +417,11 @@ void main() {
           const data = expandToTriangles(mesh);
           const vao = gl.createVertexArray();
           gl.bindVertexArray(vao);
+          const buffers = [];
           const attribute = (location, array, size = 3) => {
             if (location < 0) return;
             const buffer = gl.createBuffer();
+            buffers.push(buffer);
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
             gl.enableVertexAttribArray(location);
@@ -431,7 +433,7 @@ void main() {
           attribute(loc.aEmissive, data.emissives);
           attribute(loc.aSpecular, data.speculars, 4);
           gl.bindVertexArray(null);
-          const result = { vao, count: data.count };
+          const result = { vao, buffers, count: data.count };
           this.cache.set(mesh, result);
           return result;
         }
@@ -489,7 +491,10 @@ void main() {
         destroy() {
           const gl = this.gl;
           if (gl) {
-            for (const mesh of this.cache.values()) gl.deleteVertexArray(mesh.vao);
+            for (const mesh of this.cache.values()) {
+              gl.deleteVertexArray(mesh.vao);
+              for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
+            }
             if (this.program) gl.deleteProgram(this.program);
           }
           this.cache.clear();
@@ -1431,9 +1436,11 @@ void main() {
           const data = expandToTriangles(mesh);
           const vao = gl.createVertexArray();
           gl.bindVertexArray(vao);
+          const buffers = [];
           const attribute = (location, array, size) => {
             if (location < 0) return;
             const buffer = gl.createBuffer();
+            buffers.push(buffer);
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
             gl.enableVertexAttribArray(location);
@@ -1443,7 +1450,7 @@ void main() {
           attribute(loc.aColor, data.colors, 3);
           attribute(loc.aUV, planarUVs(mesh), 2);
           gl.bindVertexArray(null);
-          const result = { vao, count: data.count };
+          const result = { vao, buffers, count: data.count };
           this.buffers.set(mesh, result);
           return result;
         }
@@ -1481,7 +1488,10 @@ void main() {
           const gl = this.gl;
           if (gl) {
             for (const texture of this.textures.values()) gl.deleteTexture(texture);
-            for (const buffers of this.buffers.values()) gl.deleteVertexArray(buffers.vao);
+            for (const cached of this.buffers.values()) {
+              gl.deleteVertexArray(cached.vao);
+              for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+            }
             if (this.program) gl.deleteProgram(this.program);
           }
           this.textures.clear();
@@ -1633,14 +1643,17 @@ void main() {
   var stdin_exports = {};
   __export(stdin_exports, {
     Camera: () => Camera,
+    Canvas2DTexturedRenderer: () => Canvas2DTexturedRenderer,
     ChargedOrbAnimation: () => ChargedOrbAnimation,
     CompositeAnimation: () => CompositeAnimation,
+    GhostTrainAnimation: () => GhostTrainAnimation,
     GridAssemblyAnimation: () => GridAssemblyAnimation,
     Light: () => Light,
     Little3dEngine: () => Little3dEngine,
     LittleTweenEngine: () => LittleTweenEngine,
     ObjectMotionAnimation: () => ObjectMotionAnimation,
     ParticlesAnimation: () => ParticlesAnimation,
+    RocketLaunchAnimation: () => RocketLaunchAnimation,
     SpinAnimation: () => SpinAnimation,
     WebGLTexturedRenderer: () => WebGLTexturedRenderer,
     WebGPUTexturedRenderer: () => WebGPUTexturedRenderer,
@@ -1916,7 +1929,7 @@ void main() {
       { x: -s, y: s, z: 0 }
     ];
     return attachMaterial(
-      { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0] }] },
+      { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0 % colors.length] }] },
       material
     );
   }
@@ -2184,6 +2197,8 @@ void main() {
         { indices: [7, 3, 4], color: colors[2] ?? DEFAULT_COLORS10[2] },
         { indices: [7, 4, 5], color: colors[1] ?? DEFAULT_COLORS10[1] },
         { indices: [7, 5, 0], color: colors[2] ?? DEFAULT_COLORS10[2] },
+        // Tail fin: the same triangle in both windings so the zero-thickness fin
+        // stays visible from either side under backface culling.
         { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS10[0] },
         { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS10[1] }
       ]
@@ -2759,7 +2774,7 @@ void main() {
       this.progress = options.progressAnimation ? new ProgressAnimation(options.progressAnimation) : void 0;
     }
     mount(target) {
-      target.style.position = "relative";
+      if (!target.style.position) target.style.position = "relative";
       const engine = new Little3dEngine({
         backend: this.backend,
         camera: { position: { x: 0, y: 0, z: 2.8 } }
@@ -3630,388 +3645,6 @@ void main() {
     }
   };
 
-  // src/animations/grid-assembly.ts
-  var GRID = 5;
-  var COUNT = GRID * GRID;
-  var CAMERA_Z2 = 4;
-  var FOV = 55 * Math.PI / 180;
-  var TWO_PI2 = Math.PI * 2;
-  var INTRO_MS = 900;
-  var INTRO_STAGGER_MS = 60;
-  var INTRO_DONE_MS = (COUNT - 1) * INTRO_STAGGER_MS + INTRO_MS;
-  var GATE_DOCK = 0.35;
-  var GATE_UNDOCK = 0.65;
-  var EXIT_HURRY2 = 2.5;
-  var SPIN_EVERY_MS = 2e3;
-  var SPIN_MS = 380;
-  var SPIN_STAGGER_MS = 80;
-  var HOLD_MS = 1e3;
-  var COLLAPSE_MS = 700;
-  var COLLAPSE_SPREAD_MS = 500;
-  var POP_MS = 170;
-  var LABEL_FADE_MS = 600;
-  var CUBE_COLORS = ["#8397c6", "#7186b8", "#6176a8", "#93a6cf", "#556a9c", "#7a8fc0"];
-  var DEFAULT_MESHES = [() => cube(1, CUBE_COLORS)];
-  function clamp015(value) {
-    return Math.max(0, Math.min(1, value));
-  }
-  function smooth01(value) {
-    const x = clamp015(value);
-    return x * x * (3 - 2 * x);
-  }
-  function resolveMesh3(mesh) {
-    return typeof mesh === "function" ? mesh() : mesh;
-  }
-  function wrapAngle(angle) {
-    const wrapped = angle - TWO_PI2 * Math.floor(angle / TWO_PI2);
-    return wrapped > Math.PI ? wrapped - TWO_PI2 : wrapped;
-  }
-  function hash01(index, salt) {
-    let h = (Math.imul(index + 1, 2654435769) ^ Math.imul(salt + 1, 2246822507)) >>> 0;
-    h = Math.imul(h ^ h >>> 16, 73244475);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  }
-  var GridAssemblyAnimation = class {
-    constructor(options = {}) {
-      this.handles = [];
-      this.blends = new Array(COUNT).fill(0);
-      this.dockedAt = new Array(COUNT).fill(Infinity);
-      this.tumbleX = [];
-      this.tumbleY = [];
-      this.collapseDelay = [];
-      this.popStarted = new Array(COUNT).fill(false);
-      this.maxCollapseDelay = 0;
-      this.fades = [];
-      this.slots = [];
-      this.aspect = 16 / 9;
-      this.enterAt = Infinity;
-      this.exitAt = Infinity;
-      this.allDockedAt = Infinity;
-      this.collapseAt = Infinity;
-      this.lastNow = 0;
-      this.finished = false;
-      const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
-      this.meshes = sources.map(resolveMesh3);
-      this.size = options.size ?? 0.34;
-      this.orbitPeriodMs = options.orbitPeriodMs ?? 9e3;
-      this.dockMs = options.dockMs ?? 800;
-      this.backend = options.backend;
-      this.labelContent = options.label;
-      this.fadeLabel = options.fadeLabel ?? true;
-      const spacing = this.size + (options.gap ?? 0.12);
-      for (let i = 0; i < COUNT; i++) {
-        const row = Math.floor(i / GRID);
-        const col = i % GRID;
-        this.slots.push({ x: (col - 2) * spacing, y: (2 - row) * spacing, z: 0 });
-        this.tumbleX.push(TWO_PI2 * hash01(i, 2) - Math.PI);
-        this.tumbleY.push(TWO_PI2 * hash01(i, 4) - Math.PI);
-        this.collapseDelay.push(hash01(i, 7) * COLLAPSE_SPREAD_MS);
-      }
-      this.maxCollapseDelay = Math.max(...this.collapseDelay);
-    }
-    mount(target) {
-      if (!target.style.position) target.style.position = "relative";
-      const engine = new Little3dEngine({
-        backend: this.backend,
-        camera: { position: { x: 0, y: 0, z: CAMERA_Z2 }, fov: FOV }
-      });
-      for (let i = 0; i < COUNT; i++) {
-        this.fades.push({ mode: "one-sided", opacity: 1 });
-        this.handles.push(engine.add(this.meshes[i % this.meshes.length], { scale: 0 }));
-      }
-      this.engine = engine;
-      engine.mount(target).catch((error) => {
-        target.textContent = error instanceof Error ? error.message : String(error);
-      });
-      const measure = () => {
-        if (target.clientWidth > 0 && target.clientHeight > 0) {
-          this.aspect = target.clientWidth / target.clientHeight;
-        }
-      };
-      measure();
-      this.observer = new ResizeObserver(measure);
-      this.observer.observe(target);
-      this.label = mountAnimationLabel(target, this.labelContent);
-      if (this.fadeLabel) this.label.setOpacity(0);
-    }
-    enter(now) {
-      if (this.enterAt === Infinity) this.enterAt = now;
-    }
-    exit(now) {
-      if (this.exitAt === Infinity) this.exitAt = now;
-    }
-    isFinished() {
-      return this.finished;
-    }
-    render(now, frame) {
-      if (!this.engine || !this.label) return;
-      if (this.enterAt === Infinity) {
-        for (const handle of this.handles) handle.transform.scale = 0;
-        this.engine.render();
-        return;
-      }
-      const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
-      this.lastNow = now;
-      this.updateBlends(dt, frame.progress, now);
-      if (this.exitAt !== Infinity && this.allDockedAt !== Infinity && this.collapseAt === Infinity) {
-        this.collapseAt = Math.max(this.exitAt, this.allDockedAt) + HOLD_MS;
-      }
-      if (now >= this.collapseAt) this.renderCollapse(now);
-      else this.renderStory(now, dt);
-      this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
-      if (this.fadeLabel) {
-        this.label.setOpacity(animationLabelOpacity(
-          now,
-          this.enterAt,
-          LABEL_FADE_MS,
-          this.collapseAt,
-          COLLAPSE_MS
-        ));
-      }
-      if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
-        this.finished = true;
-      }
-      this.engine.render();
-    }
-    destroy() {
-      this.observer?.disconnect();
-      this.observer = void 0;
-      this.label?.container.remove();
-      this.label = void 0;
-      this.engine?.destroy();
-      this.engine = void 0;
-      this.handles.length = 0;
-      this.fades.length = 0;
-    }
-    updateBlends(dt, progress, now) {
-      const exiting = this.exitAt !== Infinity;
-      const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
-      const want = !ringComplete ? 0 : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
-      const rate = dt / this.dockMs * (exiting ? EXIT_HURRY2 : 1);
-      for (let i = 0; i < COUNT; i++) {
-        const target = i < want ? 1 : 0;
-        const blend = this.blends[i];
-        if (target > blend && (i === 0 || this.blends[i - 1] >= GATE_DOCK)) {
-          this.blends[i] = Math.min(1, blend + rate);
-        } else if (target < blend && (i === COUNT - 1 || this.blends[i + 1] <= GATE_UNDOCK)) {
-          this.blends[i] = Math.max(0, blend - rate);
-        }
-        if (this.blends[i] >= 1) {
-          if (this.dockedAt[i] === Infinity) this.dockedAt[i] = now;
-        } else {
-          this.dockedAt[i] = Infinity;
-        }
-      }
-      const allDocked = want === COUNT && this.blends.every((blend) => blend >= 1);
-      if (allDocked) {
-        if (this.allDockedAt === Infinity) this.allDockedAt = now;
-      } else if (!exiting) {
-        this.allDockedAt = Infinity;
-      }
-    }
-    renderStory(now, dt) {
-      const t = now - this.enterAt;
-      const halfHeight = Math.tan(FOV / 2) * CAMERA_Z2;
-      const halfWidth = halfHeight * this.aspect;
-      const radius = Math.max(0.6, Math.min(halfWidth, halfHeight) - this.size * 0.55);
-      const spawnFactor = (Math.max(halfWidth, halfHeight) * 1.25 + this.size * 2) / radius;
-      for (let i = 0; i < COUNT; i++) {
-        const transform2 = this.handles[i].transform;
-        const eased = smooth01(this.blends[i]);
-        const introT = clamp015((t - i * INTRO_STAGGER_MS) / INTRO_MS);
-        const reach = 1 + (spawnFactor - 1) * (1 - easeOutCubic(introT));
-        const angle = Math.PI / 2 - i / COUNT * TWO_PI2 - t / this.orbitPeriodMs * TWO_PI2;
-        const orbitX = Math.cos(angle) * radius * reach;
-        const orbitY = Math.sin(angle) * radius * reach;
-        const slot = this.slots[i];
-        transform2.position.x = orbitX + (slot.x - orbitX) * eased;
-        transform2.position.y = orbitY + (slot.y - orbitY) * eased;
-        transform2.position.z = 0;
-        transform2.scale = this.size;
-        if (this.blends[i] === 0) {
-          this.tumbleX[i] = wrapAngle(this.tumbleX[i] + (4e-4 + 8e-4 * hash01(i, 1)) * dt);
-          this.tumbleY[i] = wrapAngle(this.tumbleY[i] + (6e-4 + 1e-3 * hash01(i, 3)) * dt);
-        }
-        transform2.rotation.z = 0;
-        if (this.blends[i] >= 1) {
-          const phase = (t + i * SPIN_STAGGER_MS) % SPIN_EVERY_MS;
-          const spinning = phase < SPIN_MS && now - phase >= this.dockedAt[i];
-          transform2.rotation.x = 0;
-          transform2.rotation.y = spinning ? TWO_PI2 * easeInOutCubic(phase / SPIN_MS) : 0;
-        } else {
-          const free = 1 - eased;
-          transform2.rotation.x = this.tumbleX[i] * free;
-          transform2.rotation.y = this.tumbleY[i] * free;
-        }
-      }
-    }
-    renderCollapse(now) {
-      if (!this.captured) {
-        this.captured = this.handles.map((handle) => ({ ...handle.transform.position }));
-      }
-      for (let i = 0; i < COUNT; i++) {
-        const transform2 = this.handles[i].transform;
-        const from = this.captured[i];
-        const local = now - this.collapseAt - this.collapseDelay[i];
-        if (local <= 0) {
-          transform2.position.x = from.x;
-          transform2.position.y = from.y;
-          transform2.position.z = from.z;
-          transform2.scale = this.size;
-          continue;
-        }
-        const pull = easeInCubic(clamp015(local / COLLAPSE_MS));
-        transform2.position.x = from.x * (1 - pull);
-        transform2.position.y = from.y * (1 - pull);
-        transform2.position.z = from.z * (1 - pull);
-        transform2.scale = this.size * (1 - 0.99 * pull);
-        if (local >= COLLAPSE_MS) {
-          if (!this.popStarted[i]) {
-            this.popStarted[i] = true;
-            this.handles[i].transparency = this.fades[i];
-          }
-          const v = clamp015((local - COLLAPSE_MS) / POP_MS);
-          this.fades[i].opacity = 1 - v;
-          transform2.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
-        }
-      }
-    }
-  };
-
-  // src/composite-animation.ts
-  var CompositeAnimation = class {
-    constructor(layers) {
-      this.elements = [];
-      this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
-    }
-    mount(target) {
-      target.style.position = "relative";
-      for (const [index, layer] of this.layers.entries()) {
-        const element = document.createElement("div");
-        element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
-        target.appendChild(element);
-        this.elements.push(element);
-        layer.animation.mount(element);
-      }
-    }
-    enter(now) {
-      for (const layer of this.layers) layer.animation.enter(now);
-    }
-    exit(now) {
-      for (const layer of this.layers) layer.animation.exit(now);
-    }
-    render(now, frame) {
-      for (const layer of this.layers) layer.animation.render(now, frame);
-    }
-    isFinished() {
-      return this.layers.every((layer) => layer.animation.isFinished());
-    }
-    destroy() {
-      for (const layer of this.layers) layer.animation.destroy();
-      for (const element of this.elements) element.remove();
-      this.elements.length = 0;
-    }
-  };
-
-  // src/prefabs/spinner.ts
-  function spinner(animation, options) {
-    return {
-      type: "indeterminate",
-      animation,
-      loop: options.loop,
-      periodMs: options.periodMs
-    };
-  }
-  function progressSpinner(animation, options) {
-    return {
-      type: "progress",
-      animation,
-      progress: options.progress ?? 1e-3,
-      timeout: options.timeout,
-      until: options.until
-    };
-  }
-
-  // src/prefabs/charged-orb.ts
-  function chargedOrb(options = {}) {
-    const particles = options.particles ?? {};
-    const rate = particles.rate ?? 60;
-    const orb = new ChargedOrbAnimation({
-      backend: options.backend,
-      ...options.orb
-    });
-    const streams = new ParticlesAnimation({
-      rate,
-      lifeMs: 1200,
-      size: 0.12,
-      speed: 0.05,
-      colors: ["#ffffff", "#a5f3fc", "#818cf8"],
-      texture: particles.texture ?? shineTexture(),
-      emitter: orb.satelliteEmitter(1e3 / rate),
-      outroMs: orb.outroEmitMs,
-      seed: 5,
-      backend: options.backend,
-      ...particles,
-      label: options.label ?? particles.label,
-      fadeLabel: options.fadeLabel ?? particles.fadeLabel
-    });
-    return progressSpinner(new CompositeAnimation([orb, streams]), options);
-  }
-
-  // src/motion/figure-eight.ts
-  var LOOP_X = 1.5;
-  var LOOP_Y = 1;
-  var LOOP_Z = 1.05;
-  function figureEightMotion(options = {}) {
-    const size = options.size ?? 1;
-    const periodMs = options.periodMs ?? 3600;
-    return {
-      positionAt(t) {
-        const a = t / periodMs * Math.PI * 2;
-        return {
-          x: size * LOOP_X * Math.sin(a),
-          y: size * LOOP_Y * Math.sin(a) * Math.cos(a),
-          z: size * LOOP_Z * Math.cos(a)
-        };
-      }
-    };
-  }
-
-  // src/prefabs/crystal-comet.ts
-  function crystalComet(options = {}) {
-    const motion = options.object?.motion ?? figureEightMotion({ size: 0.66, periodMs: 7200 });
-    const particles = options.particles ?? {};
-    const object = new ObjectMotionAnimation({
-      mesh: () => tetrahedron(1, ["#f0f9ff", "#7dd3fc", "#818cf8", "#e879f9"]),
-      motion,
-      size: 0.42,
-      rotation: { spinX: 2e-3, spinY: 3e-3 },
-      backend: options.backend,
-      ...options.object,
-      label: options.object?.label
-    });
-    const animation = new CompositeAnimation([
-      new ParticlesAnimation({
-        rate: 44,
-        lifeMs: 2300,
-        size: 0.25,
-        speed: 0.08,
-        colors: ["#ffffff", "#bae6fd", "#818cf8"],
-        texture: particles.texture ?? shineTexture(),
-        emitter: object.trailEmitter(),
-        outroMs: object.outroDurationMs,
-        seed: 28,
-        backend: options.backend,
-        ...particles,
-        label: options.label ?? particles.label ?? "Polishing pixels",
-        fadeLabel: options.fadeLabel ?? particles.fadeLabel
-      }),
-      object
-    ]);
-    return spinner(animation, options);
-  }
-
   // src/motion/square.ts
   function squareMotion(options = {}) {
     const half = (options.size ?? 2.4) / 2;
@@ -4048,11 +3681,11 @@ void main() {
 
   // src/animations/ghost-train.ts
   var MAX_CARS = 50;
-  var CAMERA_Z3 = 3;
-  var FOV2 = 55 * Math.PI / 180;
-  var HALF_HEIGHT = Math.tan(FOV2 / 2) * CAMERA_Z3;
+  var CAMERA_Z2 = 3;
+  var FOV = 55 * Math.PI / 180;
+  var HALF_HEIGHT = Math.tan(FOV / 2) * CAMERA_Z2;
   var RUN_GAP_MS = 130;
-  var POP_MS2 = 320;
+  var POP_MS = 320;
   var SAMPLE_MS2 = 8;
   var TURN_RATE = 0.4 * Math.PI / 180;
   var MAX_OUTRO_MS = 4e3;
@@ -4062,7 +3695,7 @@ void main() {
   var CAR_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"];
   var CAR_MATERIAL = { emissive: [0.1, 0.2, 0.3] };
   var WORLD_UP2 = { x: 0, y: 1, z: 0 };
-  function clamp016(value) {
+  function clamp015(value) {
     return Math.max(0, Math.min(1, value));
   }
   function orientationFor2(forward) {
@@ -4119,7 +3752,7 @@ void main() {
       if (!target.style.position) target.style.position = "relative";
       const engine = new Little3dEngine({
         backend: this.backend,
-        camera: { position: { x: 0, y: 0, z: CAMERA_Z3 }, fov: FOV2 }
+        camera: { position: { x: 0, y: 0, z: CAMERA_Z2 }, fov: FOV }
       });
       const mesh = cube(1, CAR_COLORS, CAR_MATERIAL);
       for (let i = 0; i < MAX_CARS; i++) {
@@ -4190,7 +3823,7 @@ void main() {
       let anyOnScreen = false;
       for (let k = 0; k < MAX_CARS; k++) {
         const target = k < want ? 1 : 0;
-        this.appear[k] = clamp016(this.appear[k] + Math.sign(target - this.appear[k]) * (dt / POP_MS2));
+        this.appear[k] = clamp015(this.appear[k] + Math.sign(target - this.appear[k]) * (dt / POP_MS));
         if (this.appear[k] <= 0) {
           this.headings[k] = void 0;
           continue;
@@ -4216,7 +3849,7 @@ void main() {
       }
       this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
       if (this.fadeLabel) {
-        this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS2, this.outroAt, TRAIL_OUTRO_MS));
+        this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
       }
       if (this.outroAt !== Infinity && now > this.outroAt + 300 && (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
         this.finished = true;
@@ -4256,124 +3889,254 @@ void main() {
     }
   };
 
-  // src/prefabs/ghost-train.ts
-  function ghostTrain(options = {}) {
-    const particles = options.particles ?? {};
-    const train = new GhostTrainAnimation({
-      motion: options.object?.motion,
-      backend: options.backend
-    });
-    const trail = new ParticlesAnimation({
-      rate: 30,
-      lifeMs: 1700,
-      size: 0.15,
-      speed: 0.11,
-      colors: ["#e0f2fe", "#a5f3fc", "#c4b5fd"],
-      texture: particles.texture ?? starTexture({ glow: 5 }),
-      emitter: train.trailEmitter(),
-      outroMs: train.outroDurationMs,
-      seed: 17,
-      backend: options.backend,
-      ...particles,
-      label: options.label ?? particles.label,
-      fadeLabel: options.fadeLabel ?? particles.fadeLabel
-    });
-    return progressSpinner(new CompositeAnimation([trail, train]), options);
+  // src/animations/grid-assembly.ts
+  var GRID = 5;
+  var COUNT = GRID * GRID;
+  var CAMERA_Z3 = 4;
+  var FOV2 = 55 * Math.PI / 180;
+  var TWO_PI2 = Math.PI * 2;
+  var INTRO_MS = 900;
+  var INTRO_STAGGER_MS = 60;
+  var INTRO_DONE_MS = (COUNT - 1) * INTRO_STAGGER_MS + INTRO_MS;
+  var GATE_DOCK = 0.35;
+  var GATE_UNDOCK = 0.65;
+  var EXIT_HURRY2 = 2.5;
+  var SPIN_EVERY_MS = 2e3;
+  var SPIN_MS = 380;
+  var SPIN_STAGGER_MS = 80;
+  var HOLD_MS = 1e3;
+  var COLLAPSE_MS = 700;
+  var COLLAPSE_SPREAD_MS = 500;
+  var POP_MS2 = 170;
+  var LABEL_FADE_MS = 600;
+  var CUBE_COLORS = ["#8397c6", "#7186b8", "#6176a8", "#93a6cf", "#556a9c", "#7a8fc0"];
+  var DEFAULT_MESHES = [() => cube(1, CUBE_COLORS)];
+  function clamp016(value) {
+    return Math.max(0, Math.min(1, value));
   }
-
-  // src/prefabs/grid-assembly.ts
-  function gridAssembly(options = {}) {
-    return progressSpinner(
-      new GridAssemblyAnimation({
-        backend: options.backend,
-        label: options.label,
-        fadeLabel: options.fadeLabel,
-        ...options.assembly
-      }),
-      options
-    );
+  function smooth01(value) {
+    const x = clamp016(value);
+    return x * x * (3 - 2 * x);
   }
-
-  // src/prefabs/monochrome-streak.ts
-  function monochromeStreak(options = {}) {
-    const particles = options.particles ?? {};
-    return spinner(new ParticlesAnimation({
-      rate: 70,
-      lifeMs: 2800,
-      size: 0.38,
-      speed: 1.35,
-      direction: { x: 0, y: 1, z: 0 },
-      spread: 0.62,
-      gravity: { x: 0, y: -1.45, z: 0 },
-      colors: ["#fff", "#000"],
-      texture: particles.texture ?? streakTexture(),
-      spin: 0,
-      alignToMotion: true,
-      seed: 37,
-      backend: options.backend,
-      ...particles,
-      label: options.label ?? particles.label ?? "Loading...",
-      fadeLabel: options.fadeLabel ?? particles.fadeLabel
-    }), options);
+  function resolveMesh3(mesh) {
+    return typeof mesh === "function" ? mesh() : mesh;
   }
-
-  // src/prefabs/plane-star-trail.ts
-  function planeStarTrail(options = {}) {
-    const motion = options.object?.motion ?? figureEightMotion({ size: 0.72, periodMs: 6200 });
-    const particles = options.particles ?? {};
-    const object = new ObjectMotionAnimation({
-      mesh: planeMesh,
-      motion,
-      size: 0.48,
-      backend: options.backend,
-      ...options.object,
-      label: options.object?.label
-    });
-    const animation = new CompositeAnimation([
-      new ParticlesAnimation({
-        rate: 34,
-        lifeMs: 1900,
-        size: 0.16,
-        speed: 0.11,
-        colors: ["#fde047", "#f472b6", "#7dd3fc"],
-        texture: particles.texture ?? starTexture(),
-        emitter: object.trailEmitter(),
-        outroMs: object.outroDurationMs,
-        seed: 11,
-        backend: options.backend,
-        ...particles,
-        label: options.label ?? particles.label ?? "Flying in...",
-        fadeLabel: options.fadeLabel ?? particles.fadeLabel
-      }),
-      object
-    ]);
-    return spinner(animation, options);
+  function wrapAngle(angle) {
+    const wrapped = angle - TWO_PI2 * Math.floor(angle / TWO_PI2);
+    return wrapped > Math.PI ? wrapped - TWO_PI2 : wrapped;
   }
-
-  // src/prefabs/pulsing-starfield.ts
-  function pulsingLabel() {
-    const label = document.createElement("div");
-    label.innerHTML = `<style>
-    @keyframes spinner-prefab-pulse { 0%,100% { color:#fff; transform:scale(1); } 50% { color:#93c5fd; transform:scale(1.06); } }
-  </style><div style="animation:spinner-prefab-pulse 2.4s ease-in-out infinite;font-size:2rem">Loading the good stuff</div>`;
-    return label;
+  function hash01(index, salt) {
+    let h = (Math.imul(index + 1, 2654435769) ^ Math.imul(salt + 1, 2246822507)) >>> 0;
+    h = Math.imul(h ^ h >>> 16, 73244475);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
   }
-  function pulsingStarfield(options = {}) {
-    const particles = options.particles ?? {};
-    return spinner(new ParticlesAnimation({
-      rate: 48,
-      lifeMs: 4200,
-      size: 0.3,
-      speed: 0.34,
-      colors: ["#ffffff", "#dbeafe", "#93c5fd", "#c4b5fd"],
-      texture: particles.texture ?? shineTexture(),
-      seed: 71,
-      backend: options.backend,
-      ...particles,
-      label: options.label ?? particles.label ?? pulsingLabel(),
-      fadeLabel: options.fadeLabel ?? particles.fadeLabel
-    }), options);
-  }
+  var GridAssemblyAnimation = class {
+    constructor(options = {}) {
+      this.handles = [];
+      this.blends = new Array(COUNT).fill(0);
+      this.dockedAt = new Array(COUNT).fill(Infinity);
+      this.tumbleX = [];
+      this.tumbleY = [];
+      this.collapseDelay = [];
+      this.popStarted = new Array(COUNT).fill(false);
+      this.maxCollapseDelay = 0;
+      this.fades = [];
+      this.slots = [];
+      this.aspect = 16 / 9;
+      this.enterAt = Infinity;
+      this.exitAt = Infinity;
+      this.allDockedAt = Infinity;
+      this.collapseAt = Infinity;
+      this.lastNow = 0;
+      this.finished = false;
+      const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
+      this.meshes = sources.map(resolveMesh3);
+      this.size = options.size ?? 0.34;
+      this.orbitPeriodMs = options.orbitPeriodMs ?? 9e3;
+      this.dockMs = options.dockMs ?? 800;
+      this.backend = options.backend;
+      this.labelContent = options.label;
+      this.fadeLabel = options.fadeLabel ?? true;
+      const spacing = this.size + (options.gap ?? 0.12);
+      for (let i = 0; i < COUNT; i++) {
+        const row = Math.floor(i / GRID);
+        const col = i % GRID;
+        this.slots.push({ x: (col - 2) * spacing, y: (2 - row) * spacing, z: 0 });
+        this.tumbleX.push(TWO_PI2 * hash01(i, 2) - Math.PI);
+        this.tumbleY.push(TWO_PI2 * hash01(i, 4) - Math.PI);
+        this.collapseDelay.push(hash01(i, 7) * COLLAPSE_SPREAD_MS);
+      }
+      this.maxCollapseDelay = Math.max(...this.collapseDelay);
+    }
+    mount(target) {
+      if (!target.style.position) target.style.position = "relative";
+      const engine = new Little3dEngine({
+        backend: this.backend,
+        camera: { position: { x: 0, y: 0, z: CAMERA_Z3 }, fov: FOV2 }
+      });
+      for (let i = 0; i < COUNT; i++) {
+        this.fades.push({ mode: "one-sided", opacity: 1 });
+        this.handles.push(engine.add(this.meshes[i % this.meshes.length], { scale: 0 }));
+      }
+      this.engine = engine;
+      engine.mount(target).catch((error) => {
+        target.textContent = error instanceof Error ? error.message : String(error);
+      });
+      const measure = () => {
+        if (target.clientWidth > 0 && target.clientHeight > 0) {
+          this.aspect = target.clientWidth / target.clientHeight;
+        }
+      };
+      measure();
+      this.observer = new ResizeObserver(measure);
+      this.observer.observe(target);
+      this.label = mountAnimationLabel(target, this.labelContent);
+      if (this.fadeLabel) this.label.setOpacity(0);
+    }
+    enter(now) {
+      if (this.enterAt === Infinity) this.enterAt = now;
+    }
+    exit(now) {
+      if (this.exitAt === Infinity) this.exitAt = now;
+    }
+    isFinished() {
+      return this.finished;
+    }
+    render(now, frame) {
+      if (!this.engine || !this.label) return;
+      if (this.enterAt === Infinity) {
+        for (const handle of this.handles) handle.transform.scale = 0;
+        this.engine.render();
+        return;
+      }
+      const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
+      this.lastNow = now;
+      this.updateBlends(dt, frame.progress, now);
+      if (this.exitAt !== Infinity && this.allDockedAt !== Infinity && this.collapseAt === Infinity) {
+        this.collapseAt = Math.max(this.exitAt, this.allDockedAt) + HOLD_MS;
+      }
+      if (now >= this.collapseAt) this.renderCollapse(now);
+      else this.renderStory(now, dt);
+      this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
+      if (this.fadeLabel) {
+        this.label.setOpacity(animationLabelOpacity(
+          now,
+          this.enterAt,
+          LABEL_FADE_MS,
+          this.collapseAt,
+          COLLAPSE_MS
+        ));
+      }
+      if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS2) {
+        this.finished = true;
+      }
+      this.engine.render();
+    }
+    destroy() {
+      this.observer?.disconnect();
+      this.observer = void 0;
+      this.label?.container.remove();
+      this.label = void 0;
+      this.engine?.destroy();
+      this.engine = void 0;
+      this.handles.length = 0;
+      this.fades.length = 0;
+    }
+    updateBlends(dt, progress, now) {
+      const exiting = this.exitAt !== Infinity;
+      const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
+      const want = !ringComplete ? 0 : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+      const rate = dt / this.dockMs * (exiting ? EXIT_HURRY2 : 1);
+      for (let i = 0; i < COUNT; i++) {
+        const target = i < want ? 1 : 0;
+        const blend = this.blends[i];
+        if (target > blend && (i === 0 || this.blends[i - 1] >= GATE_DOCK)) {
+          this.blends[i] = Math.min(1, blend + rate);
+        } else if (target < blend && (i === COUNT - 1 || this.blends[i + 1] <= GATE_UNDOCK)) {
+          this.blends[i] = Math.max(0, blend - rate);
+        }
+        if (this.blends[i] >= 1) {
+          if (this.dockedAt[i] === Infinity) this.dockedAt[i] = now;
+        } else {
+          this.dockedAt[i] = Infinity;
+        }
+      }
+      const allDocked = want === COUNT && this.blends.every((blend) => blend >= 1);
+      if (allDocked) {
+        if (this.allDockedAt === Infinity) this.allDockedAt = now;
+      } else if (!exiting) {
+        this.allDockedAt = Infinity;
+      }
+    }
+    renderStory(now, dt) {
+      const t = now - this.enterAt;
+      const halfHeight = Math.tan(FOV2 / 2) * CAMERA_Z3;
+      const halfWidth = halfHeight * this.aspect;
+      const radius = Math.max(0.6, Math.min(halfWidth, halfHeight) - this.size * 0.55);
+      const spawnFactor = (Math.max(halfWidth, halfHeight) * 1.25 + this.size * 2) / radius;
+      for (let i = 0; i < COUNT; i++) {
+        const transform2 = this.handles[i].transform;
+        const eased = smooth01(this.blends[i]);
+        const introT = clamp016((t - i * INTRO_STAGGER_MS) / INTRO_MS);
+        const reach = 1 + (spawnFactor - 1) * (1 - easeOutCubic(introT));
+        const angle = Math.PI / 2 - i / COUNT * TWO_PI2 - t / this.orbitPeriodMs * TWO_PI2;
+        const orbitX = Math.cos(angle) * radius * reach;
+        const orbitY = Math.sin(angle) * radius * reach;
+        const slot = this.slots[i];
+        transform2.position.x = orbitX + (slot.x - orbitX) * eased;
+        transform2.position.y = orbitY + (slot.y - orbitY) * eased;
+        transform2.position.z = 0;
+        transform2.scale = this.size;
+        if (this.blends[i] === 0) {
+          this.tumbleX[i] = wrapAngle(this.tumbleX[i] + (4e-4 + 8e-4 * hash01(i, 1)) * dt);
+          this.tumbleY[i] = wrapAngle(this.tumbleY[i] + (6e-4 + 1e-3 * hash01(i, 3)) * dt);
+        }
+        transform2.rotation.z = 0;
+        if (this.blends[i] >= 1) {
+          const phase = (t + i * SPIN_STAGGER_MS) % SPIN_EVERY_MS;
+          const spinning = phase < SPIN_MS && now - phase >= this.dockedAt[i];
+          transform2.rotation.x = 0;
+          transform2.rotation.y = spinning ? TWO_PI2 * easeInOutCubic(phase / SPIN_MS) : 0;
+        } else {
+          const free = 1 - eased;
+          transform2.rotation.x = this.tumbleX[i] * free;
+          transform2.rotation.y = this.tumbleY[i] * free;
+        }
+      }
+    }
+    renderCollapse(now) {
+      if (!this.captured) {
+        this.captured = this.handles.map((handle) => ({ ...handle.transform.position }));
+      }
+      for (let i = 0; i < COUNT; i++) {
+        const transform2 = this.handles[i].transform;
+        const from = this.captured[i];
+        const local = now - this.collapseAt - this.collapseDelay[i];
+        if (local <= 0) {
+          transform2.position.x = from.x;
+          transform2.position.y = from.y;
+          transform2.position.z = from.z;
+          transform2.scale = this.size;
+          continue;
+        }
+        const pull = easeInCubic(clamp016(local / COLLAPSE_MS));
+        transform2.position.x = from.x * (1 - pull);
+        transform2.position.y = from.y * (1 - pull);
+        transform2.position.z = from.z * (1 - pull);
+        transform2.scale = this.size * (1 - 0.99 * pull);
+        if (local >= COLLAPSE_MS) {
+          if (!this.popStarted[i]) {
+            this.popStarted[i] = true;
+            this.handles[i].transparency = this.fades[i];
+          }
+          const v = clamp016((local - COLLAPSE_MS) / POP_MS2);
+          this.fades[i].opacity = 1 - v;
+          transform2.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
+        }
+      }
+    }
+  };
 
   // src/animations/rocket-launch.ts
   var ROCKETS = 20;
@@ -4706,6 +4469,258 @@ void main() {
     }
   };
 
+  // src/composite-animation.ts
+  var CompositeAnimation = class {
+    constructor(layers) {
+      this.elements = [];
+      this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
+    }
+    mount(target) {
+      target.style.position = "relative";
+      for (const [index, layer] of this.layers.entries()) {
+        const element = document.createElement("div");
+        element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
+        target.appendChild(element);
+        this.elements.push(element);
+        layer.animation.mount(element);
+      }
+    }
+    enter(now) {
+      for (const layer of this.layers) layer.animation.enter(now);
+    }
+    exit(now) {
+      for (const layer of this.layers) layer.animation.exit(now);
+    }
+    render(now, frame) {
+      for (const layer of this.layers) layer.animation.render(now, frame);
+    }
+    isFinished() {
+      return this.layers.every((layer) => layer.animation.isFinished());
+    }
+    destroy() {
+      for (const layer of this.layers) layer.animation.destroy();
+      for (const element of this.elements) element.remove();
+      this.elements.length = 0;
+    }
+  };
+
+  // src/prefabs/spinner.ts
+  function spinner(animation, options) {
+    return {
+      type: "indeterminate",
+      animation,
+      loop: options.loop,
+      periodMs: options.periodMs
+    };
+  }
+  function progressSpinner(animation, options) {
+    return {
+      type: "progress",
+      animation,
+      progress: options.progress ?? 1e-3,
+      timeout: options.timeout,
+      until: options.until
+    };
+  }
+
+  // src/prefabs/charged-orb.ts
+  function chargedOrb(options = {}) {
+    const particles = options.particles ?? {};
+    const rate = particles.rate ?? 60;
+    const orb = new ChargedOrbAnimation({
+      backend: options.backend,
+      ...options.orb
+    });
+    const streams = new ParticlesAnimation({
+      rate,
+      lifeMs: 1200,
+      size: 0.12,
+      speed: 0.05,
+      colors: ["#ffffff", "#a5f3fc", "#818cf8"],
+      texture: particles.texture ?? shineTexture(),
+      emitter: orb.satelliteEmitter(1e3 / rate),
+      outroMs: orb.outroEmitMs,
+      seed: 5,
+      backend: options.backend,
+      ...particles,
+      label: options.label ?? particles.label,
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel
+    });
+    return progressSpinner(new CompositeAnimation([orb, streams]), options);
+  }
+
+  // src/motion/figure-eight.ts
+  var LOOP_X = 1.5;
+  var LOOP_Y = 1;
+  var LOOP_Z = 1.05;
+  function figureEightMotion(options = {}) {
+    const size = options.size ?? 1;
+    const periodMs = options.periodMs ?? 3600;
+    return {
+      positionAt(t) {
+        const a = t / periodMs * Math.PI * 2;
+        return {
+          x: size * LOOP_X * Math.sin(a),
+          y: size * LOOP_Y * Math.sin(a) * Math.cos(a),
+          z: size * LOOP_Z * Math.cos(a)
+        };
+      }
+    };
+  }
+
+  // src/prefabs/crystal-comet.ts
+  function crystalComet(options = {}) {
+    const motion = options.object?.motion ?? figureEightMotion({ size: 0.66, periodMs: 7200 });
+    const particles = options.particles ?? {};
+    const object = new ObjectMotionAnimation({
+      mesh: () => tetrahedron(1, ["#f0f9ff", "#7dd3fc", "#818cf8", "#e879f9"]),
+      motion,
+      size: 0.42,
+      rotation: { spinX: 2e-3, spinY: 3e-3 },
+      backend: options.backend,
+      ...options.object,
+      label: options.object?.label
+    });
+    const animation = new CompositeAnimation([
+      new ParticlesAnimation({
+        rate: 44,
+        lifeMs: 2300,
+        size: 0.25,
+        speed: 0.08,
+        colors: ["#ffffff", "#bae6fd", "#818cf8"],
+        texture: particles.texture ?? shineTexture(),
+        emitter: object.trailEmitter(),
+        outroMs: object.outroDurationMs,
+        seed: 28,
+        backend: options.backend,
+        ...particles,
+        label: options.label ?? particles.label ?? "Polishing pixels",
+        fadeLabel: options.fadeLabel ?? particles.fadeLabel
+      }),
+      object
+    ]);
+    return spinner(animation, options);
+  }
+
+  // src/prefabs/ghost-train.ts
+  function ghostTrain(options = {}) {
+    const particles = options.particles ?? {};
+    const train = new GhostTrainAnimation({
+      backend: options.backend,
+      ...options.train
+    });
+    const trail = new ParticlesAnimation({
+      rate: 30,
+      lifeMs: 1700,
+      size: 0.15,
+      speed: 0.11,
+      colors: ["#e0f2fe", "#a5f3fc", "#c4b5fd"],
+      texture: particles.texture ?? starTexture({ glow: 5 }),
+      emitter: train.trailEmitter(),
+      outroMs: train.outroDurationMs,
+      seed: 17,
+      backend: options.backend,
+      ...particles,
+      label: options.label ?? particles.label,
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel
+    });
+    return progressSpinner(new CompositeAnimation([trail, train]), options);
+  }
+
+  // src/prefabs/grid-assembly.ts
+  function gridAssembly(options = {}) {
+    return progressSpinner(
+      new GridAssemblyAnimation({
+        backend: options.backend,
+        label: options.label,
+        fadeLabel: options.fadeLabel,
+        ...options.assembly
+      }),
+      options
+    );
+  }
+
+  // src/prefabs/monochrome-streak.ts
+  function monochromeStreak(options = {}) {
+    const particles = options.particles ?? {};
+    return spinner(new ParticlesAnimation({
+      rate: 70,
+      lifeMs: 2800,
+      size: 0.38,
+      speed: 1.35,
+      direction: { x: 0, y: 1, z: 0 },
+      spread: 0.62,
+      gravity: { x: 0, y: -1.45, z: 0 },
+      colors: ["#fff", "#000"],
+      texture: particles.texture ?? streakTexture(),
+      spin: 0,
+      alignToMotion: true,
+      seed: 37,
+      backend: options.backend,
+      ...particles,
+      label: options.label ?? particles.label ?? "Loading...",
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel
+    }), options);
+  }
+
+  // src/prefabs/plane-star-trail.ts
+  function planeStarTrail(options = {}) {
+    const motion = options.object?.motion ?? figureEightMotion({ size: 0.72, periodMs: 6200 });
+    const particles = options.particles ?? {};
+    const object = new ObjectMotionAnimation({
+      mesh: planeMesh,
+      motion,
+      size: 0.48,
+      backend: options.backend,
+      ...options.object,
+      label: options.object?.label
+    });
+    const animation = new CompositeAnimation([
+      new ParticlesAnimation({
+        rate: 34,
+        lifeMs: 1900,
+        size: 0.16,
+        speed: 0.11,
+        colors: ["#fde047", "#f472b6", "#7dd3fc"],
+        texture: particles.texture ?? starTexture(),
+        emitter: object.trailEmitter(),
+        outroMs: object.outroDurationMs,
+        seed: 11,
+        backend: options.backend,
+        ...particles,
+        label: options.label ?? particles.label ?? "Flying in...",
+        fadeLabel: options.fadeLabel ?? particles.fadeLabel
+      }),
+      object
+    ]);
+    return spinner(animation, options);
+  }
+
+  // src/prefabs/pulsing-starfield.ts
+  function pulsingLabel() {
+    const label = document.createElement("div");
+    label.innerHTML = `<style>
+    @keyframes spinner-prefab-pulse { 0%,100% { color:#fff; transform:scale(1); } 50% { color:#93c5fd; transform:scale(1.06); } }
+  </style><div style="animation:spinner-prefab-pulse 2.4s ease-in-out infinite;font-size:2rem">Loading the good stuff</div>`;
+    return label;
+  }
+  function pulsingStarfield(options = {}) {
+    const particles = options.particles ?? {};
+    return spinner(new ParticlesAnimation({
+      rate: 48,
+      lifeMs: 4200,
+      size: 0.3,
+      speed: 0.34,
+      colors: ["#ffffff", "#dbeafe", "#93c5fd", "#c4b5fd"],
+      texture: particles.texture ?? shineTexture(),
+      seed: 71,
+      backend: options.backend,
+      ...particles,
+      label: options.label ?? particles.label ?? pulsingLabel(),
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel
+    }), options);
+  }
+
   // src/prefabs/rocket-launch.ts
   function rocketLaunch(options = {}) {
     return progressSpinner(
@@ -4803,6 +4818,7 @@ void main() {
 
   // <stdin>
   init_webgl_textured();
+  init_canvas2d_textured();
   init_webgpu_textured();
 
   // src/engines/little-3d-engine/loaders/obj.ts

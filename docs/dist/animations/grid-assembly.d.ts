@@ -1,7 +1,7 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { type Backend, type Mesh } from "../engines/little-3d-engine/little-3d-engine.js";
 export interface GridAssemblyOptions {
-    /** Meshes (or factories) cycled across the 25 shapes. Defaults to a mixed primitive set. */
+    /** Meshes (or factories) cycled across the 25 shapes. Defaults to a single pastel dark-blue cube. */
     meshes?: Array<Mesh | (() => Mesh)>;
     /** Uniform shape size in scene units. Default `0.34`. */
     size?: number;

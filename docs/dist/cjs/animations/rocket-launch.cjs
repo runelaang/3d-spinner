@@ -185,31 +185,6 @@ function expandToTriangles(mesh) {
   }
   return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
 }
-function midpoint(a, b) {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
-}
-function sphereFromTriangles(seedVertices, seedFaces, size, detail, colors) {
-  const radius = size / 2;
-  let triangles = seedFaces.map((f) => f.map((i) => normalize(seedVertices[i])));
-  const levels = Math.max(0, Math.floor(detail) - 1);
-  for (let level = 0; level < levels; level++) {
-    const next = [];
-    for (const [a, b, c] of triangles) {
-      const ab = normalize(midpoint(a, b));
-      const bc = normalize(midpoint(b, c));
-      const ca = normalize(midpoint(c, a));
-      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
-    }
-    triangles = next;
-  }
-  const vertices = [];
-  const faces = triangles.map((tri, i) => {
-    const base = vertices.length;
-    vertices.push(scale(tri[0], radius), scale(tri[1], radius), scale(tri[2], radius));
-    return { indices: [base, base + 1, base + 2], color: colors[i % colors.length] };
-  });
-  return { vertices, faces };
-}
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
@@ -980,12 +955,710 @@ var init_renderer = __esm({
   }
 });
 
-// src/animations/charged-orb.ts
-var charged_orb_exports = {};
-__export(charged_orb_exports, {
-  ChargedOrbAnimation: () => ChargedOrbAnimation
+// src/engines/little-3d-engine/renderers/textured-helpers.ts
+function planarUVs(mesh) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const v of mesh.vertices) {
+    minX = Math.min(minX, v.x);
+    minY = Math.min(minY, v.y);
+    maxX = Math.max(maxX, v.x);
+    maxY = Math.max(maxY, v.y);
+  }
+  const width = maxX - minX || 1;
+  const height = maxY - minY || 1;
+  let triangles = 0;
+  for (const face of mesh.faces) triangles += Math.max(0, face.indices.length - 2);
+  const uvs = new Float32Array(triangles * 6);
+  let o = 0;
+  for (const face of mesh.faces) {
+    for (let k = 1; k < face.indices.length - 1; k++) {
+      for (const index of [face.indices[0], face.indices[k], face.indices[k + 1]]) {
+        const v = mesh.vertices[index];
+        uvs[o] = (v.x - minX) / width;
+        uvs[o + 1] = 1 - (v.y - minY) / height;
+        o += 2;
+      }
+    }
+  }
+  return uvs;
+}
+var init_textured_helpers = __esm({
+  "src/engines/little-3d-engine/renderers/textured-helpers.ts"() {
+    "use strict";
+  }
 });
-module.exports = __toCommonJS(charged_orb_exports);
+
+// src/engines/little-3d-engine/renderers/webgpu-textured.ts
+var webgpu_textured_exports = {};
+__export(webgpu_textured_exports, {
+  WebGPUTexturedRenderer: () => WebGPUTexturedRenderer
+});
+function itemOpacity(transparency) {
+  if (!transparency) return 1;
+  if (transparency.mode === "two-sided") return resolveTwoSidedOpacity(transparency).front;
+  return opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY);
+}
+var WGSL2, CLIP_Z_FIX2, UNIFORM_STRIDE2, WebGPUTexturedRenderer;
+var init_webgpu_textured = __esm({
+  "src/engines/little-3d-engine/renderers/webgpu-textured.ts"() {
+    "use strict";
+    init_geometry();
+    init_math();
+    init_renderer();
+    init_textured_helpers();
+    init_webgpu();
+    WGSL2 = `
+struct Uniforms {
+  viewProj: mat4x4<f32>,
+  model: mat4x4<f32>,
+  params: vec4<f32>,
+};
+@group(0) @binding(0) var<uniform> u: Uniforms;
+@group(0) @binding(1) var tex: texture_2d<f32>;
+@group(0) @binding(2) var samp: sampler;
+
+struct VSOut {
+  @builtin(position) position: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec3<f32>,
+};
+
+@vertex
+fn vs(@location(0) pos: vec3<f32>, @location(1) uv: vec2<f32>, @location(2) color: vec3<f32>) -> VSOut {
+  var out: VSOut;
+  out.uv = uv;
+  out.color = color;
+  out.position = u.viewProj * u.model * vec4<f32>(pos, 1.0);
+  return out;
+}
+
+@fragment
+fn fs(in: VSOut) -> @location(0) vec4<f32> {
+  let t = textureSample(tex, samp, in.uv);
+  return vec4<f32>(t.rgb * in.color, t.a * u.params.x);
+}
+`;
+    CLIP_Z_FIX2 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1];
+    UNIFORM_STRIDE2 = 256;
+    WebGPUTexturedRenderer = class extends WebGPURenderer {
+      constructor() {
+        super(...arguments);
+        this.texturedCapacity = 0;
+        this.sources = /* @__PURE__ */ new Map();
+        this.textures = /* @__PURE__ */ new Map();
+        this.retired = [];
+        this.texturedBuffers = /* @__PURE__ */ new Map();
+        this.bindGroups = /* @__PURE__ */ new Map();
+      }
+      /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+      setTexture(mesh, source) {
+        this.sources.set(mesh, source);
+      }
+      async init(canvas) {
+        await super.init(canvas);
+        const device = this.device;
+        if (!device) return;
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        const module2 = device.createShaderModule({ code: WGSL2 });
+        const stage = globalThis.GPUShaderStage;
+        const layout = device.createBindGroupLayout({
+          entries: [
+            {
+              binding: 0,
+              visibility: stage.VERTEX | stage.FRAGMENT,
+              buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: 144 }
+            },
+            { binding: 1, visibility: stage.FRAGMENT, texture: {} },
+            { binding: 2, visibility: stage.FRAGMENT, sampler: {} }
+          ]
+        });
+        const vertexBuffer = (location, components) => ({
+          arrayStride: components * 4,
+          attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }]
+        });
+        this.texturedPipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+          vertex: {
+            module: module2,
+            entryPoint: "vs",
+            buffers: [vertexBuffer(0, 3), vertexBuffer(1, 2), vertexBuffer(2, 3)]
+          },
+          fragment: {
+            module: module2,
+            entryPoint: "fs",
+            targets: [
+              {
+                format,
+                blend: {
+                  color: {
+                    srcFactor: "src-alpha",
+                    dstFactor: "one-minus-src-alpha",
+                    operation: "add"
+                  },
+                  alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" }
+                }
+              }
+            ]
+          },
+          primitive: { topology: "triangle-list", cullMode: "back", frontFace: "ccw" },
+          depthStencil: {
+            format: "depth24plus",
+            depthWriteEnabled: false,
+            depthCompare: "less"
+          }
+        });
+        this.sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
+      }
+      textureFor(mesh) {
+        const cached = this.textures.get(mesh);
+        if (cached) return cached;
+        const device = this.device;
+        const usage = globalThis.GPUTextureUsage;
+        const white = device.createTexture({
+          size: { width: 1, height: 1 },
+          format: "rgba8unorm",
+          usage: usage.TEXTURE_BINDING | usage.COPY_DST
+        });
+        device.queue.writeTexture(
+          { texture: white },
+          new Uint8Array([255, 255, 255, 255]),
+          {},
+          { width: 1, height: 1 }
+        );
+        this.textures.set(mesh, white);
+        const upload = async (source2) => {
+          const image = source2 instanceof HTMLImageElement ? await createImageBitmap(source2) : source2;
+          if (this.destroyed || !this.device || this.textures.get(mesh) !== white) return;
+          const width = image.width || 1;
+          const height = image.height || 1;
+          const texture = this.device.createTexture({
+            size: { width, height },
+            format: "rgba8unorm",
+            usage: usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT
+          });
+          this.device.queue.copyExternalImageToTexture(
+            { source: image },
+            { texture },
+            { width, height }
+          );
+          this.retired.push(white);
+          this.textures.set(mesh, texture);
+          this.bindGroups.delete(mesh);
+        };
+        const source = this.sources.get(mesh);
+        if (typeof source === "string") {
+          const image = new Image();
+          image.onload = () => void upload(image);
+          image.src = source;
+        } else {
+          void upload(source);
+        }
+        return this.textures.get(mesh);
+      }
+      buffersFor(mesh) {
+        const cached = this.texturedBuffers.get(mesh);
+        if (cached) return cached;
+        const data = expandToTriangles(mesh);
+        const usage = globalThis.GPUBufferUsage.VERTEX | globalThis.GPUBufferUsage.COPY_DST;
+        const upload = (array) => {
+          const buffer = this.device.createBuffer({ size: array.byteLength, usage });
+          this.device.queue.writeBuffer(buffer, 0, array);
+          return buffer;
+        };
+        const result = {
+          position: upload(data.positions),
+          uv: upload(planarUVs(mesh)),
+          color: upload(data.colors),
+          count: data.count
+        };
+        this.texturedBuffers.set(mesh, result);
+        return result;
+      }
+      bindGroupFor(mesh) {
+        const texture = this.textureFor(mesh);
+        const cached = this.bindGroups.get(mesh);
+        if (cached && cached.buffer === this.texturedUniforms && cached.texture === texture) {
+          return cached.group;
+        }
+        const group = this.device.createBindGroup({
+          layout: this.texturedPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.texturedUniforms, offset: 0, size: 144 } },
+            { binding: 1, resource: texture.createView() },
+            { binding: 2, resource: this.sampler }
+          ]
+        });
+        this.bindGroups.set(mesh, { group, buffer: this.texturedUniforms, texture });
+        return group;
+      }
+      render(frame) {
+        const plain = [];
+        const textured = [];
+        for (const item of frame.items) {
+          (this.sources.has(item.mesh) ? textured : plain).push(item);
+        }
+        super.render(textured.length ? { ...frame, items: plain } : frame);
+        if (!textured.length) return;
+        if (this.destroyed || !this.device || !this.context || !this.texturedPipeline) return;
+        if (frame.width === 0 || frame.height === 0) return;
+        this.ensureDepth();
+        if (textured.length > this.texturedCapacity || !this.texturedUniforms) {
+          this.texturedUniforms?.destroy?.();
+          this.texturedUniforms = this.device.createBuffer({
+            size: textured.length * UNIFORM_STRIDE2,
+            usage: globalThis.GPUBufferUsage.UNIFORM | globalThis.GPUBufferUsage.COPY_DST
+          });
+          this.texturedCapacity = textured.length;
+        }
+        const viewProj = multiply(CLIP_Z_FIX2, frame.viewProjection);
+        textured.forEach((item, i) => {
+          const data = new Float32Array(UNIFORM_STRIDE2 / 4);
+          data.set(viewProj, 0);
+          data.set(item.model, 16);
+          data.set([itemOpacity(item.transparency), 0, 0, 0], 32);
+          this.device.queue.writeBuffer(this.texturedUniforms, i * UNIFORM_STRIDE2, data);
+        });
+        const cleared = plain.length > 0;
+        const encoder = this.device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: this.context.getCurrentTexture().createView(),
+              clearValue: this.clearValue,
+              loadOp: cleared ? "load" : "clear",
+              storeOp: "store"
+            }
+          ],
+          depthStencilAttachment: {
+            view: this.depthTexture.createView(),
+            depthClearValue: 1,
+            depthLoadOp: cleared ? "load" : "clear",
+            depthStoreOp: "store"
+          }
+        });
+        pass.setPipeline(this.texturedPipeline);
+        textured.forEach((item, i) => {
+          const mesh = this.buffersFor(item.mesh);
+          pass.setBindGroup(0, this.bindGroupFor(item.mesh), [i * UNIFORM_STRIDE2]);
+          pass.setVertexBuffer(0, mesh.position);
+          pass.setVertexBuffer(1, mesh.uv);
+          pass.setVertexBuffer(2, mesh.color);
+          pass.draw(mesh.count);
+        });
+        pass.end();
+        this.device.queue.submit([encoder.finish()]);
+      }
+      destroy() {
+        for (const texture of this.textures.values()) texture.destroy?.();
+        for (const texture of this.retired.splice(0)) texture.destroy?.();
+        for (const buffers of this.texturedBuffers.values()) {
+          buffers.position.destroy?.();
+          buffers.uv.destroy?.();
+          buffers.color.destroy?.();
+        }
+        this.textures.clear();
+        this.texturedBuffers.clear();
+        this.bindGroups.clear();
+        this.sources.clear();
+        this.texturedUniforms?.destroy?.();
+        this.texturedUniforms = void 0;
+        this.texturedPipeline = void 0;
+        this.sampler = void 0;
+        super.destroy();
+      }
+    };
+  }
+});
+
+// src/engines/little-3d-engine/renderers/webgl-textured.ts
+var webgl_textured_exports = {};
+__export(webgl_textured_exports, {
+  WebGLTexturedRenderer: () => WebGLTexturedRenderer
+});
+function compile2(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(`3d-spinner: shader compile failed: ${gl.getShaderInfoLog(shader)}`);
+  }
+  return shader;
+}
+function link2(gl) {
+  const program = gl.createProgram();
+  gl.attachShader(program, compile2(gl, gl.VERTEX_SHADER, VERTEX_SHADER2));
+  gl.attachShader(program, compile2(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER2));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error(`3d-spinner: program link failed: ${gl.getProgramInfoLog(program)}`);
+  }
+  return program;
+}
+function itemOpacity2(transparency) {
+  if (!transparency) return 1;
+  if (transparency.mode === "two-sided") return resolveTwoSidedOpacity(transparency).front;
+  return opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY);
+}
+var VERTEX_SHADER2, FRAGMENT_SHADER2, WebGLTexturedRenderer;
+var init_webgl_textured = __esm({
+  "src/engines/little-3d-engine/renderers/webgl-textured.ts"() {
+    "use strict";
+    init_geometry();
+    init_renderer();
+    init_textured_helpers();
+    init_webgl();
+    VERTEX_SHADER2 = `#version 300 es
+in vec3 aPos;
+in vec2 aUV;
+in vec3 aColor;
+uniform mat4 uViewProj;
+uniform mat4 uModel;
+out vec2 vUV;
+out vec3 vColor;
+void main() {
+  vUV = aUV;
+  vColor = aColor;
+  gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+}`;
+    FRAGMENT_SHADER2 = `#version 300 es
+precision mediump float;
+in vec2 vUV;
+in vec3 vColor;
+uniform sampler2D uTexture;
+uniform float uOpacity;
+out vec4 fragColor;
+void main() {
+  vec4 t = texture(uTexture, vUV);
+  fragColor = vec4(t.rgb * vColor, t.a * uOpacity);
+}`;
+    WebGLTexturedRenderer = class {
+      constructor(options = {}) {
+        this.sources = /* @__PURE__ */ new Map();
+        this.textures = /* @__PURE__ */ new Map();
+        this.buffers = /* @__PURE__ */ new Map();
+        this.inner = new WebGLRenderer(options);
+      }
+      /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+      setTexture(mesh, source) {
+        this.sources.set(mesh, source);
+      }
+      init(canvas) {
+        this.inner.init(canvas);
+        const gl = canvas.getContext("webgl2");
+        this.gl = gl;
+        this.program = link2(gl);
+        this.locations = {
+          aPos: gl.getAttribLocation(this.program, "aPos"),
+          aUV: gl.getAttribLocation(this.program, "aUV"),
+          aColor: gl.getAttribLocation(this.program, "aColor"),
+          uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
+          uModel: gl.getUniformLocation(this.program, "uModel"),
+          uTexture: gl.getUniformLocation(this.program, "uTexture"),
+          uOpacity: gl.getUniformLocation(this.program, "uOpacity")
+        };
+      }
+      resize() {
+        this.inner.resize();
+      }
+      textureFor(mesh) {
+        const cached = this.textures.get(mesh);
+        if (cached) return cached;
+        const gl = this.gl;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([255, 255, 255, 255])
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        this.textures.set(mesh, texture);
+        const upload = (image) => {
+          if (!this.gl || this.textures.get(mesh) !== texture) return;
+          this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+          this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+        };
+        const source = this.sources.get(mesh);
+        if (typeof source === "string") {
+          const image = new Image();
+          image.onload = () => upload(image);
+          image.src = source;
+        } else {
+          upload(source);
+        }
+        return texture;
+      }
+      buffersFor(mesh) {
+        const cached = this.buffers.get(mesh);
+        if (cached) return cached;
+        const gl = this.gl;
+        const loc = this.locations;
+        const data = expandToTriangles(mesh);
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        const buffers = [];
+        const attribute = (location, array, size) => {
+          if (location < 0) return;
+          const buffer = gl.createBuffer();
+          buffers.push(buffer);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
+          gl.enableVertexAttribArray(location);
+          gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+        };
+        attribute(loc.aPos, data.positions, 3);
+        attribute(loc.aColor, data.colors, 3);
+        attribute(loc.aUV, planarUVs(mesh), 2);
+        gl.bindVertexArray(null);
+        const result = { vao, buffers, count: data.count };
+        this.buffers.set(mesh, result);
+        return result;
+      }
+      render(frame) {
+        const plain = [];
+        const textured = [];
+        for (const item of frame.items) {
+          (this.sources.has(item.mesh) ? textured : plain).push(item);
+        }
+        this.inner.render(textured.length ? { ...frame, items: plain } : frame);
+        if (!textured.length) return;
+        const gl = this.gl;
+        const loc = this.locations;
+        if (!gl || !this.program || !loc) return;
+        gl.useProgram(this.program);
+        gl.uniformMatrix4fv(loc.uViewProj, false, new Float32Array(frame.viewProjection));
+        gl.uniform1i(loc.uTexture, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(false);
+        for (const item of textured) {
+          const buffers = this.buffersFor(item.mesh);
+          gl.bindTexture(gl.TEXTURE_2D, this.textureFor(item.mesh));
+          gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+          gl.uniform1f(loc.uOpacity, itemOpacity2(item.transparency));
+          gl.bindVertexArray(buffers.vao);
+          gl.drawArrays(gl.TRIANGLES, 0, buffers.count);
+        }
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+        gl.bindVertexArray(null);
+      }
+      destroy() {
+        const gl = this.gl;
+        if (gl) {
+          for (const texture of this.textures.values()) gl.deleteTexture(texture);
+          for (const cached of this.buffers.values()) {
+            gl.deleteVertexArray(cached.vao);
+            for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+          }
+          if (this.program) gl.deleteProgram(this.program);
+        }
+        this.textures.clear();
+        this.buffers.clear();
+        this.sources.clear();
+        this.gl = void 0;
+        this.program = void 0;
+        this.locations = void 0;
+        this.inner.destroy();
+      }
+    };
+  }
+});
+
+// src/engines/little-3d-engine/renderers/canvas2d-textured.ts
+var canvas2d_textured_exports = {};
+__export(canvas2d_textured_exports, {
+  Canvas2DTexturedRenderer: () => Canvas2DTexturedRenderer
+});
+function imageSize(source) {
+  if (source instanceof HTMLImageElement) {
+    return source.complete && source.naturalWidth > 0 ? { width: source.naturalWidth, height: source.naturalHeight } : void 0;
+  }
+  if (source instanceof HTMLVideoElement) {
+    return source.readyState >= 2 ? { width: source.videoWidth, height: source.videoHeight } : void 0;
+  }
+  if (source instanceof SVGImageElement) {
+    const width = source.width.baseVal.value;
+    const height = source.height.baseVal.value;
+    return width > 0 && height > 0 ? { width, height } : void 0;
+  }
+  if (typeof VideoFrame !== "undefined" && source instanceof VideoFrame) {
+    return { width: source.displayWidth, height: source.displayHeight };
+  }
+  const sized = source;
+  return sized.width > 0 && sized.height > 0 ? { width: sized.width, height: sized.height } : void 0;
+}
+function drawMappedTriangle(ctx, image, source, target) {
+  const [s0, s1, s2] = source;
+  const [d0, d1, d2] = target;
+  const determinant = s0.x * (s1.y - s2.y) + s1.x * (s2.y - s0.y) + s2.x * (s0.y - s1.y);
+  if (Math.abs(determinant) < 1e-8) return;
+  const a = (d0.x * (s1.y - s2.y) + d1.x * (s2.y - s0.y) + d2.x * (s0.y - s1.y)) / determinant;
+  const c = (d0.x * (s2.x - s1.x) + d1.x * (s0.x - s2.x) + d2.x * (s1.x - s0.x)) / determinant;
+  const e = (d0.x * (s1.x * s2.y - s2.x * s1.y) + d1.x * (s2.x * s0.y - s0.x * s2.y) + d2.x * (s0.x * s1.y - s1.x * s0.y)) / determinant;
+  const b = (d0.y * (s1.y - s2.y) + d1.y * (s2.y - s0.y) + d2.y * (s0.y - s1.y)) / determinant;
+  const d = (d0.y * (s2.x - s1.x) + d1.y * (s0.x - s2.x) + d2.y * (s1.x - s0.x)) / determinant;
+  const f = (d0.y * (s1.x * s2.y - s2.x * s1.y) + d1.y * (s2.x * s0.y - s0.x * s2.y) + d2.y * (s0.x * s1.y - s1.x * s0.y)) / determinant;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(d0.x, d0.y);
+  ctx.lineTo(d1.x, d1.y);
+  ctx.lineTo(d2.x, d2.y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+}
+var Canvas2DTexturedRenderer;
+var init_canvas2d_textured = __esm({
+  "src/engines/little-3d-engine/renderers/canvas2d-textured.ts"() {
+    "use strict";
+    init_math();
+    init_renderer();
+    init_canvas2d();
+    Canvas2DTexturedRenderer = class {
+      constructor(options = {}) {
+        this.sources = /* @__PURE__ */ new Map();
+        this.loaded = /* @__PURE__ */ new Map();
+        this.dpr = 1;
+        this.inner = new Canvas2DRenderer(options);
+      }
+      /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+      setTexture(mesh, source) {
+        this.sources.set(mesh, source);
+        if (typeof source === "string" && !this.loaded.has(source)) {
+          const image = new Image();
+          image.src = source;
+          this.loaded.set(source, image);
+        }
+      }
+      init(canvas) {
+        this.inner.init(canvas);
+        this.ctx = canvas.getContext("2d") ?? void 0;
+      }
+      resize(cssWidth, cssHeight, dpr) {
+        this.dpr = dpr;
+        this.inner.resize(cssWidth, cssHeight, dpr);
+      }
+      drawable(mesh) {
+        const source = this.sources.get(mesh);
+        return typeof source === "string" ? this.loaded.get(source) : source;
+      }
+      render(frame) {
+        const plain = frame.items.filter((item) => {
+          if (!this.sources.has(item.mesh)) return true;
+          const source = this.drawable(item.mesh);
+          return !source || !imageSize(source);
+        });
+        this.inner.render({ ...frame, items: plain });
+        const ctx = this.ctx;
+        if (!ctx) return;
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        const tinted = /* @__PURE__ */ new Map();
+        for (const item of frame.items) {
+          const source = this.drawable(item.mesh);
+          if (!source) continue;
+          const size = imageSize(source);
+          if (!size) continue;
+          let image = tinted.get(item.mesh);
+          if (!image) {
+            image = document.createElement("canvas");
+            image.width = size.width;
+            image.height = size.height;
+            const tint = image.getContext("2d");
+            if (!tint) continue;
+            tint.drawImage(source, 0, 0, size.width, size.height);
+            tint.globalCompositeOperation = "source-in";
+            tint.fillStyle = item.mesh.faces[0]?.color ?? "#ffffff";
+            tint.fillRect(0, 0, size.width, size.height);
+            tinted.set(item.mesh, image);
+          }
+          const world = item.mesh.vertices.map((vertex) => transformAffine(item.model, vertex));
+          const projected = world.map((vertex) => {
+            const ndc = transformPoint(frame.viewProjection, vertex);
+            return { x: (ndc.x * 0.5 + 0.5) * frame.width, y: (1 - (ndc.y * 0.5 + 0.5)) * frame.height };
+          });
+          const face = item.mesh.faces[0];
+          if (!face || face.indices.length !== 4) continue;
+          const [a, b, c, d] = face.indices.map((index) => projected[index]);
+          ctx.globalAlpha = item.transparency?.mode === "one-sided" ? opacity(item.transparency.opacity, DEFAULT_ONE_SIDED_OPACITY) : 1;
+          drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: size.height }, { x: size.width, y: 0 }], [a, b, c]);
+          drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: 0 }, { x: 0, y: 0 }], [a, c, d]);
+        }
+        ctx.globalAlpha = 1;
+      }
+      destroy() {
+        this.inner.destroy();
+        this.ctx = void 0;
+        this.sources.clear();
+        this.loaded.clear();
+      }
+    };
+  }
+});
+
+// src/animations/rocket-launch.ts
+var rocket_launch_exports = {};
+__export(rocket_launch_exports, {
+  RocketLaunchAnimation: () => RocketLaunchAnimation
+});
+module.exports = __toCommonJS(rocket_launch_exports);
+
+// src/animation-label.ts
+var LABEL_STYLE = [
+  "position:absolute",
+  "inset:0",
+  "display:flex",
+  "align-items:center",
+  "justify-content:center",
+  "pointer-events:none",
+  "font:700 1.6rem/1 system-ui,sans-serif",
+  "letter-spacing:0.02em",
+  "color:rgba(255,255,255,0.9)",
+  "text-shadow:0 1px 10px rgba(0,0,0,0.6)",
+  "z-index:1"
+].join(";");
+function animationLabelOpacity(now, enterAt, introDurationMs, exitAt, outroDurationMs) {
+  if (enterAt === Infinity) return 0;
+  const intro = introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
+  const outro = exitAt === Infinity ? 1 : outroDurationMs <= 0 ? 0 : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
+  return Math.min(intro, outro);
+}
+function mountAnimationLabel(target, content) {
+  var _a;
+  const container = document.createElement("div");
+  container.style.cssText = LABEL_STYLE;
+  container.setAttribute("role", "status");
+  if (typeof content === "string") container.textContent = content;
+  else if (content) {
+    (_a = content.style).pointerEvents || (_a.pointerEvents = "auto");
+    container.appendChild(content);
+  }
+  target.appendChild(container);
+  return {
+    container,
+    setText(value) {
+      if (typeof content !== "object") container.textContent = value;
+    },
+    setOpacity(value) {
+      container.style.opacity = String(value);
+    }
+  };
+}
 
 // src/engines/little-3d-engine/core/camera.ts
 init_math();
@@ -1043,9 +1716,45 @@ function transform(init) {
 init_renderer();
 init_light();
 
+// src/engines/little-3d-engine/shapes/primitives/quad.ts
+var DEFAULT_COLORS = ["#3b82f6"];
+function quad(size = 1, colors = DEFAULT_COLORS, material) {
+  const s = size / 2;
+  const vertices = [
+    { x: -s, y: -s, z: 0 },
+    { x: s, y: -s, z: 0 },
+    { x: s, y: s, z: 0 },
+    { x: -s, y: s, z: 0 }
+  ];
+  return attachMaterial(
+    { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0 % colors.length] }] },
+    material
+  );
+}
+
+// src/engines/little-3d-engine/shapes/primitives/pyramid.ts
+var DEFAULT_COLORS2 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
+function pyramid(size = 1, colors = DEFAULT_COLORS2, material) {
+  const h = size / 2;
+  const vertices = [
+    { x: -h, y: -h, z: h },
+    { x: h, y: -h, z: h },
+    { x: h, y: -h, z: -h },
+    { x: -h, y: -h, z: -h },
+    { x: 0, y: h, z: 0 }
+  ];
+  const faces = [
+    { indices: [0, 3, 2, 1], color: colors[0 % colors.length] },
+    { indices: [4, 0, 1], color: colors[1 % colors.length] },
+    { indices: [4, 1, 2], color: colors[2 % colors.length] },
+    { indices: [4, 2, 3], color: colors[3 % colors.length] },
+    { indices: [4, 3, 0], color: colors[4 % colors.length] }
+  ];
+  return attachMaterial({ vertices, faces }, material);
+}
+
 // src/engines/little-3d-engine/shapes/primitives/spheres/icosphere.ts
 init_geometry();
-var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 var T = (1 + Math.sqrt(5)) / 2;
 var SEED_VERTICES = [
   { x: -1, y: T, z: 0 },
@@ -1061,37 +1770,18 @@ var SEED_VERTICES = [
   { x: -T, y: 0, z: -1 },
   { x: -T, y: 0, z: 1 }
 ];
-var SEED_FACES = [
-  [0, 11, 5],
-  [0, 5, 1],
-  [0, 1, 7],
-  [0, 7, 10],
-  [0, 10, 11],
-  [1, 5, 9],
-  [5, 11, 4],
-  [11, 10, 2],
-  [10, 7, 6],
-  [7, 1, 8],
-  [3, 9, 4],
-  [3, 4, 2],
-  [3, 2, 6],
-  [3, 6, 8],
-  [3, 8, 9],
-  [4, 9, 5],
-  [2, 4, 11],
-  [6, 2, 10],
-  [8, 6, 7],
-  [9, 8, 1]
-];
-function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
-  return attachMaterial(
-    sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
-    material
-  );
-}
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/octa-sphere.ts
 init_geometry();
+
+// src/engines/little-3d-engine/textures/dynamic/canvas-texture.ts
+function canvasTexture(draw, size = 96) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) draw(ctx);
+  return canvas;
+}
 
 // src/engines/little-3d-engine/little-3d-engine.ts
 init_geometry();
@@ -1247,26 +1937,6 @@ function input(value, overextend) {
   if (overextend) return value;
   return Math.min(1, Math.max(0, value));
 }
-function easeInQuad(value, overextend = false) {
-  const x = input(value, overextend);
-  return x * x;
-}
-function easeOutQuad(value, overextend = false) {
-  const x = input(value, overextend);
-  return 1 - (1 - x) * (1 - x);
-}
-function easeInCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return x * x * x;
-}
-function easeOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return 1 - Math.pow(1 - x, 3);
-}
-function easeInOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-}
 function easeOutBack(value, overextend = false) {
   const x = input(value, overextend);
   const c1 = 1.70158;
@@ -1274,64 +1944,147 @@ function easeOutBack(value, overextend = false) {
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
 }
 
-// src/animations/charged-orb.ts
-var MINIS = 10;
+// src/animations/rocket-launch.ts
+var ROCKETS = 20;
 var CAMERA_Z = 3;
-var CENTER_SCALE = 0.76;
-var MINI_SCALE = 0.36;
-var MINI_TRANSPARENCY = { mode: "two-sided", frontOpacity: 0.68, backOpacity: 0.87 };
-var ORBIT_RADIUS = 1.2;
-var TILT = 0.8;
-var TWO_PI = Math.PI * 2;
-var CENTER_POP_MS = 500;
-var LAUNCH_MS = 550;
+var FOV = 55 * Math.PI / 180;
+var HALF_HEIGHT = Math.tan(FOV / 2) * CAMERA_Z;
+var SIZE = 0.12;
+var ROW_Y = -0.5;
+var PARTICLE_Z = 0.3;
+var SLIDE_MS = 460;
+var SLIDE_GATE = 0.45;
 var EXIT_HURRY = 2.5;
-var SPREAD_TAU_MS = 250;
-var EXTRA_PAUSE_MS = 250;
-var EXTRA_SPIN_MS = 1300;
-var REENTER_MS = 600;
-var REENTER_STAGGER_MS = 45;
-var CENTER_POP_OUT_AT = REENTER_MS + (MINIS - 1) * REENTER_STAGGER_MS + 150;
-var CENTER_POP_OUT_MS = 420;
-var PARKED = { x: 0, y: 0, z: 50 };
-var ORB_MATERIAL = { specular: [1, 1, 1], shininess: 28 };
-var CENTER_COLORS = ["#67e8f9", "#22d3ee", "#0ea5e9", "#38bdf8", "#7dd3fc"];
-var MINI_COLORS = [
-  ["#e0f2fe", "#bae6fd", "#7dd3fc"],
-  ["#c7d2fe", "#a5b4fc", "#818cf8"],
-  ["#a5f3fc", "#67e8f9", "#22d3ee"]
-];
+var LAUNCH_SPREAD_MS = 620;
+var ASCENT_G = 5.2;
+var FINISH_PAD_MS = 2e3;
+var TURNERS = 3;
+var TURN_MIN_Y = 0.2;
+var TURN_MAX_Y = 0.8;
+var TURN_MIN_DEG = 30;
+var TURN_MAX_DEG = 50;
+var DEG = Math.PI / 180;
+var SMOKE_LIFE_MS = 1400;
+var SMOKE_GAP_MS = 320;
+var SMOKE_RISE = 0.55;
+var SMOKE_SIZE = 0.17;
+var SMOKE_PEAK = 0.16;
+var SMOKE_POOL = 104;
+var FIRE_LIFE_MS = 420;
+var FIRE_GAP_MS = 55;
+var FIRE_ON_MS = 950;
+var FIRE_TRAIL = 0.25;
+var FIRE_SPREAD = 0.09;
+var FIRE_SIZE = 0.15;
+var FIRE_PEAK = 0.9;
+var FIRE_POOL = 140;
+var SMOKE_COLORS = ["#e2e8f0", "#cbd5e1"];
+var FIRE_COLORS = ["#fef3c7", "#fde047", "#fb923c", "#ef4444"];
+var ROCKET_COLORS = ["#e2e8f0", "#f8fafc", "#cbd5e1", "#94a3b8", "#e2e8f0"];
 function clamp012(value) {
   return Math.max(0, Math.min(1, value));
 }
-var ChargedOrbAnimation = class {
+function smoothstep(edge0, edge1, value) {
+  const x = clamp012((value - edge0) / (edge1 - edge0));
+  return x * x * (3 - 2 * x);
+}
+function hash01(index, salt) {
+  let h = (Math.imul(index + 1, 2654435769) ^ Math.imul(salt + 1, 2246822507)) >>> 0;
+  h = Math.imul(h ^ h >>> 16, 73244475);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function puffTexture(coreAlpha, coreStop) {
+  return canvasTexture((ctx) => {
+    const g = ctx.createRadialGradient(48, 48, 1, 48, 48, 47);
+    g.addColorStop(0, `rgba(255,255,255,${coreAlpha})`);
+    g.addColorStop(coreStop, `rgba(255,255,255,${coreAlpha * 0.6})`);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 96, 96);
+  });
+}
+var RocketLaunchAnimation = class {
   constructor(options = {}) {
-    this.minis = [];
-    this.blends = new Array(MINIS).fill(0);
-    this.offsets = new Array(MINIS).fill(0);
+    this.rockets = [];
+    this.smoke = [];
+    this.fire = [];
+    this.smokeFades = [];
+    this.fireFades = [];
+    this.blends = new Array(ROCKETS).fill(0);
+    this.groundedAt = new Array(ROCKETS).fill(Infinity);
+    // Per-rocket veer parameters (turnS = Infinity for a rocket that climbs straight).
+    this.turnS = new Array(ROCKETS).fill(Infinity);
+    this.turnDir = [];
+    this.turnRoll = new Array(ROCKETS).fill(0);
+    this.stagger = new Array(ROCKETS).fill(0);
+    this.aspect = 16 / 9;
     this.enterAt = Infinity;
     this.exitAt = Infinity;
-    this.allOutAt = Infinity;
+    this.launchedAt = Infinity;
     this.lastNow = 0;
     this.finished = false;
-    this.orbitPeriodMs = options.orbitPeriodMs ?? 6e3;
     this.backend = options.backend;
+    this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
+    for (let i = 0; i < ROCKETS; i++) {
+      this.turnDir.push({ x: 0, y: 1 });
+      this.stagger[i] = hash01(i, 7) * LAUNCH_SPREAD_MS;
+    }
+    const order = Array.from({ length: ROCKETS }, (_, i) => i).sort(
+      (a, b) => hash01(a, 11) - hash01(b, 11)
+    );
+    for (const i of order.slice(0, TURNERS)) {
+      const height = TURN_MIN_Y + hash01(i, 12) * (TURN_MAX_Y - TURN_MIN_Y);
+      const angle = (TURN_MIN_DEG + hash01(i, 13) * (TURN_MAX_DEG - TURN_MIN_DEG)) * DEG;
+      const sign = hash01(i, 14) < 0.5 ? -1 : 1;
+      this.turnS[i] = height - ROW_Y;
+      this.turnDir[i] = { x: sign * Math.sin(angle), y: Math.cos(angle) };
+      this.turnRoll[i] = -sign * angle;
+    }
   }
   mount(target) {
     if (!target.style.position) target.style.position = "relative";
+    const smokeMeshes = SMOKE_COLORS.map((color) => quad(1, [color]));
+    const fireMeshes = FIRE_COLORS.map((color) => quad(1, [color]));
+    const smokeTexture = puffTexture(0.85, 0.5);
+    const fireTexture = puffTexture(1, 0.32);
+    const backend = async (rendererOptions) => {
+      const renderer = this.backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(rendererOptions) : this.backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(rendererOptions) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(rendererOptions);
+      for (const mesh of smokeMeshes) renderer.setTexture(mesh, smokeTexture);
+      for (const mesh of fireMeshes) renderer.setTexture(mesh, fireTexture);
+      return renderer;
+    };
     const engine = new Little3dEngine({
-      backend: this.backend,
-      camera: { position: { x: 0, y: 0, z: CAMERA_Z } }
+      backend,
+      camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV }
     });
-    this.center = engine.add(icosphere(1, 2, CENTER_COLORS, ORB_MATERIAL), { scale: 0 });
-    for (let i = 0; i < MINIS; i++) {
-      const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length], ORB_MATERIAL);
-      this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
+    const rocketMesh = pyramid(1, ROCKET_COLORS);
+    for (let i = 0; i < ROCKETS; i++) this.rockets.push(engine.add(rocketMesh, { scale: 0 }));
+    for (let s = 0; s < SMOKE_POOL; s++) {
+      const fade = { mode: "one-sided", opacity: 0 };
+      this.smokeFades.push(fade);
+      this.smoke.push(engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }));
+    }
+    for (let f = 0; f < FIRE_POOL; f++) {
+      const fade = { mode: "one-sided", opacity: 0 };
+      this.fireFades.push(fade);
+      this.fire.push(engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }));
     }
     this.engine = engine;
     engine.mount(target).catch((error) => {
       target.textContent = error instanceof Error ? error.message : String(error);
     });
+    const measure = () => {
+      if (target.clientWidth > 0 && target.clientHeight > 0) {
+        this.aspect = target.clientWidth / target.clientHeight;
+      }
+    };
+    measure();
+    this.observer = new ResizeObserver(measure);
+    this.observer.observe(target);
+    this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
   }
   enter(now) {
     if (this.enterAt === Infinity) this.enterAt = now;
@@ -1342,140 +2095,182 @@ var ChargedOrbAnimation = class {
   isFinished() {
     return this.finished;
   }
-  /** Milliseconds after {@link exit} during which the satellites are still flying. */
-  get outroEmitMs() {
-    return EXTRA_PAUSE_MS + EXTRA_SPIN_MS + CENTER_POP_OUT_AT;
-  }
-  /**
-   * A {@link MotionController} that cycles across the live satellites, one
-   * spawn slot per orb, so a particle layer emits one stream per satellite.
-   * `spawnGapMs` must match the particle layer's emission gap (`1000 / rate`).
-   */
-  satelliteEmitter(spawnGapMs) {
-    return {
-      positionAt: (t) => {
-        const live = [];
-        for (let i = 0; i < MINIS; i++) {
-          const sample = this.miniSample(i, t);
-          if (sample) live.push(sample.position);
-        }
-        if (live.length === 0) return PARKED;
-        const slot = Math.abs(Math.floor(t / spawnGapMs)) % live.length;
-        return live[slot];
-      }
-    };
-  }
   render(now, frame) {
-    if (!this.engine || !this.center) return;
+    if (!this.engine || !this.label) return;
+    for (const handle of this.rockets) handle.transform.scale = 0;
+    for (const fade of this.smokeFades) fade.opacity = 0;
+    for (const fade of this.fireFades) fade.opacity = 0;
+    for (const handle of this.smoke) handle.transform.scale = 0;
+    for (const handle of this.fire) handle.transform.scale = 0;
     if (this.enterAt === Infinity) {
-      this.center.transform.scale = 0;
-      for (const mini of this.minis) mini.transform.scale = 0;
       this.engine.render();
       return;
     }
     const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
     this.lastNow = now;
-    this.updateBlends(dt, frame.progress, now);
-    this.updateSpread(dt);
-    const t = now - this.enterAt;
-    this.center.transform.scale = this.centerScale(now, t);
-    this.center.transform.rotation.x = t * 2e-4;
-    this.center.transform.rotation.y = t * 5e-4;
-    for (let i = 0; i < MINIS; i++) {
-      const transform2 = this.minis[i].transform;
-      const sample = this.miniSample(i, now);
-      if (!sample) {
-        transform2.scale = 0;
+    const exiting = this.exitAt !== Infinity;
+    this.updateBlends(dt, frame.progress, now, exiting);
+    if (exiting && this.launchedAt === Infinity && this.blends.every((blend) => blend >= 1)) {
+      this.launchedAt = now;
+    }
+    const launched = this.launchedAt !== Infinity;
+    const halfWidth = HALF_HEIGHT * this.aspect;
+    const rowHalf = Math.min(halfWidth * 0.8, 1.18);
+    const spawnX = halfWidth + 0.6;
+    let smokeCursor = 0;
+    let fireCursor = 0;
+    for (let i = 0; i < ROCKETS; i++) {
+      const homeX = -rowHalf + 2 * rowHalf * i / (ROCKETS - 1);
+      const launchAt = launched ? this.launchedAt + this.stagger[i] : Infinity;
+      const la = now - launchAt;
+      if (launched && la >= 0) {
+        this.renderAscent(i, homeX, la, halfWidth);
+        fireCursor = this.emitFire(i, homeX, la, fireCursor);
         continue;
       }
-      transform2.position.x = sample.position.x;
-      transform2.position.y = sample.position.y;
-      transform2.position.z = sample.position.z;
-      transform2.scale = sample.scale;
-      transform2.rotation.y = t * 12e-4;
+      const blend = this.blends[i];
+      if (blend <= 0) continue;
+      const transform2 = this.rockets[i].transform;
+      transform2.position.x = spawnX + (homeX - spawnX) * easeOutBack(blend);
+      transform2.position.y = ROW_Y;
+      transform2.position.z = 0;
+      transform2.rotation.x = 0;
+      transform2.rotation.y = 0;
+      transform2.rotation.z = 0;
+      transform2.scale = SIZE * smoothstep(0, 0.6, blend);
+      if (this.groundedAt[i] !== Infinity) {
+        smokeCursor = this.emitSmoke(i, homeX, now, launchAt, smokeCursor);
+      }
+    }
+    this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(
+        now,
+        this.enterAt,
+        SLIDE_MS,
+        this.launchedAt,
+        LAUNCH_SPREAD_MS
+      ));
+    }
+    if (launched && now >= this.launchedAt + LAUNCH_SPREAD_MS + FINISH_PAD_MS) {
+      this.finished = true;
     }
     this.engine.render();
   }
   destroy() {
+    this.observer?.disconnect();
+    this.observer = void 0;
+    this.label?.container.remove();
+    this.label = void 0;
     this.engine?.destroy();
     this.engine = void 0;
-    this.center = void 0;
-    this.minis.length = 0;
+    this.rockets.length = 0;
+    this.smoke.length = 0;
+    this.fire.length = 0;
+    this.smokeFades.length = 0;
+    this.fireFades.length = 0;
   }
-  updateBlends(dt, progress, now) {
-    const exiting = this.exitAt !== Infinity;
-    const want = exiting ? MINIS : Math.min(MINIS, Math.floor(progress * MINIS + 1e-9));
-    const rate = dt / LAUNCH_MS * (exiting ? EXIT_HURRY : 1);
-    for (let i = 0; i < MINIS; i++) {
+  updateBlends(dt, progress, now, exiting) {
+    const want = exiting ? ROCKETS : Math.min(ROCKETS, Math.round(progress * ROCKETS));
+    const rate = dt / SLIDE_MS * (exiting ? EXIT_HURRY : 1);
+    for (let i = 0; i < ROCKETS; i++) {
       const target = i < want ? 1 : 0;
       const blend = this.blends[i];
-      if (target > blend && (i === 0 || this.blends[i - 1] >= 0.6)) {
+      if (target > blend && (i === 0 || this.blends[i - 1] >= SLIDE_GATE)) {
         this.blends[i] = Math.min(1, blend + rate);
-        if (blend === 0) this.offsets[i] = this.slotAngle(i);
-      } else if (target < blend && (i === MINIS - 1 || this.blends[i + 1] <= 0.4)) {
+      } else if (target < blend && (i === ROCKETS - 1 || this.blends[i + 1] <= 1 - SLIDE_GATE)) {
         this.blends[i] = Math.max(0, blend - rate);
       }
-    }
-    if (exiting && this.allOutAt === Infinity && this.blends.every((blend) => blend >= 1)) {
-      this.allOutAt = now;
-    }
-  }
-  updateSpread(dt) {
-    const ease = 1 - Math.exp(-dt / SPREAD_TAU_MS);
-    for (let i = 0; i < MINIS; i++) {
-      if (this.blends[i] <= 0) continue;
-      this.offsets[i] += (this.slotAngle(i) - this.offsets[i]) * ease;
+      if (this.blends[i] >= 1) {
+        if (this.groundedAt[i] === Infinity) this.groundedAt[i] = now;
+      } else {
+        this.groundedAt[i] = Infinity;
+      }
     }
   }
-  slotAngle(index) {
-    const launched = Math.max(1, this.blends.filter((blend) => blend > 0).length);
-    return TWO_PI * Math.min(index, launched - 1) / launched;
+  /** Along-track distance climbed `la` ms after this rocket's own blast-off. */
+  ascentDistance(la) {
+    const seconds = la / 1e3;
+    return 0.5 * ASCENT_G * seconds * seconds;
   }
-  baseAngleAt(t) {
-    let angle = -TWO_PI * (t - this.enterAt) / this.orbitPeriodMs;
-    if (this.allOutAt !== Infinity) {
-      const u = clamp012((t - this.allOutAt - EXTRA_PAUSE_MS) / EXTRA_SPIN_MS);
-      angle -= TWO_PI * easeInOutCubic(u);
+  /** Rocket center, nose direction, and roll `la` ms into its climb. */
+  ascentPose(i, homeX, la) {
+    const s = this.ascentDistance(la);
+    const turnS = this.turnS[i];
+    if (s <= turnS) {
+      return { pos: { x: homeX, y: ROW_Y + s }, dir: { x: 0, y: 1 }, roll: 0 };
     }
-    return angle;
-  }
-  reenterStart() {
-    return this.allOutAt + EXTRA_PAUSE_MS + EXTRA_SPIN_MS;
-  }
-  miniSample(index, t) {
-    const blend = this.blends[index];
-    if (blend <= 0) return void 0;
-    let radial = easeOutCubic(blend);
-    let scale2 = MINI_SCALE * easeOutBack(blend);
-    if (this.allOutAt !== Infinity) {
-      const start = this.reenterStart() + index * REENTER_STAGGER_MS;
-      const pull = easeInCubic(clamp012((t - start) / REENTER_MS));
-      if (pull >= 1) return void 0;
-      radial *= 1 - pull;
-      scale2 *= 1 - pull;
-    }
-    const angle = this.baseAngleAt(t) + this.offsets[index];
-    const flat = Math.sin(angle) * ORBIT_RADIUS * radial;
+    const post = s - turnS;
+    const dir = this.turnDir[i];
     return {
-      position: {
-        x: Math.cos(angle) * ORBIT_RADIUS * radial,
-        y: flat * Math.cos(TILT),
-        z: flat * Math.sin(TILT)
-      },
-      scale: scale2
+      pos: { x: homeX + dir.x * post, y: ROW_Y + turnS + dir.y * post },
+      dir,
+      roll: this.turnRoll[i]
     };
   }
-  centerScale(now, t) {
-    if (this.allOutAt !== Infinity) {
-      const w = clamp012((now - this.reenterStart() - CENTER_POP_OUT_AT) / CENTER_POP_OUT_MS);
-      if (w >= 1) {
-        this.finished = true;
-        return 0;
-      }
-      if (w > 0) {
-        return CENTER_SCALE * (w < 0.35 ? 1 + 0.18 * easeOutQuad(w / 0.35) : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)));
-      }
+  renderAscent(i, homeX, la, halfWidth) {
+    const { pos, roll } = this.ascentPose(i, homeX, la);
+    if (pos.y > HALF_HEIGHT + 0.4 || Math.abs(pos.x) > halfWidth + 0.4) return;
+    const transform2 = this.rockets[i].transform;
+    transform2.position.x = pos.x;
+    transform2.position.y = pos.y;
+    transform2.position.z = 0;
+    transform2.rotation.x = 0;
+    transform2.rotation.y = 0;
+    transform2.rotation.z = roll;
+    transform2.scale = SIZE;
+  }
+  emitFire(i, homeX, la, cursor) {
+    const gap = FIRE_GAP_MS;
+    const last = Math.min(Math.floor(la / gap), Math.floor(FIRE_ON_MS / gap));
+    const first = Math.max(0, Math.ceil((la - FIRE_LIFE_MS) / gap));
+    for (let n = first; n <= last; n++) {
+      if (cursor >= this.fire.length) return cursor;
+      const emitLa = n * gap;
+      const age = la - emitLa;
+      if (age < 0 || age >= FIRE_LIFE_MS) continue;
+      const life = age / FIRE_LIFE_MS;
+      const seconds = age / 1e3;
+      const pose = this.ascentPose(i, homeX, emitLa);
+      const back = { x: -pose.dir.x, y: -pose.dir.y };
+      const perp = { x: -pose.dir.y, y: pose.dir.x };
+      const lat = (hash01(i * 97 + n, 1) - 0.5) * FIRE_SPREAD;
+      const baseX = pose.pos.x + back.x * SIZE * 0.5;
+      const baseY = pose.pos.y + back.y * SIZE * 0.5;
+      const transform2 = this.fire[cursor].transform;
+      transform2.position.x = baseX + back.x * FIRE_TRAIL * seconds + perp.x * lat;
+      transform2.position.y = baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
+      transform2.position.z = PARTICLE_Z;
+      transform2.rotation.z = hash01(i * 97 + n, 2) * Math.PI * 2;
+      transform2.scale = FIRE_SIZE * (0.7 + 0.5 * hash01(i * 97 + n, 3)) * (1 - 0.55 * life);
+      this.fireFades[cursor].opacity = FIRE_PEAK * smoothstep(0, 0.15, life) * (1 - smoothstep(0.55, 1, life));
+      cursor++;
     }
-    return CENTER_SCALE * easeOutBack(clamp012(t / CENTER_POP_MS));
+    return cursor;
+  }
+  emitSmoke(i, homeX, now, launchAt, cursor) {
+    const start = this.groundedAt[i];
+    const tr = now - start;
+    const gap = SMOKE_GAP_MS;
+    const emitUntil = Number.isFinite(launchAt) ? launchAt - start : tr;
+    const last = Math.min(Math.floor(tr / gap), Math.floor(emitUntil / gap));
+    const first = Math.max(0, Math.ceil((tr - SMOKE_LIFE_MS) / gap));
+    const baseY = ROW_Y - SIZE * 0.4;
+    for (let n = first; n <= last; n++) {
+      if (cursor >= this.smoke.length) return cursor;
+      const age = tr - n * gap;
+      if (age < 0 || age >= SMOKE_LIFE_MS) continue;
+      const life = age / SMOKE_LIFE_MS;
+      const drift = (hash01(i * 131 + n, 1) - 0.5) * 0.14;
+      const transform2 = this.smoke[cursor].transform;
+      transform2.position.x = homeX + drift * life;
+      transform2.position.y = baseY + SMOKE_RISE * life;
+      transform2.position.z = PARTICLE_Z;
+      transform2.rotation.z = hash01(i * 131 + n, 2) * Math.PI * 2;
+      transform2.scale = SMOKE_SIZE * (0.5 + 0.8 * life) * (0.7 + 0.6 * hash01(i * 131 + n, 3));
+      this.smokeFades[cursor].opacity = SMOKE_PEAK * smoothstep(0, 0.25, life) * (1 - smoothstep(0.5, 1, life));
+      cursor++;
+    }
+    return cursor;
   }
 };
