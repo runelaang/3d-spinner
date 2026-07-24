@@ -1,6 +1,6 @@
 {
   "name": "3d-spinner",
-  "version": "0.9.8",
+  "version": "0.10.0",
   "description": "A lightweight, zero-dependency 3D spinner, loader, and progress indicator for JavaScript.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
