@@ -304,6 +304,8 @@ new ParticlesAnimation({ backend: "webgl" }); // an animation
 new Little3dEngine({ backend: "canvas2d" });  // the engine directly
 ```
 
+Before 0.10.0 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
+
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
 fetched. Pinning a backend the browser cannot run throws rather than falling back - `"auto"` is
