@@ -36,8 +36,9 @@
     <label for="render-tech">
       <span>Render tech</span>
       <select id="render-tech" autocomplete="off">
+        <option value="auto" selected>Auto (best available)</option>
         <option value="canvas2d">Canvas 2D (software)</option>
-        <option value="webgl" selected>WebGL</option>
+        <option value="webgl">WebGL</option>
         <option value="webgpu">WebGPU</option>
       </select>
     </label>
@@ -229,10 +230,13 @@
       },
     ];
 
+    let spinners = [];
+
     function buildShowcase() {
+      spinners.forEach((s) => s.destroy());
+      spinners = [];
       const grid = document.getElementById("motion-showcase");
       grid.replaceChildren();
-      const spinners = [];
       demos.forEach((demo) => {
         const card = document.createElement("section");
         card.className = "spinner-card";
@@ -258,13 +262,17 @@
         card.querySelector(".card-start").onclick = start;
         card.querySelector(".card-stop").onclick = () => spinner?.stop();
         start();
-        spinners.push({ start, stop: () => spinner?.stop() });
+        spinners.push({
+          start,
+          stop: () => spinner?.stop(),
+          destroy: () => { spinner?.destroy(); spinner = null; },
+        });
       });
-      return spinners;
     }
 
-    let spinners = buildShowcase();
-    renderTech.onchange = () => { spinners = buildShowcase(); };
+    buildShowcase();
+    renderTech.onchange = buildShowcase;
+    addEventListener("pagehide", () => spinners.forEach((s) => s.destroy()));
     document.getElementById("restart").onclick = () => spinners.forEach((s) => s.start());
     document.getElementById("stop").onclick = () => spinners.forEach((s) => s.stop());
   </script>

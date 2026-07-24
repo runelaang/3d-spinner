@@ -4,7 +4,10 @@ import { type Mesh, type Transform, type Transparency } from "./core/mesh.js";
 import { type Backend, type RendererFactory } from "./renderer.js";
 /** Options for {@link Little3dEngine}. */
 export interface Little3dEngineOptions {
-    /** Rendering backend, or a factory building a custom renderer. Loaded on demand. Default `"canvas2d"`. */
+    /**
+     * Rendering backend, or a factory building a custom renderer. Loaded on
+     * demand. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D.
+     */
     backend?: Backend | RendererFactory;
     camera?: Partial<CameraOptions>;
     light?: Partial<LightOptions>;
@@ -82,6 +85,6 @@ export { streakTexture } from "./textures/dynamic/streak.js";
 export { expandToTriangles } from "./core/geometry.js";
 export type { Mesh, Face, Material, Transform, Transparency, OneSidedTransparency, TwoSidedTransparency, } from "./core/mesh.js";
 export { transform, attachMaterial } from "./core/mesh.js";
-export type { Backend, Renderer, RendererFactory, RenderFrame, RenderItem, RendererOptions, } from "./renderer.js";
-export { orderRenderItems } from "./renderer.js";
+export type { Backend, BackendSupport, ResolvedBackend, Renderer, RendererFactory, RenderFrame, RenderItem, RendererOptions, } from "./renderer.js";
+export { orderRenderItems, chooseBackend, detectBackendSupport, resolveBackend, } from "./renderer.js";
 export { type Vec3, vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";

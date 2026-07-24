@@ -1,3 +1,55 @@
+/** Best supported backend, in descending order of capability. */
+export function chooseBackend(support) {
+    if (support.webgpu)
+        return "webgpu";
+    if (support.webgl)
+        return "webgl";
+    return "canvas2d";
+}
+/**
+ * Test what the browser supports without loading any backend. The probes are a
+ * WebGPU adapter request and a throwaway WebGL2 context, so choosing `"auto"`
+ * never downloads or compiles the code for a backend it then rejects.
+ */
+export async function detectBackendSupport() {
+    return { webgpu: await hasWebGPU(), webgl: hasWebGL2() };
+}
+async function hasWebGPU() {
+    const gpu = globalThis.navigator?.gpu;
+    if (!gpu)
+        return false;
+    try {
+        return Boolean(await gpu.requestAdapter());
+    }
+    catch {
+        return false;
+    }
+}
+function hasWebGL2() {
+    const doc = globalThis.document;
+    if (!doc?.createElement)
+        return false;
+    try {
+        const gl = doc.createElement("canvas").getContext("webgl2");
+        if (!gl)
+            return false;
+        // The probe holds a real context and browsers cap how many may be live, so
+        // release it rather than waiting for garbage collection.
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+let supportProbe;
+/** Resolve `"auto"` once per page and reuse the answer for later mounts. */
+export async function resolveBackend(backend) {
+    if (backend !== "auto")
+        return backend;
+    supportProbe ?? (supportProbe = detectBackendSupport());
+    return chooseBackend(await supportProbe);
+}
 export const DEFAULT_ONE_SIDED_OPACITY = 0.35;
 export const DEFAULT_BACK_OPACITY = 0.84;
 export const DEFAULT_FRONT_OPACITY = 0.56;
@@ -37,12 +89,13 @@ export function orderRenderItems(items, eye) {
 /**
  * Load and construct a renderer for `backend`. Each backend lives in its own
  * module and is pulled in with a dynamic `import()`, so the bytes for the
- * backends you do not use are never downloaded or compiled.
+ * backends you do not use are never downloaded or compiled. `"auto"` resolves
+ * to the best supported backend before anything is imported.
  */
 export async function createRenderer(backend, options = {}) {
     if (typeof backend === "function")
         return backend(options);
-    switch (backend) {
+    switch (await resolveBackend(backend)) {
         case "webgl":
             return new (await import("./renderers/webgl.js")).WebGLRenderer(options);
         case "webgpu":

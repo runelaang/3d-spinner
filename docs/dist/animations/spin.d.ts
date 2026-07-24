@@ -12,7 +12,7 @@ export interface SpinAnimationOptions {
     spinX?: number;
     /** Rotation speed around the Y axis, in radians per millisecond. Default `0.0011`. */
     spinY?: number;
-    /** Rendering backend. Default `"canvas2d"`. */
+    /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
     /** Optional one-sided or two-sided mesh transparency. */
     transparency?: Transparency;

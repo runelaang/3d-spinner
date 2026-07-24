@@ -1,8 +1,29 @@
 import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
 import type { Mesh, Transparency, TwoSidedTransparency } from "./core/mesh.js";
-/** Rendering backend. Each is loaded on demand; unused ones are never fetched. */
-export type Backend = "canvas2d" | "webgl" | "webgpu";
+/**
+ * Rendering backend. Each is loaded on demand; unused ones are never fetched.
+ * `"auto"` picks the best one the browser supports - WebGPU, then WebGL, then
+ * Canvas 2D - and is the default.
+ */
+export type Backend = "auto" | "canvas2d" | "webgl" | "webgpu";
+/** A backend that can be constructed directly, with `"auto"` already resolved. */
+export type ResolvedBackend = Exclude<Backend, "auto">;
+/** Which hardware backends the current browser can actually run. */
+export interface BackendSupport {
+    webgpu: boolean;
+    webgl: boolean;
+}
+/** Best supported backend, in descending order of capability. */
+export declare function chooseBackend(support: BackendSupport): ResolvedBackend;
+/**
+ * Test what the browser supports without loading any backend. The probes are a
+ * WebGPU adapter request and a throwaway WebGL2 context, so choosing `"auto"`
+ * never downloads or compiles the code for a backend it then rejects.
+ */
+export declare function detectBackendSupport(): Promise<BackendSupport>;
+/** Resolve `"auto"` once per page and reuse the answer for later mounts. */
+export declare function resolveBackend(backend: Backend): Promise<ResolvedBackend>;
 /** A mesh plus its world transform, ready to draw. */
 export interface RenderItem {
     mesh: Mesh;
@@ -58,6 +79,7 @@ export interface Renderer {
 /**
  * Load and construct a renderer for `backend`. Each backend lives in its own
  * module and is pulled in with a dynamic `import()`, so the bytes for the
- * backends you do not use are never downloaded or compiled.
+ * backends you do not use are never downloaded or compiled. `"auto"` resolves
+ * to the best supported backend before anything is imported.
  */
 export declare function createRenderer(backend: Backend | RendererFactory, options?: RendererOptions): Promise<Renderer>;

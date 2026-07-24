@@ -3,7 +3,7 @@ import type { ObjectMotionOptions } from "../animations/object-motion.js";
 import type { ParticlesOptions } from "../animations/particles.js";
 import type { Backend } from "../engines/little-3d-engine/little-3d-engine.js";
 export interface PrefabOptions {
-    /** Rendering backend used by every layer. Default `"canvas2d"`. */
+    /** Rendering backend used by every layer. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
     /** Text or custom HTML shown over the prefab. */
     label?: AnimationLabel;
@@ -15,7 +15,7 @@ export interface PrefabOptions {
     periodMs?: number;
 }
 export interface ProgressPrefabOptions {
-    /** Rendering backend used by every layer. Default `"canvas2d"`. */
+    /** Rendering backend used by every layer. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
     /** Text or custom HTML shown over the prefab (progress mode shows a percentage). */
     label?: AnimationLabel;

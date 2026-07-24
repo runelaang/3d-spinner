@@ -1,7 +1,7 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { type Backend } from "../engines/little-3d-engine/little-3d-engine.js";
 export interface RocketLaunchOptions {
-    /** Rendering backend. Default `"canvas2d"`. */
+    /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
     /** Overlay label; progress mode shows a percentage. */
     label?: AnimationLabel;
