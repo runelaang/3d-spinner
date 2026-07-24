@@ -216,10 +216,13 @@
       },
     ];
 
+    let spinners = [];
+
     function buildShowcase() {
+      spinners.forEach((s) => s.destroy());
+      spinners = [];
       const grid = document.getElementById("particles-showcase");
       grid.replaceChildren();
-      const spinners = [];
       demos.forEach((demo) => {
         const card = document.createElement("section");
         card.className = "spinner-card";
@@ -246,13 +249,17 @@
         card.querySelector(".card-start").onclick = start;
         card.querySelector(".card-stop").onclick = () => spinner?.stop();
         start();
-        spinners.push({ start, stop: () => spinner?.stop() });
+        spinners.push({
+          start,
+          stop: () => spinner?.stop(),
+          destroy: () => { spinner?.destroy(); spinner = null; },
+        });
       });
-      return spinners;
     }
 
-    let spinners = buildShowcase();
-    renderTech.onchange = () => { spinners = buildShowcase(); };
+    buildShowcase();
+    renderTech.onchange = buildShowcase;
+    addEventListener("pagehide", () => spinners.forEach((s) => s.destroy()));
     document.getElementById("restart").onclick = () => spinners.forEach((s) => s.start());
     document.getElementById("stop").onclick = () => spinners.forEach((s) => s.stop());
   </script>
