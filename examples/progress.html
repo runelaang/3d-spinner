@@ -112,13 +112,13 @@
     const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
     const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
 
-    const PASTEL = {
-      plane: "#a8d0f0", // soft blue
-      car: "#f7b8cd", // soft pink
-      cube: "#b9e8c9", // soft green
-      tetra: "#cdbcf2", // soft lavender
-      tail: "#a8e6e2", // soft teal
-      speed: "#fbd9a5", // soft peach
+    const PRIMARY = {
+      plane: "#2563eb",
+      car: "#dc2626",
+      cube: "#16a34a",
+      tetra: "#facc15",
+      tail: "#0891b2",
+      speed: "#ea580c",
     };
 
     const type = document.getElementById("type");
@@ -134,12 +134,12 @@
     const animations = [
       {
         target: document.getElementById("stage-cube"),
-        create: () => new SpinAnimation({ backend: backend(), color: PASTEL.cube, progressAnimation: {} }),
+        create: () => new SpinAnimation({ backend: backend(), color: PRIMARY.cube, progressAnimation: {} }),
       },
       {
         target: document.getElementById("stage-plane"),
         create: () =>
-          new ObjectFlightAnimation({ backend: backend(), mesh: () => parseObj(planeObj), color: PASTEL.plane }),
+          new ObjectFlightAnimation({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
       },
     ];
 
@@ -343,62 +343,60 @@
     const flightDemos = [
       {
         title: "Plane",
-        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.plane}",\n  tail: { count: 7, distance: 0.6 },`),
+        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.plane}",`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
-            color: PASTEL.plane,
-            tail: { count: 7, distance: 0.6 },
+            color: PRIMARY.plane,
           }),
       },
       {
         title: "Car (facing + 2/3 speed)",
         config: () =>
-          cfg(`  mesh: () => parseObj(carObj),\n  color: "${PASTEL.car}",\n  facing: "-z",\n  size: 1.8,\n  speed: 2 / 3,\n  tail: { count: 7, distance: 0.7 },`),
+          cfg(`  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "-z",\n  size: 1.8,\n  speed: 2 / 3,`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => parseObj(carObj),
-            color: PASTEL.car,
+            color: PRIMARY.car,
             facing: "-z",
             size: 1.8,
             speed: 2 / 3,
-            tail: { count: 7, distance: 0.7 },
           }),
       },
       {
         title: "Cube primitive",
-        config: () => cfg(`  mesh: () => cube(),\n  color: "${PASTEL.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        config: () => cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => cube(),
-            color: PASTEL.cube,
+            color: PRIMARY.cube,
             size: 0.5,
             tail: { count: 7, distance: 0.4 },
           }),
       },
       {
         title: "Tetrahedron primitive",
-        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PASTEL.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => tetrahedron(),
-            color: PASTEL.tetra,
+            color: PRIMARY.tetra,
             size: 0.5,
             tail: { count: 7, distance: 0.4 },
           }),
       },
       {
         title: "Tail (wide spacing)",
-        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.tail}",\n  tail: { count: 7, distance: 1.2 },`),
+        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  tail: { count: 7, distance: 1.2 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
-            color: PASTEL.tail,
+            color: PRIMARY.tail,
             tail: { count: 7, distance: 1.2 },
           }),
       },
@@ -406,14 +404,13 @@
         title: "Speed (configurable)",
         speedControl: true,
         config: (card) =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.speed}",\n  speed: ${cardSpeed(card)},\n  tail: { count: 7, distance: 0.6 },`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.speed}",\n  speed: ${cardSpeed(card)},`),
         create: (card) =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
-            color: PASTEL.speed,
+            color: PRIMARY.speed,
             speed: cardSpeed(card),
-            tail: { count: 7, distance: 0.6 },
           }),
       },
     ];
