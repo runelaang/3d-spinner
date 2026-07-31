@@ -59,6 +59,8 @@
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "dev": "npx serve .",
+    "pretest": "npm run build",
+    "test": "node --test",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
