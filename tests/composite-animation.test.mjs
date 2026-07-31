@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CompositeAnimation } from "../dist/index.js";
+import { CompositeAnimation } from "../dist/composite-animation.js";
 
 function fakeAnimation() {
   const calls = [];

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FrameRateMonitor } from "../dist/index.js";
+import { FrameRateMonitor } from "../dist/frame-rate.js";
 
 test("FrameRateMonitor reports rolling frames per second", () => {
   const monitor = new FrameRateMonitor();
