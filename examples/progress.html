@@ -110,10 +110,13 @@
 
     let value = 0;
     let direction = 1;
+    let syncingSlider = false;
 
     function setSlider(v) {
+      syncingSlider = true;
       progress.value = String(Math.round(v * 100));
       progressLabel.textContent = `${progress.value}%`;
+      syncingSlider = false;
     }
 
     function applyProgress(v) {
@@ -154,7 +157,11 @@
       ensureMounted();
       running = true;
       lastTime = 0;
-      if (value >= 1 && !bounce.checked) applyProgress(0);
+      if (value >= 1 && !bounce.checked) {
+        value = 0;
+        direction = 1;
+        applyProgress(0);
+      }
       runButton.textContent = "Pause";
       requestAnimationFrame(tick);
     }
@@ -167,6 +174,7 @@
     runButton.onclick = () => (running ? stopRun() : startRun());
 
     progress.oninput = () => {
+      if (syncingSlider) return;
       applyProgress(Number(progress.value) / 100);
       direction = 1;
     };

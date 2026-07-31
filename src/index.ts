@@ -98,7 +98,11 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 
   function setProgress(value: number): void {
     determinate = true;
-    targetProgress = clamp01(value);
+    const next = clamp01(value);
+    if (next === 0 && current >= 0.99) {
+      current = 0;
+    }
+    targetProgress = next;
     if (stopped) {
       current = targetProgress;
       plugin.render(performance.now(), {

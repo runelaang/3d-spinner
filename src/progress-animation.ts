@@ -93,6 +93,16 @@ export class ProgressAnimation {
       this.doneFadeStart = 0;
     }
 
+    if (this.phase == "endPop" && progress < 1) {
+      this.phase = progress <= 0 ? "idle" : "active";
+      this.activeProgress = progress;
+    }
+
+    if (this.phase == "done" && progress > 0 && progress < 1) {
+      this.phase = "active";
+      this.activeProgress = progress;
+    }
+
     if (progress <= 0 && (this.phase == "active" || this.phase == "startPop")) {
       this.phase = "idle";
     }
@@ -106,6 +116,7 @@ export class ProgressAnimation {
 
     if (
       progress >= 1 &&
+      this.lastProgress < 1 &&
       (this.phase == "startPop" || this.phase == "active" || this.phase == "idle")
     ) {
       this.phase = "endPop";
