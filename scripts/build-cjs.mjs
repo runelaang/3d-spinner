@@ -8,6 +8,8 @@ const entryPoints = [
   "src/animations/spin.ts",
   "src/animations/object-motion.ts",
   "src/animations/particles.ts",
+  "src/animations/charged-orb.ts",
+  "src/animations/grid-assembly.ts",
   "src/composite-animation.ts",
   "src/prefabs/prefabs.ts",
   "src/motion/motion.ts",

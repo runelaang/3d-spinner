@@ -359,6 +359,35 @@ code {
   overflow-x: auto;
 }
 
+
+.card-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.card-progress input[type="range"] {
+  flex: 1;
+}
+
+.card-progress output {
+  min-width: 3rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-story {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  color: var(--muted, inherit);
+  opacity: 0.85;
+  border-top: 1px solid var(--border);
+}
+
 @media (max-width: 700px) {
 
   .spinner-grid,

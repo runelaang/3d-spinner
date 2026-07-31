@@ -30,6 +30,16 @@
       "import": "./dist/animations/particles.js",
       "require": "./dist/cjs/animations/particles.cjs"
     },
+    "./animations/charged-orb": {
+      "types": "./dist/animations/charged-orb.d.ts",
+      "import": "./dist/animations/charged-orb.js",
+      "require": "./dist/cjs/animations/charged-orb.cjs"
+    },
+    "./animations/grid-assembly": {
+      "types": "./dist/animations/grid-assembly.d.ts",
+      "import": "./dist/animations/grid-assembly.js",
+      "require": "./dist/cjs/animations/grid-assembly.cjs"
+    },
     "./composite-animation": {
       "types": "./dist/composite-animation.d.ts",
       "import": "./dist/composite-animation.js",

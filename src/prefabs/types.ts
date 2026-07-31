@@ -16,6 +16,21 @@ export interface PrefabOptions {
   periodMs?: number;
 }
 
+export interface ProgressPrefabOptions {
+  /** Rendering backend used by every layer. Default `"canvas2d"`. */
+  backend?: Backend;
+  /** Text or custom HTML shown over the prefab (progress mode shows a percentage). */
+  label?: AnimationLabel;
+  /** Fade the label with the story's beginning and end. Default `true`. */
+  fadeLabel?: boolean;
+  /** Initial progress 0..1. Defaults just above zero so the story begins on mount. */
+  progress?: number;
+  /** Auto-complete (drive progress to 1) after this many milliseconds. */
+  timeout?: number;
+  /** Auto-complete at this absolute time. If both are set, the earlier wins. */
+  until?: Date;
+}
+
 export interface MotionPrefabOptions extends PrefabOptions {
   /** Overrides for the moving object layer, including `mesh` and `motion`. */
   object?: Partial<ObjectMotionOptions>;
@@ -25,5 +40,12 @@ export interface MotionPrefabOptions extends PrefabOptions {
 
 export interface ParticlePrefabOptions extends PrefabOptions {
   /** Overrides for the particle animation. */
+  particles?: ParticlesOptions;
+}
+
+export interface MotionProgressPrefabOptions extends ProgressPrefabOptions {
+  /** Overrides for the moving object layer, including `mesh` and `motion`. */
+  object?: Partial<ObjectMotionOptions>;
+  /** Overrides for the particle layer. */
   particles?: ParticlesOptions;
 }
