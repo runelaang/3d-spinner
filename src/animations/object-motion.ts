@@ -27,7 +27,6 @@ import {
   type ObjectMotionTransitionOutput,
   type ObjectMotionTransitionPhase,
 } from "../motion/transitions.js";
-import { centerAndScaleMesh } from "./object-flight.js";
 
 /** Which local axis the object's nose points down, used to correct a model that moves backwards or sideways. */
 export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
@@ -138,6 +137,40 @@ function faceForward(mesh: Mesh, facing: Facing): Mesh {
   if (facing === "+x") return mesh;
   const turn = FACE_FORWARD[facing];
   return { vertices: mesh.vertices.map(turn), faces: mesh.faces };
+}
+
+/** Centers a mesh at the origin and uniformly scales it to fit within `targetSize`. */
+export function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh {
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+
+  for (const vertex of mesh.vertices) {
+    minX = Math.min(minX, vertex.x);
+    minY = Math.min(minY, vertex.y);
+    minZ = Math.min(minZ, vertex.z);
+    maxX = Math.max(maxX, vertex.x);
+    maxY = Math.max(maxY, vertex.y);
+    maxZ = Math.max(maxZ, vertex.z);
+  }
+
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+  const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
+  const factor = targetSize / extent;
+
+  return {
+    vertices: mesh.vertices.map((vertex) => ({
+      x: (vertex.x - centerX) * factor,
+      y: (vertex.y - centerY) * factor,
+      z: (vertex.z - centerZ) * factor,
+    })),
+    faces: mesh.faces,
+  };
 }
 
 /**

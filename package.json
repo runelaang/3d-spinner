@@ -23,10 +23,6 @@
       "types": "./dist/animations/spin.d.ts",
       "import": "./dist/animations/spin.js"
     },
-    "./animations/object-flight": {
-      "types": "./dist/animations/object-flight.d.ts",
-      "import": "./dist/animations/object-flight.js"
-    },
     "./animations/object-motion": {
       "types": "./dist/animations/object-motion.d.ts",
       "import": "./dist/animations/object-motion.js"

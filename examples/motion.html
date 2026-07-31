@@ -4,18 +4,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3d-spinner - motion examples</title>
+  <title>3d-spinner - motion</title>
   <link rel="stylesheet" href="/examples/examples.css" />
 </head>
 
 <body>
   <nav class="topbar">
     <a href="/examples/index.html">Shapes</a>
-    <a href="/examples/progress.html">Progress</a>
+    <a href="/examples/progress.html">Spinner types</a>
     <a href="/examples/motion.html" class="active">Motion</a>
   </nav>
 
-  <h1>3d-Spinner: motion controllers</h1>
+  <h1>3d-spinner: motion paths</h1>
 
   <p class="note">
     <code>ObjectMotionAnimation</code> moves any mesh along a <strong>motion controller</strong> -
@@ -190,7 +190,7 @@
       {
         title: "Circle with directional intro/outro",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  label: "${WAIT.fetching}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  label: "${WAIT.fetching}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection(),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection(),\n    durationMs: 1900,\n  },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
@@ -199,19 +199,19 @@
             label: WAIT.fetching,
             motion: circleMotion({ radius: 1.25 }),
             intro: {
-              transition: enterFromObjectDirection({ distance: 3.5 }),
-              durationMs: 900,
+              transition: enterFromObjectDirection(),
+              durationMs: 1900,
             },
             outro: {
-              transition: leaveInObjectDirection({ distance: 3.5 }),
-              durationMs: 900,
+              transition: leaveInObjectDirection(),
+              durationMs: 1900,
             },
           }),
       },
       {
         title: "Figure-8 with slow grow/shrink",
         config: () =>
-          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.scale}",\n  size: 0.65,\n  label: "${WAIT.processing}",\n  motion: figureEightMotion(),\n  intro: { transition: grow(), durationMs: 900 },\n  outro: { transition: shrink(), durationMs: 900 },`),
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.scale}",\n  size: 0.65,\n  label: "${WAIT.processing}",\n  motion: figureEightMotion(),\n  intro: { transition: grow(), durationMs: 1900 },\n  outro: { transition: shrink(), durationMs: 900 },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),

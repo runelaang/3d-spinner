@@ -80,25 +80,39 @@ function easeOutBack(delta: number): number {
   return 1 + (c + 1) * u * u * u + c * u * u;
 }
 
+/**
+ * Constant velocity the fly-in/out travels at. When the path supplies a real
+ * velocity at the handoff (and the caller has not forced a custom `direction`),
+ * we match it exactly so the transition joins the motion with no speed jump.
+ * Only when no useful velocity is available do we fall back to covering
+ * `distance` over the duration along the resolved direction.
+ */
+function joinVelocity(
+  input: ObjectMotionTransitionInput,
+  options: DirectionTransitionOptions,
+  durationMs: number,
+): Vec3 {
+  const inputSpeed = input.velocity ? vectorLength(input.velocity) : 0;
+  if (input.velocity && inputSpeed > 1e-6 && !options.direction) {
+    return input.velocity;
+  }
+  const distance = options.distance ?? DEFAULT_DISTANCE;
+  return scaleVector(resolveDirection(input, options.direction), distance / durationMs);
+}
+
 export function enterFromObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
   return (input) => {
-    const direction = resolveDirection(input, options.direction);
-    const distance = options.distance ?? DEFAULT_DISTANCE;
-    const offset = scaleVector(direction, distance * (1 - input.delta));
-    return { position: add(input.position, scaleVector(offset, -1)) };
+    const durationMs = Math.max(1, input.durationMs);
+    const velocity = joinVelocity(input, options, durationMs);
+    const remaining = durationMs - input.elapsedMs;
+    return { position: add(input.position, scaleVector(velocity, -remaining)) };
   };
 }
 
 export function leaveInObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
   return (input) => {
     const durationMs = Math.max(1, input.durationMs);
-    const distance = options.distance ?? DEFAULT_DISTANCE;
-    const direction = resolveDirection(input, options.direction);
-    const minSpeed = distance / durationMs;
-    const inputSpeed = input.velocity ? vectorLength(input.velocity) : 0;
-    const velocity = input.velocity && inputSpeed > minSpeed && !options.direction
-      ? input.velocity
-      : scaleVector(direction, Math.max(inputSpeed, minSpeed));
+    const velocity = joinVelocity(input, options, durationMs);
     return { position: add(input.position, scaleVector(velocity, input.elapsedMs)) };
   };
 }

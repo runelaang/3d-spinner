@@ -27,6 +27,9 @@ Pure, DOM-free logic only:
 - `motion.test.mjs` - the motion controllers (`figureEightMotion`, `circleMotion`,
   `squareMotion`, `wanderMotion`): loop seamlessness, the circle radius invariant, the square
   perimeter bound, the wander in-frame guarantee, seed reproducibility, and `positionAt` purity.
+- `transitions.test.mjs` - the object-motion intro/outro transitions: `enterFromObjectDirection`
+  lands on the handoff, matches the path velocity when fast, and falls back to `distance` when
+  slow; `leaveInObjectDirection` starts at the handoff and flies off.
 - `math.test.mjs` - the engine math helpers: matrix identity/inverse, normalize, cross/dot, and
   the `Rz` rotation convention.
 - `mesh.test.mjs` - `centerAndScaleMesh`: origin centering, uniform fit to `targetSize`, and
