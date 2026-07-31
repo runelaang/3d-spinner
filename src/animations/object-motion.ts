@@ -4,6 +4,7 @@ import {
   type Backend,
   type Mesh,
   type MeshHandle,
+  type Transparency,
   type Vec3,
   cross,
   normalize,
@@ -60,6 +61,8 @@ export interface ObjectMotionOptions {
   color?: string;
   /** Rendering backend. Default `"canvas2d"`. */
   backend?: Backend;
+  /** Optional one-sided or two-sided mesh transparency. */
+  transparency?: Transparency;
   /** Uniform object size after centering. Default `1`. */
   size?: number;
   /** The object's nose axis. Set this to correct a model that moves backwards or sideways. Default `"+x"`. */
@@ -260,6 +263,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private readonly mesh: Mesh;
   private readonly motion: MotionController;
   private readonly backend?: Backend;
+  private readonly transparency?: Transparency;
   private readonly labelText?: string;
   private readonly tailCount: number;
   private readonly tailGap: number;
@@ -283,6 +287,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.mesh = applyColor(facing, options.color ?? "#cbd5e1");
     this.motion = options.motion;
     this.backend = options.backend;
+    this.transparency = options.transparency;
     this.labelText = options.label;
     this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
@@ -312,7 +317,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       camera: { position: { x: 0, y: 0, z: 3 } },
     });
     for (let i = 0; i <= this.tailCount; i++) {
-      this.handles.push(engine.add(this.mesh));
+      this.handles.push(engine.add(this.mesh, { transparency: this.transparency }));
       this.banks.push(0);
       this.headings.push({ x: 1, y: 0, z: 0 });
     }

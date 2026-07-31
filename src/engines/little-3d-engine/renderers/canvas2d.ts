@@ -1,11 +1,20 @@
 import { shadeColor } from "../core/light.js";
 import { dot, cross, normalize, subtract, transformAffine, transformPoint } from "../core/math.js";
-import type { Renderer, RenderFrame, RendererOptions } from "../renderer.js";
+import {
+  DEFAULT_BACK_OPACITY,
+  DEFAULT_FRONT_OPACITY,
+  DEFAULT_ONE_SIDED_OPACITY,
+  opacity,
+  type Renderer,
+  type RenderFrame,
+  type RendererOptions,
+} from "../renderer.js";
 
 interface Polygon {
   points: { x: number; y: number }[];
   color: string;
   depth: number;
+  opacity: number;
 }
 
 /** Software renderer: projects geometry on the CPU and fills 2D polygons. */
@@ -43,7 +52,18 @@ export class Canvas2DRenderer implements Renderer {
         const b = world[face.indices[1]];
         const c = world[face.indices[2]];
         const normal = normalize(cross(subtract(b, a), subtract(c, a)));
-        if (dot(normal, subtract(frame.eye, a)) <= 0) continue;
+        const frontFacing = dot(normal, subtract(frame.eye, a)) > 0;
+        const transparency = item.transparency;
+        if (!frontFacing && transparency?.mode !== "two-sided") continue;
+
+        let faceOpacity = 1;
+        if (transparency?.mode === "one-sided") {
+          faceOpacity = opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY);
+        } else if (transparency?.mode === "two-sided") {
+          faceOpacity = frontFacing
+            ? opacity(transparency.frontOpacity, DEFAULT_FRONT_OPACITY)
+            : opacity(transparency.backOpacity, DEFAULT_BACK_OPACITY);
+        }
 
         const points = face.indices.map((i) => {
           const ndc = transformPoint(frame.viewProjection, world[i]);
@@ -60,7 +80,12 @@ export class Canvas2DRenderer implements Renderer {
         }
         depth /= face.indices.length;
 
-        polygons.push({ points, color: shadeColor(normal, face.color, frame.light), depth });
+        polygons.push({
+          points,
+          color: shadeColor(normal, face.color, frame.light),
+          depth,
+          opacity: faceOpacity,
+        });
       }
     }
 
@@ -76,9 +101,11 @@ export class Canvas2DRenderer implements Renderer {
       ctx.fillStyle = poly.color;
       ctx.strokeStyle = poly.color;
       ctx.lineWidth = 1;
+      ctx.globalAlpha = poly.opacity;
       ctx.fill();
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
   }
 
   destroy(): void {

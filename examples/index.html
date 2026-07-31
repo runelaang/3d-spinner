@@ -73,6 +73,16 @@
       <h2>OBJ import (car model)</h2>
       <div id="stage-car" class="stage"></div>
     </section>
+
+    <section class="spinner-card">
+      <h2>One-sided transparency</h2>
+      <div id="stage-transparent-one" class="stage"></div>
+    </section>
+
+    <section class="spinner-card">
+      <h2>Two-sided transparency</h2>
+      <div id="stage-transparent-two" class="stage"></div>
+    </section>
   </div>
 
   <div class="section-head">
@@ -186,6 +196,26 @@
             shape: () => parseObj(carObj),
             color: "#dc2626",
             backend: backend(),
+          }),
+      },
+      {
+        target: document.getElementById("stage-transparent-one"),
+        create: () =>
+          new SpinAnimation({
+            shape: icosphere,
+            color: "#2563eb",
+            backend: backend(),
+            transparency: { mode: "one-sided", opacity: 0.35 },
+          }),
+      },
+      {
+        target: document.getElementById("stage-transparent-two"),
+        create: () =>
+          new SpinAnimation({
+            shape: icosphere,
+            color: "#16a34a",
+            backend: backend(),
+            transparency: { mode: "two-sided", backOpacity: 0.18, frontOpacity: 0.38 },
           }),
       },
       {

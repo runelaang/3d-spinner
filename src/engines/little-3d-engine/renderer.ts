@@ -1,6 +1,6 @@
 import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
-import type { Mesh } from "./core/mesh.js";
+import type { Mesh, Transparency } from "./core/mesh.js";
 
 /** Rendering backend. Each is loaded on demand; unused ones are never fetched. */
 export type Backend = "canvas2d" | "webgl" | "webgpu";
@@ -9,6 +9,38 @@ export type Backend = "canvas2d" | "webgl" | "webgpu";
 export interface RenderItem {
   mesh: Mesh;
   model: Mat4;
+  transparency?: Transparency;
+}
+
+export const DEFAULT_ONE_SIDED_OPACITY = 0.35;
+export const DEFAULT_BACK_OPACITY = 0.18;
+export const DEFAULT_FRONT_OPACITY = 0.38;
+
+/** Clamp an optional opacity to the range accepted by rendering backends. */
+export function opacity(value: number | undefined, fallback: number): number {
+  return Math.max(0, Math.min(1, value ?? fallback));
+}
+
+/** Draw opaque instances first, then transparent instances from farthest to nearest. */
+export function orderRenderItems(
+  items: ReadonlyArray<RenderItem>,
+  eye: Vec3,
+): RenderItem[] {
+  const opaque: RenderItem[] = [];
+  const transparent: RenderItem[] = [];
+  for (const item of items) {
+    (item.transparency ? transparent : opaque).push(item);
+  }
+  transparent.sort((a, b) => {
+    const ax = a.model[12] - eye.x;
+    const ay = a.model[13] - eye.y;
+    const az = a.model[14] - eye.z;
+    const bx = b.model[12] - eye.x;
+    const by = b.model[13] - eye.y;
+    const bz = b.model[14] - eye.z;
+    return bx * bx + by * by + bz * bz - (ax * ax + ay * ay + az * az);
+  });
+  return opaque.concat(transparent);
 }
 
 /** Everything a renderer needs to draw one frame. */
@@ -33,6 +65,7 @@ export interface RendererOptions {
 /**
  * A pluggable drawing backend. The engine owns the canvas and sizing; a
  * renderer only initializes its context, reacts to resizes, and draws frames.
+ * Renderer-specific features can produce intentional visual differences.
  */
 export interface Renderer {
   init(canvas: HTMLCanvasElement): void | Promise<void>;

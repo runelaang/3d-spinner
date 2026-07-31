@@ -14,6 +14,25 @@ export interface Mesh {
   faces: Face[];
 }
 
+/** Draw only outward-facing transparent surfaces. */
+export interface OneSidedTransparency {
+  mode: "one-sided";
+  /** Surface opacity from `0` (invisible) to `1` (opaque). Default `0.35`. */
+  opacity?: number;
+}
+
+/** Draw back surfaces before front surfaces to suggest a transparent solid. */
+export interface TwoSidedTransparency {
+  mode: "two-sided";
+  /** Back-surface opacity from `0` to `1`. Default `0.18`. */
+  backOpacity?: number;
+  /** Front-surface opacity from `0` to `1`. Default `0.38`. */
+  frontOpacity?: number;
+}
+
+/** Transparency mode for one mesh instance. */
+export type Transparency = OneSidedTransparency | TwoSidedTransparency;
+
 /** Position and orientation (Euler radians) applied to a mesh when rendered. */
 export interface Transform {
   position: Vec3;
