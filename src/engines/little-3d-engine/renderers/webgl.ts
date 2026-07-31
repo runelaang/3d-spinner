@@ -13,13 +13,16 @@ const VERTEX_SHADER = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aEmissive;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vEmissive;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
+  vEmissive = aEmissive;
   gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
 }`;
 
@@ -27,6 +30,7 @@ const FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vEmissive;
 uniform vec3 uToLight;
 uniform float uIntensity;
 uniform float uAmbient;
@@ -35,7 +39,8 @@ out vec4 fragColor;
 void main() {
   float lambert = max(dot(normalize(vNormal), normalize(uToLight)), 0.0);
   float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
-  fragColor = vec4(vColor * brightness, uOpacity);
+  vec3 lit = vColor * brightness + vEmissive;
+  fragColor = vec4(lit, uOpacity);
 }`;
 
 interface MeshBuffers {
@@ -47,6 +52,7 @@ interface Locations {
   aPos: number;
   aNormal: number;
   aColor: number;
+  aEmissive: number;
   uViewProj: WebGLUniformLocation | null;
   uModel: WebGLUniformLocation | null;
   uToLight: WebGLUniformLocation | null;
@@ -102,6 +108,7 @@ export class WebGLRenderer implements Renderer {
       aPos: gl.getAttribLocation(this.program, "aPos"),
       aNormal: gl.getAttribLocation(this.program, "aNormal"),
       aColor: gl.getAttribLocation(this.program, "aColor"),
+      aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
       uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
       uModel: gl.getUniformLocation(this.program, "uModel"),
       uToLight: gl.getUniformLocation(this.program, "uToLight"),
@@ -141,6 +148,7 @@ export class WebGLRenderer implements Renderer {
     attribute(loc.aPos, data.positions);
     attribute(loc.aNormal, data.normals);
     attribute(loc.aColor, data.colors);
+    attribute(loc.aEmissive, data.emissives);
     gl.bindVertexArray(null);
     const result = { vao, count: data.count };
     this.cache.set(mesh, result);

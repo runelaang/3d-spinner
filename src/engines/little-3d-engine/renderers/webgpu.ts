@@ -24,14 +24,16 @@ struct VSOut {
   @builtin(position) position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) color: vec3<f32>,
+  @location(2) emissive: vec3<f32>,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>) -> VSOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>) -> VSOut {
   var out: VSOut;
   let m = mat3x3<f32>(u.model[0].xyz, u.model[1].xyz, u.model[2].xyz);
   out.normal = m * normal;
   out.color = color;
+  out.emissive = emissive;
   out.position = u.viewProj * u.model * vec4<f32>(pos, 1.0);
   return out;
 }
@@ -40,7 +42,8 @@ fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) 
 fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let lambert = max(dot(normalize(in.normal), normalize(u.toLight.xyz)), 0.0);
   let brightness = clamp(u.params.y + u.params.x * lambert, 0.0, 1.0);
-  return vec4<f32>(in.color * brightness, u.params.z);
+  let lit = in.color * brightness + in.emissive;
+  return vec4<f32>(lit, u.params.z);
 }
 `;
 
@@ -53,6 +56,7 @@ interface MeshBuffers {
   position: any;
   normal: any;
   color: any;
+  emissive: any;
   count: number;
 }
 
@@ -135,7 +139,7 @@ export class WebGPURenderer implements Renderer {
       vertex: {
         module,
         entryPoint: "vs",
-        buffers: [vertexBuffer(0), vertexBuffer(1), vertexBuffer(2)],
+        buffers: [vertexBuffer(0), vertexBuffer(1), vertexBuffer(2), vertexBuffer(3)],
       },
       fragment: {
         module,
@@ -193,6 +197,7 @@ export class WebGPURenderer implements Renderer {
       position: upload(data.positions),
       normal: upload(data.normals),
       color: upload(data.colors),
+      emissive: upload(data.emissives),
       count: data.count,
     };
     this.cache.set(mesh, result);
@@ -285,6 +290,7 @@ export class WebGPURenderer implements Renderer {
       pass.setVertexBuffer(0, mesh.position);
       pass.setVertexBuffer(1, mesh.normal);
       pass.setVertexBuffer(2, mesh.color);
+      pass.setVertexBuffer(3, mesh.emissive);
       pass.draw(mesh.count);
     });
     pass.end();
@@ -297,6 +303,7 @@ export class WebGPURenderer implements Renderer {
       mesh.position.destroy?.();
       mesh.normal.destroy?.();
       mesh.color.destroy?.();
+      mesh.emissive.destroy?.();
     }
     this.cache.clear();
     this.uniformBuffer?.destroy?.();
