@@ -50,6 +50,12 @@
       figureEightMotion,
       wanderMotion,
     } from "/dist/motion/motion.js";
+    import {
+      enterFromObjectDirection,
+      grow,
+      leaveInObjectDirection,
+      shrink,
+    } from "/dist/motion/transitions.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
     import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
 
@@ -62,6 +68,8 @@
       wander: "#a855f7",
       tilt: "#0ea5e9",
       spin: "#facc15",
+      enter: "#f97316",
+      scale: "#ec4899",
     };
 
     const renderTech = document.getElementById("render-tech");
@@ -158,6 +166,41 @@
             size: 0.6,
             rotation: { spinY: 0.004 },
             motion: wanderMotion({ seed: 42, periodMs: 7000 }),
+          }),
+      },
+      {
+        title: "Circle with directional intro/outro",
+        config: () =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection({ direction: { x: -1, y: 0, z: 0 }, distance: 3.5 }),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: COLOR.enter,
+            motion: circleMotion({ radius: 1.25 }),
+            intro: {
+              transition: enterFromObjectDirection({ direction: { x: -1, y: 0, z: 0 }, distance: 3.5 }),
+              durationMs: 900,
+            },
+            outro: {
+              transition: leaveInObjectDirection({ distance: 3.5 }),
+              durationMs: 900,
+            },
+          }),
+      },
+      {
+        title: "Figure-8 with slow grow/shrink",
+        config: () =>
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.scale}",\n  size: 0.65,\n  motion: figureEightMotion(),\n  intro: { transition: grow(), durationMs: 900 },\n  outro: { transition: shrink(), durationMs: 900 },`),
+        create: () =>
+          new ObjectMotionAnimation({
+            backend: backend(),
+            mesh: () => tetrahedron(),
+            color: COLOR.scale,
+            size: 0.65,
+            motion: figureEightMotion(),
+            intro: { transition: grow(), durationMs: 900 },
+            outro: { transition: shrink(), durationMs: 900 },
           }),
       },
     ];

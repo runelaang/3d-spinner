@@ -35,6 +35,10 @@
       "types": "./dist/motion/motion.d.ts",
       "import": "./dist/motion/motion.js"
     },
+    "./motion/transitions": {
+      "types": "./dist/motion/transitions.d.ts",
+      "import": "./dist/motion/transitions.js"
+    },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
       "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
