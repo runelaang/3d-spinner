@@ -213,12 +213,23 @@
       animations.forEach((_, index) => mountDemo(index, progressValue));
     }
 
+    function mountedIndices() {
+      return spinners.map((spinner, index) => (spinner ? index : -1)).filter((index) => index >= 0);
+    }
+
+    function applySliderProgress() {
+      stopSimulation(false);
+      const value = Number(progress.value) / 100;
+      progressLabel.textContent = `${progress.value}%`;
+      let indices = mountedIndices();
+      if (indices.length === 0) indices = animations.map((_, index) => index);
+      indices.forEach((index) => mountDemo(index, value));
+    }
+
     function remountMounted() {
       stopSimulation(false);
       const progressValue = Number(progress.value) / 100;
-      spinners.forEach((spinner, index) => {
-        if (spinner) mountDemo(index, progressValue);
-      });
+      mountedIndices().forEach((index) => mountDemo(index, progressValue));
     }
 
     function startDemo(index) {
@@ -299,11 +310,8 @@
     });
 
     progress.oninput = () => {
-      progressLabel.textContent = `${progress.value}%`;
       if (isIndeterminate()) return;
-      stopSimulation(false);
-      const value = Number(progress.value) / 100;
-      spinners.forEach((spinner) => spinner?.setProgress(value));
+      applySliderProgress();
     };
 
     syncControls();
