@@ -181,7 +181,14 @@ export class Little3dEngine {
 
 export { Camera, type CameraOptions } from "./camera.js";
 export { Light, type LightOptions, type LightParams } from "./light.js";
-export { cube } from "./shapes.js";
+export { cube } from "./shapes/cube.js";
+export { tetrahedron } from "./shapes/tetrahedron.js";
+export { octahedron } from "./shapes/octahedron.js";
+export { pyramid } from "./shapes/pyramid.js";
+export { uvSphere } from "./shapes/uv-sphere.js";
+export { icosphere } from "./shapes/icosphere.js";
+export { octaSphere } from "./shapes/octa-sphere.js";
+export { cubeSphere } from "./shapes/cube-sphere.js";
 export { expandToTriangles } from "./geometry.js";
 export type { Mesh, Face, Transform } from "./mesh.js";
 export { transform } from "./mesh.js";
