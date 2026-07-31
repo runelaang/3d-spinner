@@ -27,6 +27,14 @@
       "types": "./dist/animations/object-flight.d.ts",
       "import": "./dist/animations/object-flight.js"
     },
+    "./animations/object-motion": {
+      "types": "./dist/animations/object-motion.d.ts",
+      "import": "./dist/animations/object-motion.js"
+    },
+    "./motion": {
+      "types": "./dist/motion/motion.d.ts",
+      "import": "./dist/motion/motion.js"
+    },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
       "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
