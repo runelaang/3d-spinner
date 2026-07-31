@@ -233,6 +233,9 @@ export { icosphere } from "./shapes/primitives/spheres/icosphere.js";
 export { octaSphere } from "./shapes/primitives/spheres/octa-sphere.js";
 export { cubeSphere } from "./shapes/primitives/spheres/cube-sphere.js";
 export { planeMesh } from "./shapes/complex/plane.js";
+export { starTexture } from "./textures/dynamic/star.js";
+export { shineTexture } from "./textures/dynamic/shine.js";
+export { streakTexture } from "./textures/dynamic/streak.js";
 export { expandToTriangles } from "./core/geometry.js";
 export type {
   Mesh,
