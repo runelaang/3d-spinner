@@ -5,10 +5,27 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/3d-spinner)](https://bundlephobia.com/package/3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
-A zero-dependency 3D spinner, loader, and progress indicator for the browser. It renders to a
-canvas and ships primarily as ES modules split across separate import paths, so a consumer loads
-only the animation, motion path, and rendering backend they actually use - nothing else is pulled
-in. CommonJS and a browser-global build are also published; see [Module formats](#module-formats).
+Real 3D spinners, loaders, and progress indicators for the browser - in one line, with no
+configuration:
+
+```js
+import { createSpinner } from "3d-spinner";
+import { starSwarm } from "3d-spinner/prefabs";
+
+createSpinner(document.getElementById("app"), starSwarm());
+```
+
+- **Zero configuration.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
+- **Fully configurable when you want it.** Override any piece, compose your own from shapes,
+  animations, motion paths, and materials, or drop in your own OBJ models.
+- **Hardware 3D, or none required.** Switch to the WebGPU or WebGL backend with one option and
+  the GPU does the work; the default Canvas 2D renderer needs no GPU at all and runs anywhere a
+  canvas does. Same API either way.
+- **Tiny download, fast start.** Only the code you touch is loaded: a full prefab on WebGL is
+  under 9 kB gzipped, renderer included, and the renderer itself is fetched on mount. Zero
+  dependencies.
+- **Works with your stack.** ES modules, CommonJS, or a plain `<script>` tag; TypeScript types
+  included. See [Module formats](#module-formats).
 
 ## Screenshots
 
