@@ -105,8 +105,7 @@
 
   <script type="module">
     import { createSpinner } from "/dist/index.js";
-    import { Basic3dCubeSpinner } from "/dist/plugins/basic-3d-cube.js";
-    import { Basic3dSpinSpinner } from "/dist/plugins/basic-3d-spin.js";
+    import { SpinAnimation } from "/dist/animations/spin.js";
     import {
       tetrahedron,
       octahedron,
@@ -150,17 +149,17 @@
     const spinnerDemos = [
       {
         target: document.getElementById("stage-basic-3d-cube"),
-        create: () => new Basic3dCubeSpinner({ backend: backend() }),
+        create: () => new SpinAnimation({ backend: backend() }),
       },
       {
         target: document.getElementById("stage-tetra"),
         create: () =>
-          new Basic3dSpinSpinner({ shape: tetrahedron, color: "#22d3ee", backend: backend() }),
+          new SpinAnimation({ shape: tetrahedron, color: "#22d3ee", backend: backend() }),
       },
       {
         target: document.getElementById("stage-octa"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: octahedron,
             color: ["#f59e0b", "#ef4444", "#10b981", "#3b82f6"],
             spinX: 0.0015,
@@ -170,17 +169,17 @@
       },
       {
         target: document.getElementById("stage-pyramid"),
-        create: () => new Basic3dSpinSpinner({ shape: pyramid, backend: backend() }),
+        create: () => new SpinAnimation({ shape: pyramid, backend: backend() }),
       },
       {
         target: document.getElementById("stage-obj"),
         create: () =>
-          new Basic3dSpinSpinner({ shape: () => parseObj(cubeObj), backend: backend() }),
+          new SpinAnimation({ shape: () => parseObj(cubeObj), backend: backend() }),
       },
       {
         target: document.getElementById("stage-car"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: () => parseObj(carObj),
             color: "#e2e8f0",
             backend: backend(),
@@ -189,7 +188,7 @@
       {
         target: document.getElementById("stage-uvsphere"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: () => uvSphere(1.6, detailLevel()),
             color: "#3b82f6",
             backend: backend(),
@@ -198,7 +197,7 @@
       {
         target: document.getElementById("stage-icosphere"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: () => icosphere(1.6, detailLevel()),
             color: "#10b981",
             backend: backend(),
@@ -207,7 +206,7 @@
       {
         target: document.getElementById("stage-cubesphere"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: () => cubeSphere(1.6, detailLevel()),
             color: "#f59e0b",
             backend: backend(),
@@ -216,7 +215,7 @@
       {
         target: document.getElementById("stage-octasphere"),
         create: () =>
-          new Basic3dSpinSpinner({
+          new SpinAnimation({
             shape: () => octaSphere(1.6, detailLevel()),
             color: "#ec4899",
             backend: backend(),
@@ -228,7 +227,7 @@
       spinners.forEach((spinner) => spinner.destroy());
       spinners = spinnerDemos.map((demo) => {
         demo.target.innerHTML = "";
-        return createSpinner(demo.target, { plugin: demo.create() });
+        return createSpinner(demo.target, { animation: demo.create() });
       });
     }
 

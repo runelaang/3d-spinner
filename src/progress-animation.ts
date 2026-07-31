@@ -62,18 +62,42 @@ function popPhaseT(now: number, phaseStart: number, durationMs: number): number 
   return Math.min(1, Math.max(0, (now - phaseStart) / durationMs));
 }
 
-/** Maps determinate progress to scale and optional overlay text with start/end pop effects. */
+/**
+ * Lifecycle visual for a progress spinner: an intro pop ({@link enter}), an
+ * active phase whose scale tracks progress, and an outro pop ({@link exit})
+ * that fades to a done label. The owner triggers `enter`/`exit`; this class
+ * does not infer them from the progress value.
+ */
 export class ProgressAnimation {
   private readonly options: ResolvedOptions;
   private phase: Phase = "idle";
   private phaseStart = 0;
-  private lastProgress = 0;
   private activeProgress = 0;
   private popTarget = 0;
   private doneFadeStart = 0;
 
   constructor(options: ProgressAnimationOptions = {}) {
     this.options = resolveOptions(options);
+  }
+
+  /** Begin the intro pop. Ignored unless idle. */
+  enter(now: number): void {
+    if (this.phase !== "idle") return;
+    this.phase = "startPop";
+    this.phaseStart = now;
+    this.activeProgress = 0;
+    this.popTarget = 0;
+  }
+
+  /** Begin the outro pop. Ignored unless mid-intro or active. */
+  exit(now: number): void {
+    if (this.phase !== "startPop" && this.phase !== "active") return;
+    this.phase = "endPop";
+    this.phaseStart = now;
+  }
+
+  isFinished(): boolean {
+    return this.phase === "done";
   }
 
   update(now: number, progress: number, targetProgress?: number): ProgressAnimationVisual {
@@ -88,47 +112,9 @@ export class ProgressAnimation {
     } = this.options;
     const goal = targetProgress ?? progress;
 
-    if (this.phase == "done" && progress <= 0) {
-      this.phase = "idle";
-      this.doneFadeStart = 0;
-    }
-
-    if (this.phase == "endPop" && progress < 1) {
-      this.phase = progress <= 0 ? "idle" : "active";
+    if (this.phase === "startPop" || this.phase === "active") {
       this.activeProgress = progress;
-    }
-
-    if (this.phase == "done" && progress > 0 && progress < 1) {
-      this.phase = "active";
-      this.activeProgress = progress;
-    }
-
-    if (progress <= 0 && (this.phase == "active" || this.phase == "startPop")) {
-      this.phase = "idle";
-    }
-
-    if (this.phase == "idle" && this.lastProgress <= 0 && progress > 0) {
-      this.phase = "startPop";
-      this.phaseStart = now;
-      this.activeProgress = progress;
-      this.popTarget = goal;
-    }
-
-    if (
-      progress >= 1 &&
-      this.lastProgress < 1 &&
-      (this.phase == "startPop" || this.phase == "active" || this.phase == "idle")
-    ) {
-      this.phase = "endPop";
-      this.phaseStart = now;
-      this.activeProgress = 1;
-    }
-
-    if (this.phase == "startPop" || this.phase == "active") {
-      this.activeProgress = progress;
-      if (this.phase == "startPop") {
-        this.popTarget = Math.max(this.popTarget, goal, progress);
-      }
+      if (this.phase === "startPop") this.popTarget = Math.max(this.popTarget, goal, progress);
     }
 
     let scale = 0;
@@ -136,23 +122,20 @@ export class ProgressAnimation {
     let textOpacity = 0;
     let hidden = false;
 
-    if (this.phase == "idle") {
-      scale = 0;
-    } else if (this.phase == "startPop") {
+    if (this.phase === "startPop") {
       const t = popPhaseT(now, this.phaseStart, popDurationMs);
       const peak = this.popTarget * (1 + overextend);
       if (t < startSnapRatio) {
         const snapT = startSnapRatio > 0 ? t / startSnapRatio : 1;
         scale = peak * easeOutExpo(snapT);
       } else {
-        const settleT =
-          startSnapRatio < 1 ? (t - startSnapRatio) / (1 - startSnapRatio) : 1;
+        const settleT = startSnapRatio < 1 ? (t - startSnapRatio) / (1 - startSnapRatio) : 1;
         scale = peak + (this.activeProgress - peak) * easeOutCubic(settleT);
       }
       if (t >= 1) this.phase = "active";
-    } else if (this.phase == "active") {
+    } else if (this.phase === "active") {
       scale = this.activeProgress;
-    } else if (this.phase == "endPop") {
+    } else if (this.phase === "endPop") {
       const t = popPhaseT(now, this.phaseStart, popDurationMs);
       const peak = 1 + overextend;
       if (t < 0.5) {
@@ -165,37 +148,26 @@ export class ProgressAnimation {
         this.doneFadeStart = now;
         scale = 0;
       }
-    } else {
-      scale = 0;
     }
 
-    if (this.phase == "startPop" || this.phase == "active") {
+    if (this.phase === "startPop" || this.phase === "active") {
       if (loadingText !== false) {
         text = loadingText;
         textOpacity = 0.65;
       }
-    } else if (this.phase == "endPop") {
+    } else if (this.phase === "endPop") {
       text = doneText;
       textOpacity = 0.65;
-    } else if (this.phase == "done") {
-      if (removeOnComplete) {
-        const fadeT = popPhaseT(now, this.doneFadeStart, doneFadeDurationMs);
-        if (fadeT >= 1) {
-          hidden = true;
-        } else {
-          text = doneText;
-          textOpacity = 0.65 * (1 - fadeT);
-        }
+    } else if (this.phase === "done") {
+      const fadeT = popPhaseT(now, this.doneFadeStart, doneFadeDurationMs);
+      if (fadeT >= 1) {
+        if (removeOnComplete) hidden = true;
       } else {
-        const fadeT = popPhaseT(now, this.doneFadeStart, doneFadeDurationMs);
-        if (fadeT < 1) {
-          text = doneText;
-          textOpacity = 0.65 * (1 - fadeT);
-        }
+        text = doneText;
+        textOpacity = 0.65 * (1 - fadeT);
       }
     }
 
-    this.lastProgress = progress;
     return { scale, text, textOpacity, hidden };
   }
 }

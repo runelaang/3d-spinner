@@ -11,25 +11,21 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./plugins/test": {
-      "types": "./dist/plugins/test.d.ts",
-      "import": "./dist/plugins/test.js"
+    "./animations/test": {
+      "types": "./dist/animations/test.d.ts",
+      "import": "./dist/animations/test.js"
     },
-    "./plugins/progress-bar": {
-      "types": "./dist/plugins/progress-bar.d.ts",
-      "import": "./dist/plugins/progress-bar.js"
+    "./animations/progress-bar": {
+      "types": "./dist/animations/progress-bar.d.ts",
+      "import": "./dist/animations/progress-bar.js"
     },
-    "./plugins/basic-3d-cube": {
-      "types": "./dist/plugins/basic-3d-cube.d.ts",
-      "import": "./dist/plugins/basic-3d-cube.js"
+    "./animations/spin": {
+      "types": "./dist/animations/spin.d.ts",
+      "import": "./dist/animations/spin.js"
     },
-    "./plugins/basic-3d-spin": {
-      "types": "./dist/plugins/basic-3d-spin.d.ts",
-      "import": "./dist/plugins/basic-3d-spin.js"
-    },
-    "./plugins/plane-progress": {
-      "types": "./dist/plugins/plane-progress.d.ts",
-      "import": "./dist/plugins/plane-progress.js"
+    "./animations/plane": {
+      "types": "./dist/animations/plane.d.ts",
+      "import": "./dist/animations/plane.js"
     },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",

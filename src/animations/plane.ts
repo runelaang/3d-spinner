@@ -1,4 +1,4 @@
-import type { SpinnerPlugin, SpinnerPluginState } from "../plugin.js";
+import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
 import {
   Little3dEngine,
   type Backend,
@@ -11,7 +11,7 @@ import {
   subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 
-export interface PlaneProgressOptions {
+export interface PlaneAnimationOptions {
   /** Plane mesh, or a factory that returns one. */
   mesh: Mesh | (() => Mesh);
   /** Face color applied to every triangle. Default `"#cbd5e1"`. */
@@ -20,6 +20,8 @@ export interface PlaneProgressOptions {
   backend?: Backend;
   /** Uniform mesh size after centering. Default `1.5`. */
   meshSize?: number;
+  /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
+  label?: string;
 }
 
 const LABEL_STYLE = [
@@ -45,19 +47,17 @@ const LOOP_X = 1.5;
 const LOOP_Y = 1.0;
 const LOOP_Z = 1.05;
 
-// Where the plane starts (off-screen) before flying into the intro.
 const OFFSCREEN_FROM: Vec3 = { x: -3.3, y: -1.3, z: LOOP_Z };
 const OUTRO_DISTANCE = 5.5;
 
-// Phase durations in milliseconds.
 const INTRO_MS = 1300;
 const LAP_MS = 3600;
 const OUTRO_MS = 1100;
 
-// Bank (roll into turns): target from path curvature, eased for smoothness.
 const BANK_GAIN = 26;
 const BANK_LIMIT = 0.7;
 const BANK_SMOOTH = 0.12;
+const SAMPLE_MS = 8;
 
 type Phase = "idle" | "intro" | "loop" | "outro" | "done";
 
@@ -73,10 +73,7 @@ function hermite(p0: Vec3, m0: Vec3, p1: Vec3, m1: Vec3, u: number): Vec3 {
   const h10 = u3 - 2 * u2 + u;
   const h01 = -2 * u3 + 3 * u2;
   const h11 = u3 - u2;
-  return add(
-    add(scale(p0, h00), scale(m0, h10)),
-    add(scale(p1, h01), scale(m1, h11)),
-  );
+  return add(add(scale(p0, h00), scale(m0, h10)), add(scale(p1, h01), scale(m1, h11)));
 }
 
 /** Point on the seamless figure-8; `phase` in 0..1 is one full lap. */
@@ -95,7 +92,9 @@ function loopVelocity(phase: number): Vec3 {
   return scale(subtract(loopPoint(phase + e), loopPoint(phase - e)), 1 / (2 * e));
 }
 
-function resolveMesh(mesh: PlaneProgressOptions["mesh"]): Mesh {
+const INTRO_JOIN = scale(loopVelocity(0), INTRO_MS / LAP_MS);
+
+function resolveMesh(mesh: PlaneAnimationOptions["mesh"]): Mesh {
   return typeof mesh === "function" ? mesh() : mesh;
 }
 
@@ -160,39 +159,35 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   };
 }
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
 /**
- * A plane that flies a continuous, seamless 3D figure-8. Progress only drives
- * three phases - it does not position the plane:
- * - **intro**: the first time progress rises above 0, the plane flies in from
- *   off-screen and eases into the loop.
- * - **loop**: while progress is between 0 and 1, the figure-8 repeats forever.
- * - **outro**: when progress reaches 1, the plane peels out of the loop and
- *   flies off-screen.
- * An overlaid label shows the progress percentage.
+ * A plane that flies a continuous, seamless 3D figure-8. The spinner runner
+ * triggers the lifecycle: {@link enter} flies it in from off-screen and into
+ * the loop; {@link exit} peels it out of the loop and off-screen. The loop runs
+ * on time, independent of the progress value.
  */
-export class PlaneProgressSpinner implements SpinnerPlugin {
+export class PlaneAnimation implements SpinnerAnimation {
   private engine?: Little3dEngine;
   private handle?: MeshHandle;
   private label?: HTMLDivElement;
   private readonly mesh: Mesh;
   private readonly backend?: Backend;
+  private readonly labelText?: string;
 
   private phase: Phase = "idle";
-  private introU = 0;
-  private loopPhase = 0;
-  private outroU = 0;
-  private outroFromPhase = 0;
+  private introStart = 0;
+  private loopStart = 0;
+  private outroStart = 0;
+  private outroFrom: Vec3 = ZERO;
+  private outroM0: Vec3 = ZERO;
+  private outroExit: Vec3 = ZERO;
+  private outroM1: Vec3 = ZERO;
   private bank = 0;
-  private lastNow?: number;
 
-  constructor(options: PlaneProgressOptions) {
+  constructor(options: PlaneAnimationOptions) {
     const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.meshSize ?? 1.5);
     this.mesh = applyColor(centered, options.color ?? "#cbd5e1");
     this.backend = options.backend;
+    this.labelText = options.label;
   }
 
   mount(target: HTMLElement): void {
@@ -210,31 +205,48 @@ export class PlaneProgressSpinner implements SpinnerPlugin {
     const label = document.createElement("div");
     label.style.cssText = LABEL_STYLE;
     label.setAttribute("role", "status");
-    label.textContent = "0%";
     target.appendChild(label);
     this.label = label;
   }
 
-  render(now: number, state: SpinnerPluginState): void {
+  enter(now: number): void {
+    if (this.phase !== "idle") return;
+    this.phase = "intro";
+    this.introStart = now;
+  }
+
+  exit(now: number): void {
+    if (this.phase !== "intro" && this.phase !== "loop") return;
+    const from = this.positionAt(now);
+    let velocity = scale(subtract(this.positionAt(now + 1), this.positionAt(now - 1)), 0.5);
+    if (Math.hypot(velocity.x, velocity.y, velocity.z) < 1e-4) velocity = loopVelocity(0);
+    const outward = normalize(velocity);
+    this.outroFrom = from;
+    this.outroM0 = scale(velocity, OUTRO_MS);
+    this.outroExit = add(from, scale(outward, OUTRO_DISTANCE));
+    this.outroM1 = scale(outward, OUTRO_DISTANCE);
+    this.phase = "outro";
+    this.outroStart = now;
+  }
+
+  isFinished(): boolean {
+    return this.phase === "done";
+  }
+
+  render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.handle || !this.label) return;
+    this.advancePhase(now);
 
-    // Indeterminate spinners have no progress, so treat them as always "in
-    // flight": they intro once and loop forever, never reaching the outro.
-    const progress = state.determinate ? clamp01(state.progress) : 0.5;
-    const dt = this.lastNow === undefined ? 0 : now - this.lastNow;
-    this.lastNow = now;
-
-    const visible = this.advance(progress, dt);
     const transform = this.handle.transform;
-
-    if (visible) {
+    if (this.phase === "idle" || this.phase === "done") {
+      transform.scale = 0;
+    } else {
       transform.scale = 1;
-      const here = this.sample(0);
-      const heading = normalize(subtract(this.sample(1), here));
-      const turn = cross(heading, normalize(subtract(this.sample(2), this.sample(1))));
-      const targetBank = Math.max(-BANK_LIMIT, Math.min(BANK_LIMIT, turn.y * BANK_GAIN));
+      const here = this.positionAt(now);
+      const heading = normalize(subtract(this.positionAt(now + SAMPLE_MS), here));
+      const ahead = normalize(subtract(this.positionAt(now + 2 * SAMPLE_MS), this.positionAt(now + SAMPLE_MS)));
+      const targetBank = Math.max(-BANK_LIMIT, Math.min(BANK_LIMIT, cross(heading, ahead).y * BANK_GAIN));
       this.bank += (targetBank - this.bank) * BANK_SMOOTH;
-
       const orientation = orientationFor(heading, this.bank);
       transform.position.x = here.x;
       transform.position.y = here.y;
@@ -242,73 +254,12 @@ export class PlaneProgressSpinner implements SpinnerPlugin {
       transform.rotation.x = orientation.x;
       transform.rotation.y = orientation.y;
       transform.rotation.z = orientation.z;
-    } else {
-      transform.scale = 0;
     }
 
-    this.label.textContent = state.determinate ? `${Math.round(progress * 100)}%` : "";
+    this.label.textContent = frame.indeterminate
+      ? (this.labelText ?? "")
+      : `${Math.round(frame.progress * 100)}%`;
     this.engine.render();
-  }
-
-  /** Advance the phase state machine by `dt`; returns whether the plane is on-screen. */
-  private advance(progress: number, dt: number): boolean {
-    if (progress <= 0) {
-      this.phase = "idle";
-      return false;
-    }
-    if (this.phase === "idle" || (this.phase === "done" && progress < 1)) {
-      this.phase = "intro";
-      this.introU = 0;
-    }
-    if (this.phase === "intro") {
-      this.introU += dt / INTRO_MS;
-      if (this.introU >= 1) {
-        this.phase = "loop";
-        this.loopPhase = 0;
-      }
-    }
-    if (this.phase === "loop") {
-      this.loopPhase = (this.loopPhase + dt / LAP_MS) % 1;
-      if (progress >= 1) {
-        this.phase = "outro";
-        this.outroFromPhase = this.loopPhase;
-        this.outroU = 0;
-      }
-    }
-    if (this.phase === "outro") {
-      this.outroU += dt / OUTRO_MS;
-      if (this.outroU >= 1) {
-        this.phase = "done";
-        return false;
-      }
-    }
-    return this.phase === "intro" || this.phase === "loop" || this.phase === "outro";
-  }
-
-  /**
-   * Position of the active phase, offset by `step` small ticks of its own
-   * parameter (used to sample a look-ahead for heading and bank). Intro and
-   * outro are Hermite curves: the intro starts at rest off-screen and arrives
-   * with the loop's velocity; the outro leaves with the loop's velocity. Both
-   * endpoints match the loop in position and velocity, so the joins are smooth
-   * with no change in speed.
-   */
-  private sample(step: number): Vec3 {
-    const e = 4e-3;
-    if (this.phase === "intro") {
-      const u = clamp01(this.introU + step * e);
-      const joinVelocity = scale(loopVelocity(0), INTRO_MS / LAP_MS);
-      return hermite(OFFSCREEN_FROM, ZERO, loopPoint(0), joinVelocity, u);
-    }
-    if (this.phase === "outro") {
-      const u = clamp01(this.outroU + step * e);
-      const from = loopPoint(this.outroFromPhase);
-      const outward = normalize(loopVelocity(this.outroFromPhase));
-      const leaveVelocity = scale(loopVelocity(this.outroFromPhase), OUTRO_MS / LAP_MS);
-      const exit = add(from, scale(outward, OUTRO_DISTANCE));
-      return hermite(from, leaveVelocity, exit, scale(outward, OUTRO_DISTANCE), u);
-    }
-    return loopPoint(this.loopPhase + step * e);
   }
 
   destroy(): void {
@@ -317,5 +268,29 @@ export class PlaneProgressSpinner implements SpinnerPlugin {
     this.engine?.destroy();
     this.engine = undefined;
     this.handle = undefined;
+  }
+
+  private advancePhase(now: number): void {
+    if (this.phase === "intro" && now - this.introStart >= INTRO_MS) {
+      this.phase = "loop";
+      this.loopStart = this.introStart + INTRO_MS;
+    }
+    if (this.phase === "outro" && now - this.outroStart >= OUTRO_MS) {
+      this.phase = "done";
+    }
+  }
+
+  /** Position of the active phase at `now`. Joins are smooth in position and velocity. */
+  private positionAt(now: number): Vec3 {
+    if (this.phase === "intro") {
+      const u = Math.max(0, Math.min(1, (now - this.introStart) / INTRO_MS));
+      return hermite(OFFSCREEN_FROM, ZERO, loopPoint(0), INTRO_JOIN, u);
+    }
+    if (this.phase === "outro") {
+      const u = Math.max(0, Math.min(1, (now - this.outroStart) / OUTRO_MS));
+      return hermite(this.outroFrom, this.outroM0, this.outroExit, this.outroM1, u);
+    }
+    const phase = ((now - this.loopStart) / LAP_MS) % 1;
+    return loopPoint(phase < 0 ? phase + 1 : phase);
   }
 }

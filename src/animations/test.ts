@@ -1,4 +1,4 @@
-import type { SpinnerPlugin, SpinnerPluginState } from "../plugin.js";
+import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
 
 const PALETTE = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
 
@@ -21,8 +21,10 @@ function mixHex(a: string, b: string, t: number): string {
   return `rgb(${r}, ${g}, ${bl})`;
 }
 
-export class TestSpinner implements SpinnerPlugin {
+/** A placeholder text spinner that cycles colors; shows the percentage when determinate. */
+export class TestAnimation implements SpinnerAnimation {
   private el?: HTMLDivElement;
+  private exited = false;
 
   mount(target: HTMLElement): void {
     const el = document.createElement("div");
@@ -35,19 +37,26 @@ export class TestSpinner implements SpinnerPlugin {
     this.el = el;
   }
 
-  render(now: number, state: SpinnerPluginState): void {
+  enter(): void {}
+
+  exit(): void {
+    this.exited = true;
+  }
+
+  isFinished(): boolean {
+    return this.exited;
+  }
+
+  render(now: number, frame: AnimationFrame): void {
     if (!this.el) return;
 
     const cycle = (now / 1500) % PALETTE.length;
     const i = Math.floor(cycle);
-    const colour = mixHex(PALETTE[i], PALETTE[(i + 1) % PALETTE.length], cycle - i);
-    this.el.style.color = colour;
+    this.el.style.color = mixHex(PALETTE[i], PALETTE[(i + 1) % PALETTE.length], cycle - i);
 
-    if (state.determinate) {
-      this.el.textContent = `spinner goes here - ${Math.round(state.progress * 100)}%`;
-    } else {
-      this.el.textContent = "spinner goes here";
-    }
+    this.el.textContent = frame.indeterminate
+      ? "spinner goes here"
+      : `spinner goes here - ${Math.round(frame.progress * 100)}%`;
   }
 
   destroy(): void {
