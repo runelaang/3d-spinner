@@ -17,6 +17,7 @@ struct Uniforms {
   model: mat4x4<f32>,
   toLight: vec4<f32>,
   params: vec4<f32>,
+  eye: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -25,24 +26,38 @@ struct VSOut {
   @location(0) normal: vec3<f32>,
   @location(1) color: vec3<f32>,
   @location(2) emissive: vec3<f32>,
+  @location(3) specular: vec4<f32>,
+  @location(4) worldPos: vec3<f32>,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>) -> VSOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>, @location(4) specular: vec4<f32>) -> VSOut {
   var out: VSOut;
   let m = mat3x3<f32>(u.model[0].xyz, u.model[1].xyz, u.model[2].xyz);
   out.normal = m * normal;
   out.color = color;
   out.emissive = emissive;
-  out.position = u.viewProj * u.model * vec4<f32>(pos, 1.0);
+  out.specular = specular;
+  let world = u.model * vec4<f32>(pos, 1.0);
+  out.worldPos = world.xyz;
+  out.position = u.viewProj * world;
   return out;
 }
 
 @fragment
 fn fs(in: VSOut) -> @location(0) vec4<f32> {
-  let lambert = max(dot(normalize(in.normal), normalize(u.toLight.xyz)), 0.0);
+  let normal = normalize(in.normal);
+  let toLight = normalize(u.toLight.xyz);
+  let lambert = max(dot(normal, toLight), 0.0);
   let brightness = clamp(u.params.y + u.params.x * lambert, 0.0, 1.0);
-  let lit = in.color * brightness + in.emissive;
+  var lit = in.color * brightness;
+  if (lambert > 0.0) {
+    let viewDir = normalize(u.eye.xyz - in.worldPos);
+    let halfVec = normalize(toLight + viewDir);
+    let highlight = pow(max(dot(normal, halfVec), 0.0), in.specular.w) * u.params.x;
+    lit = lit + highlight * in.specular.xyz;
+  }
+  lit = lit + in.emissive;
   return vec4<f32>(lit, u.params.z);
 }
 `;
@@ -57,6 +72,7 @@ interface MeshBuffers {
   normal: any;
   color: any;
   emissive: any;
+  specular: any;
   count: number;
 }
 
@@ -117,13 +133,15 @@ export class WebGPURenderer implements Renderer {
         {
           binding: 0,
           visibility: stage.VERTEX | stage.FRAGMENT,
-          buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: 160 },
+          buffer: { type: "uniform", hasDynamicOffset: true, minBindingSize: 176 },
         },
       ],
     });
-    const vertexBuffer = (location: number) => ({
-      arrayStride: 12,
-      attributes: [{ shaderLocation: location, offset: 0, format: "float32x3" }],
+    const vertexBuffer = (location: number, components = 3) => ({
+      arrayStride: components * 4,
+      attributes: [
+        { shaderLocation: location, offset: 0, format: `float32x${components}` },
+      ],
     });
     const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
     const blend = {
@@ -139,7 +157,13 @@ export class WebGPURenderer implements Renderer {
       vertex: {
         module,
         entryPoint: "vs",
-        buffers: [vertexBuffer(0), vertexBuffer(1), vertexBuffer(2), vertexBuffer(3)],
+        buffers: [
+          vertexBuffer(0),
+          vertexBuffer(1),
+          vertexBuffer(2),
+          vertexBuffer(3),
+          vertexBuffer(4, 4),
+        ],
       },
       fragment: {
         module,
@@ -198,6 +222,7 @@ export class WebGPURenderer implements Renderer {
       normal: upload(data.normals),
       color: upload(data.colors),
       emissive: upload(data.emissives),
+      specular: upload(data.speculars),
       count: data.count,
     };
     this.cache.set(mesh, result);
@@ -253,7 +278,7 @@ export class WebGPURenderer implements Renderer {
     const bindGroup = this.device.createBindGroup({
       layout,
       entries: [
-        { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 160 } },
+        { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 176 } },
       ],
     });
 
@@ -263,6 +288,7 @@ export class WebGPURenderer implements Renderer {
       data.set(draw.item.model, 16);
       data.set([frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z, 0], 32);
       data.set([frame.light.intensity, frame.light.ambient, draw.opacity, 0], 36);
+      data.set([frame.eye.x, frame.eye.y, frame.eye.z, 0], 40);
       this.device.queue.writeBuffer(this.uniformBuffer, i * UNIFORM_STRIDE, data);
     });
 
@@ -291,6 +317,7 @@ export class WebGPURenderer implements Renderer {
       pass.setVertexBuffer(1, mesh.normal);
       pass.setVertexBuffer(2, mesh.color);
       pass.setVertexBuffer(3, mesh.emissive);
+      pass.setVertexBuffer(4, mesh.specular);
       pass.draw(mesh.count);
     });
     pass.end();
@@ -304,6 +331,7 @@ export class WebGPURenderer implements Renderer {
       mesh.normal.destroy?.();
       mesh.color.destroy?.();
       mesh.emissive.destroy?.();
+      mesh.specular.destroy?.();
     }
     this.cache.clear();
     this.uniformBuffer?.destroy?.();

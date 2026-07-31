@@ -55,3 +55,28 @@ test("expandToTriangles emissive array stays parallel to positions and colors", 
   assert.equal(data.emissives.length, data.positions.length);
   assert.equal(data.emissives.length, data.colors.length);
 });
+
+test("expandToTriangles packs specular as (Ks.rgb, Ns) per vertex", () => {
+  const data = expandToTriangles(tri({ specular: [1, 0.5, 0.25], shininess: 200 }));
+  assert.equal(data.speculars.length, 12); // 3 vertices * 4 floats
+  assert.deepEqual(
+    [...data.speculars],
+    [1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200],
+  );
+});
+
+test("expandToTriangles defaults specular to (0,0,0,1) with no material", () => {
+  const data = expandToTriangles(tri());
+  assert.deepEqual([...data.speculars], [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+});
+
+test("expandToTriangles defaults the Ns exponent to 32 when specular has no shininess", () => {
+  const data = expandToTriangles(tri({ specular: [1, 1, 1] }));
+  // Ns lands in the w slot; check the first vertex.
+  assert.deepEqual([data.speculars[0], data.speculars[1], data.speculars[2], data.speculars[3]], [1, 1, 1, 32]);
+});
+
+test("expandToTriangles specular array has 4 floats per vertex", () => {
+  const data = expandToTriangles(tri({ specular: [1, 1, 1], shininess: 8 }));
+  assert.equal(data.speculars.length, (data.positions.length / 3) * 4);
+});
