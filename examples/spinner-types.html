@@ -129,7 +129,7 @@
         ...options,
       });
 
-    const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
+    const carObj = await fetch("/meshes/test/car1/SportsCar.obj").then((r) => r.text());
 
     const PRIMARY = {
       plane: "#2563eb",
@@ -372,13 +372,13 @@
       {
         title: "Car (facing + slower)",
         config: () =>
-          cfg("figureEightMotion({ periodMs: 5400 })", `  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "-z",\n  size: 1.8,\n`),
+          cfg("figureEightMotion({ periodMs: 5400 })", `  mesh: () => parseObj(carObj),\n  color: "${PRIMARY.car}",\n  facing: "+z",\n  size: 1.8,\n`),
         create: () =>
           flight({
             backend: backend(),
             mesh: () => parseObj(carObj),
             color: PRIMARY.car,
-            facing: "-z",
+            facing: "+z",
             size: 1.8,
             periodMs: 5400,
           }),
