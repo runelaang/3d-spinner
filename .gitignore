@@ -33,7 +33,3 @@ Thumbs.db
 *.njsproj
 *.sln
 *.code-workspace
-
-# The demo branch's published site intentionally commits its built output under docs/
-!docs/dist/
-!docs/dist/**

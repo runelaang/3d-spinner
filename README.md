@@ -5,8 +5,8 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/3d-spinner)](https://bundlephobia.com/package/3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
-Real 3D spinners, loaders, and progress indicators for the browser - in one line, with no
-configuration:
+Real 3D spinners, loaders, and progress indicators for the browser - in one line, configuration
+optional:
 
 ```js
 import { createSpinner } from "3d-spinner";
@@ -15,7 +15,7 @@ import { starSwarm } from "3d-spinner/prefabs";
 createSpinner(document.getElementById("app"), starSwarm());
 ```
 
-- **Zero configuration.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
+- **Zero configuration needed.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
 - **Fully configurable when you want it.** Override any piece, compose your own from shapes,
   animations, motion paths, and materials, or drop in your own OBJ models.
 - **Hardware 3D, automatically.** By default it renders on the GPU through WebGPU or WebGL and
@@ -97,11 +97,12 @@ Shapes exported from `3d-spinner/engines/little-3d-engine` include `cube`, `tetr
 
 ## Surface materials
 
-Faces are flat-shaded from their color by default. A `Material` adds a specular highlight and
-self-illumination on top, using the Wavefront MTL properties of the same names:
+Faces are flat-shaded from their color by default. A `Material` adds ambient scaling, a specular
+highlight, and self-illumination on top, using the Wavefront MTL properties of the same names:
 
 | Field | MTL | Type | Description |
 | --- | --- | --- | --- |
+| `ambient` | `Ka` | `[r, g, b]` | Scales the scene ambient fill per channel, linear `0..1`. Omit or `[1,1,1]` for the full ambient (the engine default). |
 | `specular` | `Ks` | `[r, g, b]` | Highlight color and strength, linear `0..1`. Omit for a matte surface. |
 | `shininess` | `Ns` | `number` | Highlight tightness, `0..1000`. Higher is smaller and glossier. Defaults to `32` when `specular` is set. Ignored without `specular`. |
 | `emissive` | `Ke` | `[r, g, b]` | Color added after shading, linear `0..1`, so the face reads as self-lit. |
@@ -131,7 +132,8 @@ To apply one to a mesh from elsewhere, `attachMaterial(mesh, material)` sets it 
 place.
 
 Meshes loaded through the OBJ loader pick their materials up from the accompanying MTL file when
-`useMtlColors` is set - `Kd` becomes the face color, and `Ks`/`Ns`/`Ke` become the face material:
+`useMtlColors` is set - `Kd` becomes the face color, and `Ka`/`Ks`/`Ns`/`Ke` become the face
+material:
 
 ```js
 import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
@@ -304,7 +306,7 @@ new ParticlesAnimation({ backend: "webgl" }); // an animation
 new Little3dEngine({ backend: "canvas2d" });  // the engine directly
 ```
 
-Before 0.10.0 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
+Before 0.9.9 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep that behavior.
 
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never

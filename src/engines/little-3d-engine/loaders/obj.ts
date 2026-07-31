@@ -14,8 +14,9 @@ export interface ObjOptions {
   mtl?: string;
   /**
    * Use MTL material values for faces with matching `usemtl` statements: the
-   * diffuse color (`Kd`) becomes the face color, and specular (`Ks`/`Ns`) and
-   * emissive (`Ke`) become the face {@link Material}. Default `false`.
+   * diffuse color (`Kd`) becomes the face color, and ambient (`Ka`), specular
+   * (`Ks`/`Ns`), and emissive (`Ke`) become the face {@link Material}. Default
+   * `false`.
    */
   useMtlColors?: boolean;
 }
@@ -24,8 +25,20 @@ export interface ObjOptions {
 interface ParsedMaterial {
   /** Diffuse color (`Kd`) as a CSS hex string, if present. */
   color?: string;
-  /** Specular, shininess, and emissive gathered from `Ks`/`Ns`/`Ke`. */
+  /** Ambient, specular, shininess, and emissive gathered from `Ka`/`Ks`/`Ns`/`Ke`. */
   material?: Material;
+}
+
+interface SurfaceProps {
+  ambient?: [number, number, number];
+  specular?: [number, number, number];
+  shininess?: number;
+  emissive?: [number, number, number];
+}
+
+/** True when `Ka` is the engine identity (full scene ambient). */
+function isFullAmbient(rgb: [number, number, number]): boolean {
+  return rgb[0] === 1 && rgb[1] === 1 && rgb[2] === 1;
 }
 
 function clamp01(value: number): number {
@@ -47,13 +60,17 @@ function parseRgb(parts: string[]): [number, number, number] | undefined {
   return [clamp01(channels[0]), clamp01(channels[1]), clamp01(channels[2])];
 }
 
-/** Fold specular/shininess/emissive into a {@link Material}, or `undefined`. */
-function toMaterial(surface: {
-  specular?: [number, number, number];
-  shininess?: number;
-  emissive?: [number, number, number];
-}): Material | undefined {
+/**
+ * Fold ambient/specular/shininess/emissive into a {@link Material}, or
+ * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) is dropped so
+ * a Kd-only material with a white `Ka` (common in exported MTLs) still leaves
+ * `Face.material` undefined.
+ */
+function toMaterial(surface: SurfaceProps): Material | undefined {
   const material: Material = {};
+  if (surface.ambient && !isFullAmbient(surface.ambient)) {
+    material.ambient = surface.ambient;
+  }
   if (surface.specular) material.specular = surface.specular;
   if (surface.shininess !== undefined) material.shininess = surface.shininess;
   if (surface.emissive) material.emissive = surface.emissive;
@@ -62,15 +79,12 @@ function toMaterial(surface: {
 
 /**
  * Parse MTL text into a map of material name to its color and surface material.
- * Reads `Kd` (diffuse color), `Ks` (specular), `Ns` (shininess), and `Ke`
- * (emissive); other statements are ignored.
+ * Reads `Kd` (diffuse color), `Ka` (ambient), `Ks` (specular), `Ns` (shininess),
+ * and `Ke` (emissive); other statements are ignored.
  */
 function parseMtl(text: string): Map<string, ParsedMaterial> {
   const materials = new Map<string, ParsedMaterial>();
-  const surfaces = new Map<
-    string,
-    { specular?: [number, number, number]; shininess?: number; emissive?: [number, number, number] }
-  >();
+  const surfaces = new Map<string, SurfaceProps>();
   let name: string | undefined;
 
   for (const line of text.split("\n")) {
@@ -96,6 +110,8 @@ function parseMtl(text: string): Map<string, ParsedMaterial> {
       if (channels.length === 3 && channels.every((channel) => channel !== undefined)) {
         entry.color = `#${channels.join("")}`;
       }
+    } else if (keyword === "Ka") {
+      surface.ambient = parseRgb(parts);
     } else if (keyword === "Ks") {
       surface.specular = parseRgb(parts);
     } else if (keyword === "Ns") {
@@ -124,9 +140,9 @@ function resolveIndex(token: string, vertexCount: number): number {
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
  * computes a flat normal per face. Material names can select the diffuse color
- * (`Kd`) and surface material (specular `Ks`/`Ns`, emissive `Ke`) from supplied
- * MTL text; groups and other statements are ignored. Face winding is preserved
- * as-is; the engine expects CCW winding as seen from outside.
+ * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`)
+ * from supplied MTL text; groups and other statements are ignored. Face winding
+ * is preserved as-is; the engine expects CCW winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.
  * @param options Face palette and optional MTL materials.

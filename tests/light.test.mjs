@@ -11,6 +11,29 @@ test("shade without a surface is flat Lambert on the base color", () => {
   assert.deepEqual(shade(Z, "#804020", light), [96, 48, 24]);
 });
 
+test("shade scales scene ambient by Ka per channel", () => {
+  // intensity 0 so only ambient*Ka remains; Ka tints the fill independently.
+  const light = { toLight: Z, intensity: 0, ambient: 0.5 };
+  const surface = { material: { ambient: [0.5, 1, 0] } };
+  // base #804020 = (128,64,32); brightness = (0.25, 0.5, 0) → (32, 32, 0)
+  assert.deepEqual(shade(Z, "#804020", light, surface), [32, 32, 0]);
+});
+
+test("shade with Ka [1,1,1] matches shading with no ambient field", () => {
+  const light = { toLight: Z, intensity: 0.5, ambient: 0.25 };
+  const withKa = shade(Z, "#804020", light, { material: { ambient: [1, 1, 1] } });
+  const without = shade(Z, "#804020", light);
+  assert.deepEqual(withKa, without);
+  assert.deepEqual(withKa, [96, 48, 24]);
+});
+
+test("shade with Ka [0,0,0] drops the ambient fill", () => {
+  // Face away from the light: lambert 0, so only ambient would have lit it.
+  const light = { toLight: Z, intensity: 1, ambient: 0.5 };
+  const surface = { material: { ambient: [0, 0, 0] } };
+  assert.deepEqual(shade(NEG_Z, "#ffffff", light, surface), [0, 0, 0]);
+});
+
 test("shade adds an emissive term regardless of lighting", () => {
   // Face turned away from the light (lambert 0, ambient 0) stays lit by Ke.
   const light = { toLight: Z, intensity: 1, ambient: 0 };

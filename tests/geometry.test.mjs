@@ -31,6 +31,31 @@ test("expandToTriangles emits zero emissive for a material without Ke", () => {
   assert.deepEqual([...data.emissives], [0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
 
+test("expandToTriangles duplicates a face ambient across all its vertices", () => {
+  const data = expandToTriangles(tri({ ambient: [0.25, 0.5, 0.75] }));
+  assert.equal(data.ambients.length, 9);
+  assert.deepEqual(
+    [...data.ambients],
+    [0.25, 0.5, 0.75, 0.25, 0.5, 0.75, 0.25, 0.5, 0.75],
+  );
+});
+
+test("expandToTriangles defaults ambient to (1,1,1) with no material", () => {
+  const data = expandToTriangles(tri());
+  assert.deepEqual([...data.ambients], [1, 1, 1, 1, 1, 1, 1, 1, 1]);
+});
+
+test("expandToTriangles defaults ambient to (1,1,1) for a material without Ka", () => {
+  const data = expandToTriangles(tri({ specular: [1, 1, 1], shininess: 32 }));
+  assert.deepEqual([...data.ambients], [1, 1, 1, 1, 1, 1, 1, 1, 1]);
+});
+
+test("expandToTriangles ambient array stays parallel to positions and colors", () => {
+  const data = expandToTriangles(tri({ ambient: [0.1, 0.2, 0.3] }));
+  assert.equal(data.ambients.length, data.positions.length);
+  assert.equal(data.ambients.length, data.colors.length);
+});
+
 test("expandToTriangles fans an emissive n-gon across every triangle vertex", () => {
   const quad = {
     vertices: [
