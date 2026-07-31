@@ -6,7 +6,7 @@ export interface SpinAnimationOptions {
     shape?: Mesh | (() => Mesh);
     /** Face color(s): one color for every face, or an array applied per face. */
     color?: string | string[];
-    /** Surface material (specular, shininess, emissive) applied to every face. */
+    /** Surface material (ambient, specular, shininess, emissive) applied to every face. */
     material?: Material;
     /** Rotation speed around the X axis, in radians per millisecond. Default `0.0007`. */
     spinX?: number;

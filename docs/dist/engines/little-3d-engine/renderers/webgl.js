@@ -4,18 +4,21 @@ const VERTEX_SHADER = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aAmbient;
 in vec3 aEmissive;
 in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vAmbient;
 out vec3 vEmissive;
 out vec4 vSpecular;
 out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
+  vAmbient = aAmbient;
   vEmissive = aEmissive;
   vSpecular = aSpecular;
   vec4 world = uModel * vec4(aPos, 1.0);
@@ -26,6 +29,7 @@ const FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vAmbient;
 in vec3 vEmissive;
 in vec4 vSpecular;
 in vec3 vWorldPos;
@@ -39,7 +43,7 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 toLight = normalize(uToLight);
   float lambert = max(dot(normal, toLight), 0.0);
-  float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
+  vec3 brightness = clamp(uAmbient * vAmbient + uIntensity * lambert, 0.0, 1.0);
   vec3 lit = vColor * brightness;
   if (lambert > 0.0) {
     vec3 viewDir = normalize(uEye - vWorldPos);
@@ -91,6 +95,7 @@ export class WebGLRenderer {
             aPos: gl.getAttribLocation(this.program, "aPos"),
             aNormal: gl.getAttribLocation(this.program, "aNormal"),
             aColor: gl.getAttribLocation(this.program, "aColor"),
+            aAmbient: gl.getAttribLocation(this.program, "aAmbient"),
             aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
             aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
             uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
@@ -136,6 +141,7 @@ export class WebGLRenderer {
         attribute(loc.aPos, data.positions);
         attribute(loc.aNormal, data.normals);
         attribute(loc.aColor, data.colors);
+        attribute(loc.aAmbient, data.ambients);
         attribute(loc.aEmissive, data.emissives);
         attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);

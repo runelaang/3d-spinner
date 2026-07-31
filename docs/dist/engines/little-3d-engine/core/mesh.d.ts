@@ -6,6 +6,14 @@ import type { Vec3 } from "./math.js";
  */
 export interface Material {
     /**
+     * Ambient reflectivity (`Ka`) as linear `0..1` RGB. Scales the scene ambient
+     * fill per channel before it multiplies the face color (`Kd`). Omit or
+     * `[1,1,1]` for the full scene ambient (the engine default — not Wavefront's
+     * usual `0.2` fallback, which would darken every material that never sets
+     * `Ka`). `[0,0,0]` kills the ambient fill so only the directional term remains.
+     */
+    ambient?: [number, number, number];
+    /**
      * Specular reflectivity (`Ks`) as linear `0..1` RGB. Drives the color and
      * strength of the highlight. Omit or `[0,0,0]` for a matte surface.
      */
@@ -28,8 +36,8 @@ export interface Face {
     /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
     color: string;
     /**
-     * Optional surface material (specular, shininess, emissive) from an MTL
-     * file. When absent the face is flat Lambert-shaded from `color`.
+     * Optional surface material (ambient, specular, shininess, emissive) from an
+     * MTL file. When absent the face is flat Lambert-shaded from `color`.
      */
     material?: Material;
 }
@@ -41,7 +49,7 @@ export interface Mesh {
 /**
  * Assign one {@link Material} to every face of a mesh, in place, and return it.
  * A no-op when `material` is omitted. Shape builders use this to apply a uniform
- * surface material (specular, shininess, emissive) across all their faces.
+ * surface material (ambient, specular, shininess, emissive) across all their faces.
  */
 export declare function attachMaterial(mesh: Mesh, material?: Material): Mesh;
 /** Draw only outward-facing transparent surfaces. */

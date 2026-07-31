@@ -1,7 +1,7 @@
 /**
  * Assign one {@link Material} to every face of a mesh, in place, and return it.
  * A no-op when `material` is omitted. Shape builders use this to apply a uniform
- * surface material (specular, shininess, emissive) across all their faces.
+ * surface material (ambient, specular, shininess, emissive) across all their faces.
  */
 export function attachMaterial(mesh, material) {
     if (material) {

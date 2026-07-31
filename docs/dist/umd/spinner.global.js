@@ -139,6 +139,7 @@ var Spinner3D = (() => {
     const positions = new Float32Array(triangles * 9);
     const normals = new Float32Array(triangles * 9);
     const colors = new Float32Array(triangles * 9);
+    const ambients = new Float32Array(triangles * 9);
     const emissives = new Float32Array(triangles * 9);
     const speculars = new Float32Array(triangles * 12);
     let o = 0;
@@ -152,6 +153,10 @@ var Spinner3D = (() => {
       const cr = r / 255;
       const cg = g / 255;
       const cb = b / 255;
+      const ambient = face.material?.ambient;
+      const ar = ambient ? ambient[0] : 1;
+      const ag = ambient ? ambient[1] : 1;
+      const ab = ambient ? ambient[2] : 1;
       const emissive = face.material?.emissive;
       const er = emissive ? emissive[0] : 0;
       const eg = emissive ? emissive[1] : 0;
@@ -174,6 +179,9 @@ var Spinner3D = (() => {
           colors[o] = cr;
           colors[o + 1] = cg;
           colors[o + 2] = cb;
+          ambients[o] = ar;
+          ambients[o + 1] = ag;
+          ambients[o + 2] = ab;
           emissives[o] = er;
           emissives[o + 1] = eg;
           emissives[o + 2] = eb;
@@ -186,7 +194,15 @@ var Spinner3D = (() => {
         }
       }
     }
-    return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
+    return {
+      positions,
+      normals,
+      colors,
+      ambients,
+      emissives,
+      speculars,
+      count: positions.length / 3
+    };
   }
   function midpoint(a, b) {
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
@@ -229,12 +245,15 @@ var Spinner3D = (() => {
   }
   function shade(normal, color, light, surface) {
     const lambert = Math.max(0, dot(normal, light.toLight));
-    const brightness = clamp012(light.ambient + light.intensity * lambert);
-    const [baseR, baseG, baseB] = parseColor(color);
-    let r = baseR * brightness;
-    let g = baseG * brightness;
-    let b = baseB * brightness;
     const material = surface?.material;
+    const ambient = material?.ambient;
+    const kaR = ambient ? ambient[0] : 1;
+    const kaG = ambient ? ambient[1] : 1;
+    const kaB = ambient ? ambient[2] : 1;
+    const [baseR, baseG, baseB] = parseColor(color);
+    let r = baseR * clamp012(light.ambient * kaR + light.intensity * lambert);
+    let g = baseG * clamp012(light.ambient * kaG + light.intensity * lambert);
+    let b = baseB * clamp012(light.ambient * kaB + light.intensity * lambert);
     const specular = material?.specular;
     const viewDir = surface?.viewDir;
     if (specular && viewDir && lambert > 0) {
@@ -323,18 +342,21 @@ var Spinner3D = (() => {
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aAmbient;
 in vec3 aEmissive;
 in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vAmbient;
 out vec3 vEmissive;
 out vec4 vSpecular;
 out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
+  vAmbient = aAmbient;
   vEmissive = aEmissive;
   vSpecular = aSpecular;
   vec4 world = uModel * vec4(aPos, 1.0);
@@ -345,6 +367,7 @@ void main() {
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vAmbient;
 in vec3 vEmissive;
 in vec4 vSpecular;
 in vec3 vWorldPos;
@@ -358,7 +381,7 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 toLight = normalize(uToLight);
   float lambert = max(dot(normal, toLight), 0.0);
-  float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
+  vec3 brightness = clamp(uAmbient * vAmbient + uIntensity * lambert, 0.0, 1.0);
   vec3 lit = vColor * brightness;
   if (lambert > 0.0) {
     vec3 viewDir = normalize(uEye - vWorldPos);
@@ -388,6 +411,7 @@ void main() {
             aPos: gl.getAttribLocation(this.program, "aPos"),
             aNormal: gl.getAttribLocation(this.program, "aNormal"),
             aColor: gl.getAttribLocation(this.program, "aColor"),
+            aAmbient: gl.getAttribLocation(this.program, "aAmbient"),
             aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
             aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
             uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
@@ -430,6 +454,7 @@ void main() {
           attribute(loc.aPos, data.positions);
           attribute(loc.aNormal, data.normals);
           attribute(loc.aColor, data.colors);
+          attribute(loc.aAmbient, data.ambients);
           attribute(loc.aEmissive, data.emissives);
           attribute(loc.aSpecular, data.speculars, 4);
           gl.bindVertexArray(null);
@@ -533,17 +558,19 @@ struct VSOut {
   @builtin(position) position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) color: vec3<f32>,
-  @location(2) emissive: vec3<f32>,
-  @location(3) specular: vec4<f32>,
-  @location(4) worldPos: vec3<f32>,
+  @location(2) ambient: vec3<f32>,
+  @location(3) emissive: vec3<f32>,
+  @location(4) specular: vec4<f32>,
+  @location(5) worldPos: vec3<f32>,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>, @location(4) specular: vec4<f32>) -> VSOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) ambient: vec3<f32>, @location(4) emissive: vec3<f32>, @location(5) specular: vec4<f32>) -> VSOut {
   var out: VSOut;
   let m = mat3x3<f32>(u.model[0].xyz, u.model[1].xyz, u.model[2].xyz);
   out.normal = m * normal;
   out.color = color;
+  out.ambient = ambient;
   out.emissive = emissive;
   out.specular = specular;
   let world = u.model * vec4<f32>(pos, 1.0);
@@ -557,7 +584,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let normal = normalize(in.normal);
   let toLight = normalize(u.toLight.xyz);
   let lambert = max(dot(normal, toLight), 0.0);
-  let brightness = clamp(u.params.y + u.params.x * lambert, 0.0, 1.0);
+  let brightness = clamp(u.params.y * in.ambient + vec3<f32>(u.params.x * lambert), vec3<f32>(0.0), vec3<f32>(1.0));
   var lit = in.color * brightness;
   if (lambert > 0.0) {
     let viewDir = normalize(u.eye.xyz - in.worldPos);
@@ -636,7 +663,8 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
                 vertexBuffer(1),
                 vertexBuffer(2),
                 vertexBuffer(3),
-                vertexBuffer(4, 4)
+                vertexBuffer(4),
+                vertexBuffer(5, 4)
               ]
             },
             fragment: {
@@ -690,6 +718,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             position: upload(data.positions),
             normal: upload(data.normals),
             color: upload(data.colors),
+            ambient: upload(data.ambients),
             emissive: upload(data.emissives),
             specular: upload(data.speculars),
             count: data.count
@@ -779,8 +808,9 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             pass.setVertexBuffer(0, mesh.position);
             pass.setVertexBuffer(1, mesh.normal);
             pass.setVertexBuffer(2, mesh.color);
-            pass.setVertexBuffer(3, mesh.emissive);
-            pass.setVertexBuffer(4, mesh.specular);
+            pass.setVertexBuffer(3, mesh.ambient);
+            pass.setVertexBuffer(4, mesh.emissive);
+            pass.setVertexBuffer(5, mesh.specular);
             pass.draw(mesh.count);
           });
           pass.end();
@@ -792,6 +822,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             mesh.position.destroy?.();
             mesh.normal.destroy?.();
             mesh.color.destroy?.();
+            mesh.ambient.destroy?.();
             mesh.emissive.destroy?.();
             mesh.specular.destroy?.();
           }
@@ -4863,6 +4894,9 @@ void main() {
 
   // src/engines/little-3d-engine/loaders/obj.ts
   var DEFAULT_COLORS12 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
+  function isFullAmbient(rgb) {
+    return rgb[0] === 1 && rgb[1] === 1 && rgb[2] === 1;
+  }
   function clamp018(value) {
     return Math.min(1, Math.max(0, value));
   }
@@ -4878,6 +4912,9 @@ void main() {
   }
   function toMaterial(surface) {
     const material = {};
+    if (surface.ambient && !isFullAmbient(surface.ambient)) {
+      material.ambient = surface.ambient;
+    }
     if (surface.specular) material.specular = surface.specular;
     if (surface.shininess !== void 0) material.shininess = surface.shininess;
     if (surface.emissive) material.emissive = surface.emissive;
@@ -4908,6 +4945,8 @@ void main() {
         if (channels.length === 3 && channels.every((channel) => channel !== void 0)) {
           entry.color = `#${channels.join("")}`;
         }
+      } else if (keyword === "Ka") {
+        surface.ambient = parseRgb(parts);
       } else if (keyword === "Ks") {
         surface.specular = parseRgb(parts);
       } else if (keyword === "Ns") {

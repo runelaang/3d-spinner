@@ -19,11 +19,11 @@ export interface LightParams {
 /**
  * Per-face surface inputs for {@link shade}/{@link shadeColor} beyond the base
  * color: its MTL {@link Material} and the direction from the face toward the
- * camera. Both are needed for the specular highlight; without them shading
- * falls back to flat Lambert plus any emissive term.
+ * camera. Specular needs both a material and `viewDir`; ambient and emissive
+ * need only the material. Without a material, shading is flat Lambert.
  */
 export interface Surface {
-    /** MTL-derived specular/shininess/emissive for this face. */
+    /** MTL-derived ambient/specular/shininess/emissive for this face. */
     material?: Material;
     /** Unit vector from the face toward the eye, for the specular highlight. */
     viewDir?: Vec3;
@@ -31,12 +31,13 @@ export interface Surface {
 /**
  * Shade a face and return `0..255` RGB channels.
  *
- * The diffuse term is flat Lambert: the base `color` brightened by how directly
- * `normal` faces the light, floored at the ambient level. When a {@link Surface}
- * supplies a specular material and a `viewDir`, a Blinn-Phong highlight (`Ks`
- * tinted, tightened by `Ns`) is added; an emissive material (`Ke`) is always
- * added on top. With no material this reduces exactly to the previous flat
- * shading.
+ * The diffuse term is flat Lambert: the base `color` (`Kd`) is multiplied by
+ * `ambient * Ka + intensity * N·L` per channel (`Ka` defaults to `[1,1,1]` when
+ * omitted, so a missing ambient matches the pre-`Ka` formula byte-for-byte).
+ * When a {@link Surface} supplies a specular material and a `viewDir`, a
+ * Blinn-Phong highlight (`Ks` tinted, tightened by `Ns`) is added; an emissive
+ * material (`Ke`) is always added on top. With no material this reduces exactly
+ * to the previous flat shading.
  */
 export declare function shade(normal: Vec3, color: string, light: LightParams, surface?: Surface): [number, number, number];
 /**

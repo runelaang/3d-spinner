@@ -24,10 +24,11 @@
   <h1>3d-spinner and beyond: shading &amp; materials</h1>
 
   <p class="note">
-    Every shape takes an optional <code>material</code> (specular <code>Ks</code>/<code>Ns</code> and
-    emissive <code>Ke</code>), applied to all its faces. Flat shading is the baseline; a material
-    layers a Blinn-Phong highlight and an additive glow on top. Specular reads best on the WebGL and
-    WebGPU backends (per-pixel highlight); Canvas 2D approximates it per face.
+    Every shape takes an optional <code>material</code> (ambient <code>Ka</code>, specular
+    <code>Ks</code>/<code>Ns</code>, and emissive <code>Ke</code>), applied to all its faces. Flat
+    shading is the baseline; a material scales the ambient fill, then layers a Blinn-Phong highlight
+    and an additive glow. Specular reads best on the WebGL and WebGPU backends (per-pixel
+    highlight); Canvas 2D approximates it per face.
   </p>
 
   <div class="controls">
@@ -65,6 +66,11 @@
             <option value="octahedron">Octahedron</option>
             <option value="cube">Cube</option>
           </select>
+        </label>
+        <label for="pg-ambient">
+          <span>Ambient (Ka)</span>
+          <input id="pg-ambient" type="range" min="0" max="1" step="0.05" value="1" autocomplete="off" />
+          <output id="pg-ambient-value" for="pg-ambient">1.00</output>
         </label>
         <label for="pg-specular">
           <span>Specular</span>
@@ -106,6 +112,9 @@
     const presets = [
       { title: "Matte (no material)", material: undefined },
       { title: "Emissive glow (Ke)", material: { emissive: [0, 0.55, 0.75] } },
+      // Ka pair shares a row in the 2-column grid so the ambient fill is easy to compare.
+      { title: "No ambient fill (Ka 0)", material: { ambient: [0, 0, 0] } },
+      { title: "Dim ambient (Ka 0.7)", material: { ambient: [0.7, 0.7, 0.7] } },
       { title: "Soft sheen (Ns 6)", material: { specular: [1, 1, 1], shininess: 6 } },
       { title: "Tight highlight (Ns 120)", material: { specular: [1, 1, 1], shininess: 120 } },
       { title: "Gold specular", material: { specular: [1, 0.78, 0.34], shininess: 40 } },
@@ -134,6 +143,7 @@
 
     // --- playground ---
     const pgShape = document.getElementById("pg-shape");
+    const pgAmbient = document.getElementById("pg-ambient");
     const pgSpecular = document.getElementById("pg-specular");
     const pgShininess = document.getElementById("pg-shininess");
     const pgEmissive = document.getElementById("pg-emissive");
@@ -160,10 +170,12 @@
     };
 
     const playgroundMaterial = () => {
+      const ka = Number(pgAmbient.value);
       const spec = Number(pgSpecular.value);
       const emLevel = Number(pgEmissive.value);
       const [er, eg, eb] = hexToRgb(pgEmissiveColor.value);
       return {
+        ambient: [ka, ka, ka],
         specular: [spec, spec, spec],
         shininess: Number(pgShininess.value),
         emissive: [er * emLevel, eg * emLevel, eb * emLevel],
@@ -172,6 +184,7 @@
 
     // Reflect slider values in their outputs.
     const outputs = [
+      [pgAmbient, document.getElementById("pg-ambient-value"), (v) => v.toFixed(2)],
       [pgSpecular, document.getElementById("pg-specular-value"), (v) => v.toFixed(2)],
       [pgShininess, document.getElementById("pg-shininess-value"), (v) => String(v)],
       [pgEmissive, document.getElementById("pg-emissive-value"), (v) => v.toFixed(2)],
@@ -230,7 +243,7 @@
     renderTech.onchange = () => mountAll();
     document.getElementById("restart").onclick = () => mountAll();
     document.getElementById("stop").onclick = () => allSpinners().forEach((s) => s.stop());
-    for (const el of [pgShape, pgSpecular, pgShininess, pgEmissive, pgEmissiveColor]) {
+    for (const el of [pgShape, pgAmbient, pgSpecular, pgShininess, pgEmissive, pgEmissiveColor]) {
       el.oninput = () => remountPlayground();
     }
 

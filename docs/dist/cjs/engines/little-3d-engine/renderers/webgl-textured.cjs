@@ -60,6 +60,7 @@ function expandToTriangles(mesh) {
   const positions = new Float32Array(triangles * 9);
   const normals = new Float32Array(triangles * 9);
   const colors = new Float32Array(triangles * 9);
+  const ambients = new Float32Array(triangles * 9);
   const emissives = new Float32Array(triangles * 9);
   const speculars = new Float32Array(triangles * 12);
   let o = 0;
@@ -73,6 +74,10 @@ function expandToTriangles(mesh) {
     const cr = r / 255;
     const cg = g / 255;
     const cb = b / 255;
+    const ambient = face.material?.ambient;
+    const ar = ambient ? ambient[0] : 1;
+    const ag = ambient ? ambient[1] : 1;
+    const ab = ambient ? ambient[2] : 1;
     const emissive = face.material?.emissive;
     const er = emissive ? emissive[0] : 0;
     const eg = emissive ? emissive[1] : 0;
@@ -95,6 +100,9 @@ function expandToTriangles(mesh) {
         colors[o] = cr;
         colors[o + 1] = cg;
         colors[o + 2] = cb;
+        ambients[o] = ar;
+        ambients[o + 1] = ag;
+        ambients[o + 2] = ab;
         emissives[o] = er;
         emissives[o + 1] = eg;
         emissives[o + 2] = eb;
@@ -107,7 +115,15 @@ function expandToTriangles(mesh) {
       }
     }
   }
-  return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
+  return {
+    positions,
+    normals,
+    colors,
+    ambients,
+    emissives,
+    speculars,
+    count: positions.length / 3
+  };
 }
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
@@ -171,18 +187,21 @@ var init_webgl = __esm({
 in vec3 aPos;
 in vec3 aNormal;
 in vec3 aColor;
+in vec3 aAmbient;
 in vec3 aEmissive;
 in vec4 aSpecular;
 uniform mat4 uViewProj;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
+out vec3 vAmbient;
 out vec3 vEmissive;
 out vec4 vSpecular;
 out vec3 vWorldPos;
 void main() {
   vNormal = mat3(uModel) * aNormal;
   vColor = aColor;
+  vAmbient = aAmbient;
   vEmissive = aEmissive;
   vSpecular = aSpecular;
   vec4 world = uModel * vec4(aPos, 1.0);
@@ -193,6 +212,7 @@ void main() {
 precision mediump float;
 in vec3 vNormal;
 in vec3 vColor;
+in vec3 vAmbient;
 in vec3 vEmissive;
 in vec4 vSpecular;
 in vec3 vWorldPos;
@@ -206,7 +226,7 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 toLight = normalize(uToLight);
   float lambert = max(dot(normal, toLight), 0.0);
-  float brightness = clamp(uAmbient + uIntensity * lambert, 0.0, 1.0);
+  vec3 brightness = clamp(uAmbient * vAmbient + uIntensity * lambert, 0.0, 1.0);
   vec3 lit = vColor * brightness;
   if (lambert > 0.0) {
     vec3 viewDir = normalize(uEye - vWorldPos);
@@ -236,6 +256,7 @@ void main() {
           aPos: gl.getAttribLocation(this.program, "aPos"),
           aNormal: gl.getAttribLocation(this.program, "aNormal"),
           aColor: gl.getAttribLocation(this.program, "aColor"),
+          aAmbient: gl.getAttribLocation(this.program, "aAmbient"),
           aEmissive: gl.getAttribLocation(this.program, "aEmissive"),
           aSpecular: gl.getAttribLocation(this.program, "aSpecular"),
           uViewProj: gl.getUniformLocation(this.program, "uViewProj"),
@@ -278,6 +299,7 @@ void main() {
         attribute(loc.aPos, data.positions);
         attribute(loc.aNormal, data.normals);
         attribute(loc.aColor, data.colors);
+        attribute(loc.aAmbient, data.ambients);
         attribute(loc.aEmissive, data.emissives);
         attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);

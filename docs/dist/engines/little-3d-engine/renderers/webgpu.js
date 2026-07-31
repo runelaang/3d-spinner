@@ -15,17 +15,19 @@ struct VSOut {
   @builtin(position) position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) color: vec3<f32>,
-  @location(2) emissive: vec3<f32>,
-  @location(3) specular: vec4<f32>,
-  @location(4) worldPos: vec3<f32>,
+  @location(2) ambient: vec3<f32>,
+  @location(3) emissive: vec3<f32>,
+  @location(4) specular: vec4<f32>,
+  @location(5) worldPos: vec3<f32>,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) emissive: vec3<f32>, @location(4) specular: vec4<f32>) -> VSOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) color: vec3<f32>, @location(3) ambient: vec3<f32>, @location(4) emissive: vec3<f32>, @location(5) specular: vec4<f32>) -> VSOut {
   var out: VSOut;
   let m = mat3x3<f32>(u.model[0].xyz, u.model[1].xyz, u.model[2].xyz);
   out.normal = m * normal;
   out.color = color;
+  out.ambient = ambient;
   out.emissive = emissive;
   out.specular = specular;
   let world = u.model * vec4<f32>(pos, 1.0);
@@ -39,7 +41,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let normal = normalize(in.normal);
   let toLight = normalize(u.toLight.xyz);
   let lambert = max(dot(normal, toLight), 0.0);
-  let brightness = clamp(u.params.y + u.params.x * lambert, 0.0, 1.0);
+  let brightness = clamp(u.params.y * in.ambient + vec3<f32>(u.params.x * lambert), vec3<f32>(0.0), vec3<f32>(1.0));
   var lit = in.color * brightness;
   if (lambert > 0.0) {
     let viewDir = normalize(u.eye.xyz - in.worldPos);
@@ -124,7 +126,8 @@ export class WebGPURenderer {
                     vertexBuffer(1),
                     vertexBuffer(2),
                     vertexBuffer(3),
-                    vertexBuffer(4, 4),
+                    vertexBuffer(4),
+                    vertexBuffer(5, 4),
                 ],
             },
             fragment: {
@@ -181,6 +184,7 @@ export class WebGPURenderer {
             position: upload(data.positions),
             normal: upload(data.normals),
             color: upload(data.colors),
+            ambient: upload(data.ambients),
             emissive: upload(data.emissives),
             specular: upload(data.speculars),
             count: data.count,
@@ -276,8 +280,9 @@ export class WebGPURenderer {
             pass.setVertexBuffer(0, mesh.position);
             pass.setVertexBuffer(1, mesh.normal);
             pass.setVertexBuffer(2, mesh.color);
-            pass.setVertexBuffer(3, mesh.emissive);
-            pass.setVertexBuffer(4, mesh.specular);
+            pass.setVertexBuffer(3, mesh.ambient);
+            pass.setVertexBuffer(4, mesh.emissive);
+            pass.setVertexBuffer(5, mesh.specular);
             pass.draw(mesh.count);
         });
         pass.end();
@@ -289,6 +294,7 @@ export class WebGPURenderer {
             mesh.position.destroy?.();
             mesh.normal.destroy?.();
             mesh.color.destroy?.();
+            mesh.ambient.destroy?.();
             mesh.emissive.destroy?.();
             mesh.specular.destroy?.();
         }

@@ -1,4 +1,8 @@
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
+/** True when `Ka` is the engine identity (full scene ambient). */
+function isFullAmbient(rgb) {
+    return rgb[0] === 1 && rgb[1] === 1 && rgb[2] === 1;
+}
 function clamp01(value) {
     return Math.min(1, Math.max(0, value));
 }
@@ -17,9 +21,17 @@ function parseRgb(parts) {
         return undefined;
     return [clamp01(channels[0]), clamp01(channels[1]), clamp01(channels[2])];
 }
-/** Fold specular/shininess/emissive into a {@link Material}, or `undefined`. */
+/**
+ * Fold ambient/specular/shininess/emissive into a {@link Material}, or
+ * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) is dropped so
+ * a Kd-only material with a white `Ka` (common in exported MTLs) still leaves
+ * `Face.material` undefined.
+ */
 function toMaterial(surface) {
     const material = {};
+    if (surface.ambient && !isFullAmbient(surface.ambient)) {
+        material.ambient = surface.ambient;
+    }
     if (surface.specular)
         material.specular = surface.specular;
     if (surface.shininess !== undefined)
@@ -30,8 +42,8 @@ function toMaterial(surface) {
 }
 /**
  * Parse MTL text into a map of material name to its color and surface material.
- * Reads `Kd` (diffuse color), `Ks` (specular), `Ns` (shininess), and `Ke`
- * (emissive); other statements are ignored.
+ * Reads `Kd` (diffuse color), `Ka` (ambient), `Ks` (specular), `Ns` (shininess),
+ * and `Ke` (emissive); other statements are ignored.
  */
 function parseMtl(text) {
     const materials = new Map();
@@ -61,6 +73,9 @@ function parseMtl(text) {
                 entry.color = `#${channels.join("")}`;
             }
         }
+        else if (keyword === "Ka") {
+            surface.ambient = parseRgb(parts);
+        }
         else if (keyword === "Ks") {
             surface.specular = parseRgb(parts);
         }
@@ -89,9 +104,9 @@ function resolveIndex(token, vertexCount) {
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
  * computes a flat normal per face. Material names can select the diffuse color
- * (`Kd`) and surface material (specular `Ks`/`Ns`, emissive `Ke`) from supplied
- * MTL text; groups and other statements are ignored. Face winding is preserved
- * as-is; the engine expects CCW winding as seen from outside.
+ * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`)
+ * from supplied MTL text; groups and other statements are ignored. Face winding
+ * is preserved as-is; the engine expects CCW winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.
  * @param options Face palette and optional MTL materials.

@@ -24,6 +24,9 @@ __export(obj_exports, {
 });
 module.exports = __toCommonJS(obj_exports);
 var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
+function isFullAmbient(rgb) {
+  return rgb[0] === 1 && rgb[1] === 1 && rgb[2] === 1;
+}
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
 }
@@ -39,6 +42,9 @@ function parseRgb(parts) {
 }
 function toMaterial(surface) {
   const material = {};
+  if (surface.ambient && !isFullAmbient(surface.ambient)) {
+    material.ambient = surface.ambient;
+  }
   if (surface.specular) material.specular = surface.specular;
   if (surface.shininess !== void 0) material.shininess = surface.shininess;
   if (surface.emissive) material.emissive = surface.emissive;
@@ -69,6 +75,8 @@ function parseMtl(text) {
       if (channels.length === 3 && channels.every((channel) => channel !== void 0)) {
         entry.color = `#${channels.join("")}`;
       }
+    } else if (keyword === "Ka") {
+      surface.ambient = parseRgb(parts);
     } else if (keyword === "Ks") {
       surface.specular = parseRgb(parts);
     } else if (keyword === "Ns") {

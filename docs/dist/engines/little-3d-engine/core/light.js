@@ -14,21 +14,25 @@ function clamp255(value) {
 /**
  * Shade a face and return `0..255` RGB channels.
  *
- * The diffuse term is flat Lambert: the base `color` brightened by how directly
- * `normal` faces the light, floored at the ambient level. When a {@link Surface}
- * supplies a specular material and a `viewDir`, a Blinn-Phong highlight (`Ks`
- * tinted, tightened by `Ns`) is added; an emissive material (`Ke`) is always
- * added on top. With no material this reduces exactly to the previous flat
- * shading.
+ * The diffuse term is flat Lambert: the base `color` (`Kd`) is multiplied by
+ * `ambient * Ka + intensity * N·L` per channel (`Ka` defaults to `[1,1,1]` when
+ * omitted, so a missing ambient matches the pre-`Ka` formula byte-for-byte).
+ * When a {@link Surface} supplies a specular material and a `viewDir`, a
+ * Blinn-Phong highlight (`Ks` tinted, tightened by `Ns`) is added; an emissive
+ * material (`Ke`) is always added on top. With no material this reduces exactly
+ * to the previous flat shading.
  */
 export function shade(normal, color, light, surface) {
     const lambert = Math.max(0, dot(normal, light.toLight));
-    const brightness = clamp01(light.ambient + light.intensity * lambert);
-    const [baseR, baseG, baseB] = parseColor(color);
-    let r = baseR * brightness;
-    let g = baseG * brightness;
-    let b = baseB * brightness;
     const material = surface?.material;
+    const ambient = material?.ambient;
+    const kaR = ambient ? ambient[0] : 1;
+    const kaG = ambient ? ambient[1] : 1;
+    const kaB = ambient ? ambient[2] : 1;
+    const [baseR, baseG, baseB] = parseColor(color);
+    let r = baseR * clamp01(light.ambient * kaR + light.intensity * lambert);
+    let g = baseG * clamp01(light.ambient * kaG + light.intensity * lambert);
+    let b = baseB * clamp01(light.ambient * kaB + light.intensity * lambert);
     const specular = material?.specular;
     const viewDir = surface?.viewDir;
     if (specular && viewDir && lambert > 0) {
