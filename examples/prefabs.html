@@ -32,11 +32,13 @@
   <div class="controls">
     <label>Renderer
       <select id="render-tech">
+        <option value="auto" selected>Auto (best available)</option>
         <option value="canvas2d">Canvas 2D (software)</option>
-        <option value="webgl" selected>WebGL</option>
+        <option value="webgl">WebGL</option>
         <option value="webgpu">WebGPU</option>
       </select>
     </label>
+    <span class="stage-hint" id="auto-note"></span>
     <button id="stop">Stop</button>
   </div>
 
@@ -51,12 +53,18 @@
       pulsingStarfield,
       starSwarm,
     } from "/dist/prefabs/prefabs.js";
-    import { cube } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+    import { cube, resolveBackend } from "/dist/engines/little-3d-engine/little-3d-engine.js";
     import { circleMotion, squareMotion } from "/dist/motion/motion.js";
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
-    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+    const names = { auto: "Auto", canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" };
+    const backendLabel = () => names[backend()];
+
+    const autoNote = document.getElementById("auto-note");
+    resolveBackend("auto").then((picked) => {
+      autoNote.textContent = `Auto picks ${names[picked]} here`;
+    });
 
     function customMessage() {
       const message = document.createElement("div");

@@ -18,9 +18,9 @@ createSpinner(document.getElementById("app"), starSwarm());
 - **Zero configuration.** Nine ready-made prefabs, each a complete spinner. Nothing to set up.
 - **Fully configurable when you want it.** Override any piece, compose your own from shapes,
   animations, motion paths, and materials, or drop in your own OBJ models.
-- **Hardware 3D, or none required.** Switch to the WebGPU or WebGL backend with one option and
-  the GPU does the work; the default Canvas 2D renderer needs no GPU at all and runs anywhere a
-  canvas does. Same API either way.
+- **Hardware 3D, automatically.** By default it renders on the GPU through WebGPU or WebGL and
+  falls back to a Canvas 2D software renderer that needs no GPU at all - picked for you, or pin
+  one yourself. Same API either way.
 - **Tiny download, fast start.** Only the code you touch is loaded: a full prefab on WebGL is
   under 9 kB gzipped, renderer included, and the renderer itself is fetched on mount. Zero
   dependencies.
@@ -282,14 +282,33 @@ on the mode.
 
 ## Rendering backend
 
-By default the spinner uses a Canvas 2D software renderer, which has no dependencies and runs
-anywhere a canvas does. The engine can also render through WebGL or WebGPU; pass `backend` to
-any of the 3D animations to switch. Backends are loaded on demand, so the code for the ones you
-do not use is never fetched.
+By default the backend is `"auto"`: the spinner picks the best renderer the browser supports -
+WebGPU, then WebGL, then the Canvas 2D software renderer, which needs no GPU and runs anywhere a
+canvas does. Nothing to configure, and no capability checks to write.
 
 ```js
-new SpinAnimation({ backend: "webgl" }); // "canvas2d" (default), "webgl", or "webgpu"
+createSpinner(el, starSwarm());               // auto: WebGPU -> WebGL -> Canvas 2D
 ```
+
+Name a backend to pin it:
+
+```js
+new SpinAnimation({ backend: "webgl" }); // "auto" (default), "canvas2d", "webgl", or "webgpu"
+```
+
+Every prefab, animation, and the engine itself takes the same `backend` option:
+
+```js
+starSwarm({ backend: "webgpu" });             // a prefab
+new ParticlesAnimation({ backend: "webgl" }); // an animation
+new Little3dEngine({ backend: "canvas2d" });  // the engine directly
+```
+
+Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
+WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
+fetched. Pinning a backend the browser cannot run throws rather than falling back - `"auto"` is
+the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
+exported from the engine.
 
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
 particular, transparent shapes are an approximate visual effect rather than a pixel-identical

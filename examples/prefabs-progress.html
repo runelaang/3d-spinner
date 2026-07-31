@@ -33,8 +33,9 @@
   <div class="controls">
     <label>Renderer
       <select id="render-tech">
+        <option value="auto" selected>Auto (best available)</option>
         <option value="canvas2d">Canvas 2D (software)</option>
-        <option value="webgl" selected>WebGL</option>
+        <option value="webgl">WebGL</option>
         <option value="webgpu">WebGPU</option>
       </select>
     </label>
@@ -55,7 +56,7 @@
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
-    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+    const backendLabel = () => ({ auto: "Auto", canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
 
     const demos = [
       {
