@@ -126,12 +126,18 @@
         <h2>Progress bar</h2>
         <div id="stage-progress-bar" class="stage"></div>
       </section>
+
+      <section class="spinner-card">
+        <h2>Basic 3d cube</h2>
+        <div id="stage-basic-3d-cube" class="stage"></div>
+      </section>
     </div>
 
     <script type="module">
       import { createSpinner } from "../dist/index.js";
       import { TestSpinner } from "../dist/plugins/test.js";
       import { ProgressBarSpinner } from "../dist/plugins/progress-bar.js";
+      import { Basic3dCubeSpinner } from "../dist/plugins/basic-3d-cube.js";
 
       const progress = document.getElementById("progress");
       const progressLabel = document.getElementById("progress-label");
@@ -144,6 +150,10 @@
         {
           target: document.getElementById("stage-progress-bar"),
           create: () => new ProgressBarSpinner(),
+        },
+        {
+          target: document.getElementById("stage-basic-3d-cube"),
+          create: () => new Basic3dCubeSpinner(),
         },
       ];
 
