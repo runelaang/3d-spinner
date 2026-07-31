@@ -47,6 +47,19 @@
         padding: 0.75rem 1rem;
         border-bottom: 1px solid #2d3748;
         font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      select {
+        background: #2d3748;
+        color: #e2e8f0;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        padding: 0.2rem 0.4rem;
+        font: inherit;
+        font-size: 0.85rem;
       }
       .stage {
         display: flex;
@@ -128,7 +141,14 @@
       </section>
 
       <section class="spinner-card">
-        <h2>Basic 3d cube</h2>
+        <h2>
+          Basic 3d cube
+          <select id="cube-backend">
+            <option value="canvas2d">Canvas 2D</option>
+            <option value="webgl">WebGL</option>
+            <option value="webgpu" selected>WebGPU</option>
+          </select>
+        </h2>
         <div id="stage-basic-3d-cube" class="stage"></div>
       </section>
     </div>
@@ -141,6 +161,7 @@
 
       const progress = document.getElementById("progress");
       const progressLabel = document.getElementById("progress-label");
+      const cubeBackend = document.getElementById("cube-backend");
 
       let spinners = [];
       let lastOptions = {};
@@ -153,7 +174,7 @@
         },
         {
           target: document.getElementById("stage-basic-3d-cube"),
-          create: () => new Basic3dCubeSpinner(),
+          create: () => new Basic3dCubeSpinner({ backend: cubeBackend.value }),
         },
       ];
 
@@ -178,6 +199,8 @@
         spinners.forEach((spinner) => spinner.destroy());
         spinners = [];
       };
+
+      cubeBackend.onchange = () => mount(lastOptions);
 
       progress.oninput = () => {
         const value = Number(progress.value) / 100;
