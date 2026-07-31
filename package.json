@@ -1,7 +1,7 @@
 {
   "name": "3d-spinner",
-  "version": "0.3.0",
-  "description": "A lightweight, customizable 3D spinner for loading, generating, processing, and other waiting states in modern web apps.",
+  "version": "0.9.0",
+  "description": "A lightweight, zero-dependency 3D spinner, loader, and progress indicator for JavaScript.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -11,25 +11,33 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./plugins/test": {
-      "types": "./dist/plugins/test.d.ts",
-      "import": "./dist/plugins/test.js"
+    "./animations/spin": {
+      "types": "./dist/animations/spin.d.ts",
+      "import": "./dist/animations/spin.js"
     },
-    "./plugins/progress-bar": {
-      "types": "./dist/plugins/progress-bar.d.ts",
-      "import": "./dist/plugins/progress-bar.js"
+    "./animations/object-motion": {
+      "types": "./dist/animations/object-motion.d.ts",
+      "import": "./dist/animations/object-motion.js"
     },
-    "./plugins/basic-3d-cube": {
-      "types": "./dist/plugins/basic-3d-cube.d.ts",
-      "import": "./dist/plugins/basic-3d-cube.js"
+    "./motion": {
+      "types": "./dist/motion/motion.d.ts",
+      "import": "./dist/motion/motion.js"
     },
-    "./plugins/basic-3d-spin": {
-      "types": "./dist/plugins/basic-3d-spin.d.ts",
-      "import": "./dist/plugins/basic-3d-spin.js"
+    "./motion/transitions": {
+      "types": "./dist/motion/transitions.d.ts",
+      "import": "./dist/motion/transitions.js"
     },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
       "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
+    },
+    "./engines/little-3d-engine/loaders/obj": {
+      "types": "./dist/engines/little-3d-engine/loaders/obj.d.ts",
+      "import": "./dist/engines/little-3d-engine/loaders/obj.js"
+    },
+    "./engines/little-tween-engine": {
+      "types": "./dist/engines/little-tween-engine/little-tween-engine.d.ts",
+      "import": "./dist/engines/little-tween-engine/little-tween-engine.js"
     }
   },
   "files": [
@@ -39,6 +47,8 @@
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "dev": "npx serve .",
+    "pretest": "npm run build",
+    "test": "node --test tests/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

@@ -18,6 +18,8 @@ export interface Mesh {
 export interface Transform {
   position: Vec3;
   rotation: Vec3;
+  /** Uniform scale multiplier. Default `1`. */
+  scale: number;
 }
 
 /** Create a {@link Transform} with sensible defaults (origin, no rotation). */
@@ -25,5 +27,6 @@ export function transform(init?: Partial<Transform>): Transform {
   return {
     position: init?.position ?? { x: 0, y: 0, z: 0 },
     rotation: init?.rotation ?? { x: 0, y: 0, z: 0 },
+    scale: init?.scale ?? 1,
   };
 }
