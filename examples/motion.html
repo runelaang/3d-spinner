@@ -77,79 +77,97 @@
 
     const cfg = (body) => `new ObjectMotionAnimation({\n${body}\n})`;
 
+    const WAIT = {
+      loading: "Loading...",
+      pleaseWait: "Please wait",
+      oneMoment: "One moment",
+      holdOn: "Hold on...",
+      working: "Working...",
+      almostThere: "Almost there",
+      justASec: "Just a sec",
+      fetching: "Fetching data",
+      processing: "Processing...",
+    };
+
     const demos = [
       {
         title: "Circle (cube)",
         config: () =>
-          cfg(`  mesh: () => cube(),\n  color: "${COLOR.circle}",\n  size: 0.7,\n  motion: circleMotion({ radius: 1.3 }),`),
+          cfg(`  mesh: () => cube(),\n  color: "${COLOR.circle}",\n  size: 0.7,\n  label: "${WAIT.loading}",\n  motion: circleMotion({ radius: 1.3 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => cube(),
             color: COLOR.circle,
             size: 0.5,
+            label: WAIT.loading,
             motion: circleMotion({ radius: 1.3 }),
           }),
       },
       {
         title: "Square (plane)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.square}",\n  size: 0.9,\n  motion: squareMotion({ size: 2.6 }),`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.square}",\n  size: 0.9,\n  label: "${WAIT.pleaseWait}",\n  motion: squareMotion({ size: 2.6 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: COLOR.square,
             size: 0.9,
+            label: WAIT.pleaseWait,
             motion: squareMotion({ size: 2.6 }),
           }),
       },
       {
         title: "Figure-8 (plane)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.eight}",\n  motion: figureEightMotion(),`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.eight}",\n  label: "${WAIT.oneMoment}",\n  motion: figureEightMotion(),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: COLOR.eight,
+            label: WAIT.oneMoment,
             motion: figureEightMotion(),
           }),
       },
       {
         title: "Wander (plane, stays in frame)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.wander}",\n  motion: wanderMotion({ seed: 7 }),`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.wander}",\n  label: "${WAIT.holdOn}",\n  motion: wanderMotion({ seed: 7 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: COLOR.wander,
+            label: WAIT.holdOn,
             motion: wanderMotion({ seed: 7 }),
           }),
       },
       {
         title: "Circle (tilted, faster)",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.tilt}",\n  motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.tilt}",\n  label: "${WAIT.working}",\n  motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: COLOR.tilt,
+            label: WAIT.working,
             motion: circleMotion({ radius: 1.4, tilt: 1.1, periodMs: 2000 }),
           }),
       },
       {
         title: "Circle with tail (cube convoy)",
         config: () =>
-          cfg(`  mesh: () => cube(),\n  color: "${COLOR.square}",\n  size: 0.4,\n  motion: circleMotion({ radius: 1.3 }),\n  tail: { count: 8, gapMs: 140 },`),
+          cfg(`  mesh: () => cube(),\n  color: "${COLOR.square}",\n  size: 0.4,\n  label: "${WAIT.almostThere}",\n  motion: circleMotion({ radius: 1.3 }),\n  tail: { count: 8, gapMs: 140 },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => cube(),
             color: COLOR.square,
             size: 0.4,
+            label: WAIT.almostThere,
             motion: circleMotion({ radius: 1.3 }),
             tail: { count: 8, gapMs: 140 },
           }),
@@ -157,13 +175,14 @@
       {
         title: "Wander + local spin (tetra)",
         config: () =>
-          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.spin}",\n  size: 0.6,\n  rotation: { spinY: 0.004 },\n  motion: wanderMotion({ seed: 42, periodMs: 7000 }),`),
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.spin}",\n  size: 0.6,\n  label: "${WAIT.justASec}",\n  rotation: { spinY: 0.004 },\n  motion: wanderMotion({ seed: 42, periodMs: 7000 }),`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => tetrahedron(),
             color: COLOR.spin,
             size: 0.6,
+            label: WAIT.justASec,
             rotation: { spinY: 0.004 },
             motion: wanderMotion({ seed: 42, periodMs: 7000 }),
           }),
@@ -171,12 +190,13 @@
       {
         title: "Circle with directional intro/outro",
         config: () =>
-          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },`),
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${COLOR.enter}",\n  label: "${WAIT.fetching}",\n  motion: circleMotion({ radius: 1.25 }),\n  intro: {\n    transition: enterFromObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },\n  outro: {\n    transition: leaveInObjectDirection({ distance: 3.5 }),\n    durationMs: 900,\n  },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: COLOR.enter,
+            label: WAIT.fetching,
             motion: circleMotion({ radius: 1.25 }),
             intro: {
               transition: enterFromObjectDirection({ distance: 3.5 }),
@@ -191,13 +211,14 @@
       {
         title: "Figure-8 with slow grow/shrink",
         config: () =>
-          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.scale}",\n  size: 0.65,\n  motion: figureEightMotion(),\n  intro: { transition: grow(), durationMs: 900 },\n  outro: { transition: shrink(), durationMs: 900 },`),
+          cfg(`  mesh: () => tetrahedron(),\n  color: "${COLOR.scale}",\n  size: 0.65,\n  label: "${WAIT.processing}",\n  motion: figureEightMotion(),\n  intro: { transition: grow(), durationMs: 900 },\n  outro: { transition: shrink(), durationMs: 900 },`),
         create: () =>
           new ObjectMotionAnimation({
             backend: backend(),
             mesh: () => tetrahedron(),
             color: COLOR.scale,
             size: 0.65,
+            label: WAIT.processing,
             motion: figureEightMotion(),
             intro: { transition: grow(), durationMs: 900 },
             outro: { transition: shrink(), durationMs: 900 },
