@@ -131,7 +131,7 @@
 
     const [carObj, carMtl] = await Promise.all([
       fetch("/meshes/test/car1/SportsCar.obj").then((r) => r.text()),
-      fetch("/meshes/test/car1/SportsCar2.mtl").then((r) => r.text()),
+      fetch("/meshes/test/car1/SportsCar.mtl").then((r) => r.text()),
     ]);
     const carMesh = () => parseObj(carObj, { mtl: carMtl, useMtlColors: true });
 

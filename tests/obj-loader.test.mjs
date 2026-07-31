@@ -22,6 +22,11 @@ test("parseObj uses MTL Kd colors when enabled", () => {
   assert.deepEqual(mesh.faces.map((face) => face.color), ["#1a80ff", "#abcdef"]);
 });
 
+test("parseObj falls back to first palette color for unknown MTL materials", () => {
+  const mesh = parseObj(obj, { mtl, useMtlColors: true });
+  assert.deepEqual(mesh.faces.map((face) => face.color), ["#1a80ff", "#3b82f6"]);
+});
+
 test("parseObj ignores MTL colors by default", () => {
   const mesh = parseObj(obj, { colors: ["#abcdef"], mtl });
   assert.deepEqual(mesh.faces.map((face) => face.color), ["#abcdef", "#abcdef"]);

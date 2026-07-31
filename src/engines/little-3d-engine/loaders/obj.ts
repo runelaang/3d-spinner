@@ -98,11 +98,10 @@ export function parseObj(text: string, options: ObjOptions = {}): Mesh {
         indices.push(resolveIndex(vertexToken, vertices.length));
       }
       if (indices.length >= 3) {
-        faces.push({
-          indices,
-          color: (material ? materialColors?.get(material) : undefined)
-            ?? colors[faces.length % colors.length],
-        });
+        const mtlColor = material ? materialColors?.get(material) : undefined;
+        const color = mtlColor
+          ?? (materialColors ? (colors[0] ?? "#888888") : colors[faces.length % colors.length]);
+        faces.push({ indices, color });
       }
     }
   }
