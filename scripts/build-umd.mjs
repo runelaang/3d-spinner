@@ -12,7 +12,9 @@ const entry = {
     export * from "../src/animations/object-motion.ts";
     export * from "../src/animations/particles.ts";
     export * from "../src/animations/charged-orb.ts";
+    export * from "../src/animations/ghost-train.ts";
     export * from "../src/animations/grid-assembly.ts";
+    export * from "../src/animations/rocket-launch.ts";
     export * from "../src/composite-animation.ts";
     export * from "../src/prefabs/prefabs.ts";
     export * from "../src/motion/motion.ts";

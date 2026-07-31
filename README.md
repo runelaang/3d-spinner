@@ -109,11 +109,28 @@ Each animation is imported from its own subpath, so you only pull in the one you
 | `3d-spinner/animations/spin` | `SpinAnimation` | A spinning 3D shape, a cube by default. |
 | `3d-spinner/animations/object-motion` | `ObjectMotionAnimation` | A mesh that follows a motion path, with an intro/outro you choose. |
 | `3d-spinner/animations/particles` | `ParticlesAnimation` | A stream of camera-facing billboard particles: a burst, a fountain, snow, confetti. |
+| `3d-spinner/animations/charged-orb` | `ChargedOrbAnimation` | A progress story: a center orb pops out a ring of spark-trailing satellites as progress climbs. |
+| `3d-spinner/animations/ghost-train` | `GhostTrainAnimation` | A progress story: a translucent train gains a car per 2% of progress, then blasts off at 100%. |
+| `3d-spinner/animations/grid-assembly` | `GridAssemblyAnimation` | A progress story: 25 cubes circle the view edge and dock into a 5x5 grid as progress climbs. |
+| `3d-spinner/animations/rocket-launch` | `RocketLaunchAnimation` | A progress story: a rocket lines up on the pad every 5% of progress; the row blasts off at 100%. |
+| `3d-spinner/composite-animation` | `CompositeAnimation` | Plays several animations as layers of one spinner (how the prefabs combine effects). |
 
 ## Prefabs
 
-Prefabs provide complete indeterminate spinner options, including layered animation. They need
+Prefabs provide complete spinner options, including layered animation. They need
 no configuration and accept an optional override object.
+
+| Prefab | Mode | Description |
+| --- | --- | --- |
+| `crystalComet` | indeterminate | A spinning crystal primitive with a luminous comet trail. |
+| `monochromeStreak` | indeterminate | A fountain of black and white streaks that turn with their travel direction. |
+| `planeStarTrail` | indeterminate | A small plane looping through a stream of colorful star particles. |
+| `pulsingStarfield` | indeterminate | High-shine particles drifting around a slowly pulsing HTML message. |
+| `starSwarm` | indeterminate | Bright star particles wandering around a centered loading message. |
+| `chargedOrb` | progress | A center orb pops out spark-trailing satellites as progress climbs. |
+| `ghostTrain` | progress | A translucent ice-cube train gains cars with progress and blasts off at 100%. |
+| `gridAssembly` | progress | 25 shapes fly in, circle the view edge, and dock into a 5x5 grid. |
+| `rocketLaunch` | progress | Rockets line up on a launch pad and blast off in a loose stagger at 100%. |
 
 ```js
 import { createSpinner } from "3d-spinner";
@@ -124,7 +141,8 @@ const spinner = createSpinner(document.getElementById("app"), planeStarTrail());
 
 Common overrides include `backend`, `label`, `fadeLabel`, and `periodMs`. Labels fade with the
 intro and outro by default; set `fadeLabel: false` to keep one fully visible. Motion prefabs also accept
-`object` and `particles` option objects. A label can be text or any `HTMLElement`.
+`object` and `particles` option objects, and the progress stories take their own layer overrides
+(`orb`, `train`, `assembly`). A label can be text or any `HTMLElement`.
 
 ```js
 const message = document.createElement("div");

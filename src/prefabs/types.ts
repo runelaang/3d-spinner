@@ -42,10 +42,3 @@ export interface ParticlePrefabOptions extends PrefabOptions {
   /** Overrides for the particle animation. */
   particles?: ParticlesOptions;
 }
-
-export interface MotionProgressPrefabOptions extends ProgressPrefabOptions {
-  /** Overrides for the moving object layer, including `mesh` and `motion`. */
-  object?: Partial<ObjectMotionOptions>;
-  /** Overrides for the particle layer. */
-  particles?: ParticlesOptions;
-}

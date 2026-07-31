@@ -95,7 +95,7 @@ export class SpinAnimation implements SpinnerAnimation {
   }
 
   mount(target: HTMLElement): void {
-    target.style.position = "relative";
+    if (!target.style.position) target.style.position = "relative";
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: 2.8 } },
