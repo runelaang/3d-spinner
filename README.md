@@ -65,7 +65,7 @@ new SpinAnimation({ shape: tetrahedron(), color: "#3b82f6" });
 ```
 
 Shapes exported from `3d-spinner/engines/little-3d-engine` include `cube`, `tetrahedron`,
-`octahedron`, `pyramid`, and several spheres (`uvSphere`, `icosphere`, `octaSphere`,
+`octahedron`, `pyramid`, `quad`, and several spheres (`uvSphere`, `icosphere`, `octaSphere`,
 `cubeSphere`).
 
 ## How it fits together
@@ -98,11 +98,31 @@ Each animation is imported from its own subpath, so you only pull in the one you
 | --- | --- | --- |
 | `3d-spinner/animations/spin` | `SpinAnimation` | A spinning 3D shape, a cube by default. |
 | `3d-spinner/animations/object-motion` | `ObjectMotionAnimation` | A mesh that follows a motion path, with an intro/outro you choose. |
+| `3d-spinner/animations/particles` | `ParticlesAnimation` | A stream of camera-facing billboard particles: a burst, a fountain, snow, confetti. |
 
 `ObjectMotionAnimation` takes a motion controller from `3d-spinner/motion` (`circleMotion`,
 `squareMotion`, `figureEightMotion`, `wanderMotion`) and optional entrance/exit transitions from
 `3d-spinner/motion/transitions` (`grow`, `shrink`, `enterFromObjectDirection`,
 `leaveInObjectDirection`) - for example a figure-8 path with a fly-in and fly-out.
+
+`ParticlesAnimation` emits fading billboard quads from the center. The emission options shape the
+effect: `direction` and `spread` aim it, `gravity` bends it, and `rate`, `lifeMs`, `speed`,
+`size`, `spin`, and `colors` style it. The stream is deterministic for a given `seed`. Emission
+starts on enter and stops on exit; the live particles fading out is the outro.
+
+```js
+import { createSpinner } from "3d-spinner";
+import { ParticlesAnimation } from "3d-spinner/animations/particles";
+
+const spinner = createSpinner(document.getElementById("app"), {
+  type: "indeterminate",
+  animation: new ParticlesAnimation({
+    direction: { x: 0, y: 1, z: 0 },
+    gravity: { x: 0, y: -1.6, z: 0 },
+    speed: 1.5,
+  }),
+});
+```
 
 ## API
 

@@ -25,6 +25,11 @@
       "import": "./dist/animations/object-motion.js",
       "require": "./dist/cjs/animations/object-motion.cjs"
     },
+    "./animations/particles": {
+      "types": "./dist/animations/particles.d.ts",
+      "import": "./dist/animations/particles.js",
+      "require": "./dist/cjs/animations/particles.cjs"
+    },
     "./motion": {
       "types": "./dist/motion/motion.d.ts",
       "import": "./dist/motion/motion.js",

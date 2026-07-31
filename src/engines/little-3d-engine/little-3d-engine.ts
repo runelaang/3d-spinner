@@ -223,6 +223,7 @@ export class Little3dEngine {
 export { Camera, type CameraOptions } from "./core/camera.js";
 export { Light, type LightOptions, type LightParams } from "./core/light.js";
 export { cube } from "./shapes/cube.js";
+export { quad } from "./shapes/quad.js";
 export { tetrahedron } from "./shapes/tetrahedron.js";
 export { octahedron } from "./shapes/octahedron.js";
 export { pyramid } from "./shapes/pyramid.js";

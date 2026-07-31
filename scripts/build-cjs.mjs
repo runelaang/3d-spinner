@@ -7,6 +7,7 @@ const entryPoints = [
   "src/index.ts",
   "src/animations/spin.ts",
   "src/animations/object-motion.ts",
+  "src/animations/particles.ts",
   "src/motion/motion.ts",
   "src/motion/transitions.ts",
   "src/engines/little-3d-engine/little-3d-engine.ts",
