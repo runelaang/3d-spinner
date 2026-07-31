@@ -1,7 +1,7 @@
 {
   "name": "3d-spinner",
   "version": "0.9.9",
-  "description": "A lightweight, zero-dependency 3D spinner, loader, and progress indicator for JavaScript.",
+  "description": "Zero-dependency 3D spinners, loaders, and progress indicators for the browser — ready-made prefabs, GPU auto (WebGPU/WebGL) with Canvas 2D fallback.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/index.js",
