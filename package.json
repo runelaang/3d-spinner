@@ -66,6 +66,7 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "3d-spinner",
     "spinner",
     "loader",
     "loading",
