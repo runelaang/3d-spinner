@@ -91,16 +91,28 @@
       <div class="transparency-controls">
         <label for="two-front-opacity">
           <span>Front</span>
-          <input id="two-front-opacity" type="range" min="0" max="1" step="0.01" value="0.38" autocomplete="off" />
-          <output id="two-front-opacity-value" for="two-front-opacity">0.38</output>
+          <input id="two-front-opacity" type="range" min="0" max="1" step="0.01" value="0.56" autocomplete="off" />
+          <output id="two-front-opacity-value" for="two-front-opacity">0.56</output>
         </label>
         <label for="two-back-opacity">
           <span>Back</span>
-          <input id="two-back-opacity" type="range" min="0" max="1" step="0.01" value="0.18" autocomplete="off" />
-          <output id="two-back-opacity-value" for="two-back-opacity">0.18</output>
+          <input id="two-back-opacity" type="range" min="0" max="1" step="0.01" value="0.84" autocomplete="off" />
+          <output id="two-back-opacity-value" for="two-back-opacity">0.84</output>
         </label>
       </div>
       <div id="stage-transparent-two" class="stage checker-stage"></div>
+    </section>
+
+    <section class="spinner-card">
+      <h2>Car (two-sided opacity shorthand)</h2>
+      <div class="transparency-controls">
+        <label for="car-opacity">
+          <span>Opacity</span>
+          <input id="car-opacity" type="range" min="0" max="1" step="0.01" value="0.56" autocomplete="off" />
+          <output id="car-opacity-value" for="car-opacity">0.56</output>
+        </label>
+      </div>
+      <div id="stage-transparent-car" class="stage checker-stage"></div>
     </section>
   </div>
 
@@ -178,6 +190,7 @@
     const oneFrontOpacity = document.getElementById("one-front-opacity");
     const twoFrontOpacity = document.getElementById("two-front-opacity");
     const twoBackOpacity = document.getElementById("two-back-opacity");
+    const carOpacity = document.getElementById("car-opacity");
     const oneSidedTransparency = {
       mode: "one-sided",
       opacity: Number(oneFrontOpacity.value),
@@ -186,6 +199,10 @@
       mode: "two-sided",
       frontOpacity: Number(twoFrontOpacity.value),
       backOpacity: Number(twoBackOpacity.value),
+    };
+    const carTransparency = {
+      mode: "two-sided",
+      opacity: Number(carOpacity.value),
     };
 
     const opacityControls = [
@@ -203,6 +220,11 @@
         input: twoBackOpacity,
         output: document.getElementById("two-back-opacity-value"),
         update: (value) => { twoSidedTransparency.backOpacity = value; },
+      },
+      {
+        input: carOpacity,
+        output: document.getElementById("car-opacity-value"),
+        update: (value) => { carTransparency.opacity = value; },
       },
     ];
     opacityControls.forEach(({ input, output, update }) => {
@@ -272,6 +294,16 @@
             color: "#16a34a",
             backend: backend(),
             transparency: twoSidedTransparency,
+          }),
+      },
+      {
+        target: document.getElementById("stage-transparent-car"),
+        create: () =>
+          new SpinAnimation({
+            shape: () => parseObj(carObj),
+            color: "#dc2626",
+            backend: backend(),
+            transparency: carTransparency,
           }),
       },
       {

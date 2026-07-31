@@ -24,9 +24,11 @@ export interface OneSidedTransparency {
 /** Draw back surfaces before front surfaces to suggest a transparent solid. */
 export interface TwoSidedTransparency {
   mode: "two-sided";
-  /** Back-surface opacity from `0` to `1`. Default `0.18`. */
+  /** Front opacity shorthand; back opacity is derived as two-thirds of front. */
+  opacity?: number;
+  /** Back-surface opacity from `0` to `1`. Default `0.84`. */
   backOpacity?: number;
-  /** Front-surface opacity from `0` to `1`. Default `0.38`. */
+  /** Front-surface opacity from `0` to `1`. Default `0.56`. */
   frontOpacity?: number;
 }
 

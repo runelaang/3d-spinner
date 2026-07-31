@@ -1,6 +1,6 @@
 import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
-import type { Mesh, Transparency } from "./core/mesh.js";
+import type { Mesh, Transparency, TwoSidedTransparency } from "./core/mesh.js";
 
 /** Rendering backend. Each is loaded on demand; unused ones are never fetched. */
 export type Backend = "canvas2d" | "webgl" | "webgpu";
@@ -13,12 +13,29 @@ export interface RenderItem {
 }
 
 export const DEFAULT_ONE_SIDED_OPACITY = 0.35;
-export const DEFAULT_BACK_OPACITY = 0.18;
-export const DEFAULT_FRONT_OPACITY = 0.38;
+export const DEFAULT_BACK_OPACITY = 0.84;
+export const DEFAULT_FRONT_OPACITY = 0.56;
 
 /** Clamp an optional opacity to the range accepted by rendering backends. */
 export function opacity(value: number | undefined, fallback: number): number {
   return Math.max(0, Math.min(1, value ?? fallback));
+}
+
+/** Resolve two-sided defaults, shorthand, and explicit per-side overrides. */
+export function resolveTwoSidedOpacity(
+  transparency: TwoSidedTransparency,
+): { front: number; back: number } {
+  const front = opacity(
+    transparency.frontOpacity ?? transparency.opacity,
+    DEFAULT_FRONT_OPACITY,
+  );
+  const backFallback = transparency.opacity === undefined
+    ? DEFAULT_BACK_OPACITY
+    : front * (2 / 3);
+  return {
+    front,
+    back: opacity(transparency.backOpacity, backFallback),
+  };
 }
 
 /** Draw opaque instances first, then transparent instances from farthest to nearest. */

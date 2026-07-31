@@ -32,7 +32,8 @@ Zero-dependency lifecycle and pure logic:
   slow; `leaveInObjectDirection` starts at the handoff and flies off.
 - `math.test.mjs` - the engine math helpers: matrix identity/inverse, normalize, cross/dot, and
   the `Rz` rotation convention.
-- `renderer.test.mjs` - opaque/transparent render ordering and opacity defaults/clamping.
+- `renderer.test.mjs` - opaque/transparent render ordering, opacity defaults/clamping, and the
+  two-sided opacity shorthand.
 - `mesh.test.mjs` - `centerAndScaleMesh`: origin centering, uniform fit to `targetSize`, and
   input immutability.
 - `progress-animation.test.mjs` - every observable progress-animation lifecycle stage, including

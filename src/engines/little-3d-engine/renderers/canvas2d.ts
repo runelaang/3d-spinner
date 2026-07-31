@@ -1,10 +1,9 @@
 import { shadeColor } from "../core/light.js";
 import { dot, cross, normalize, subtract, transformAffine, transformPoint } from "../core/math.js";
 import {
-  DEFAULT_BACK_OPACITY,
-  DEFAULT_FRONT_OPACITY,
   DEFAULT_ONE_SIDED_OPACITY,
   opacity,
+  resolveTwoSidedOpacity,
   type Renderer,
   type RenderFrame,
   type RendererOptions,
@@ -47,6 +46,9 @@ export class Canvas2DRenderer implements Renderer {
     const polygons: Polygon[] = [];
     for (const item of frame.items) {
       const world = item.mesh.vertices.map((v) => transformAffine(item.model, v));
+      const twoSidedOpacity = item.transparency?.mode === "two-sided"
+        ? resolveTwoSidedOpacity(item.transparency)
+        : undefined;
       for (const face of item.mesh.faces) {
         const a = world[face.indices[0]];
         const b = world[face.indices[1]];
@@ -59,10 +61,8 @@ export class Canvas2DRenderer implements Renderer {
         let faceOpacity = 1;
         if (transparency?.mode === "one-sided") {
           faceOpacity = opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY);
-        } else if (transparency?.mode === "two-sided") {
-          faceOpacity = frontFacing
-            ? opacity(transparency.frontOpacity, DEFAULT_FRONT_OPACITY)
-            : opacity(transparency.backOpacity, DEFAULT_BACK_OPACITY);
+        } else if (twoSidedOpacity) {
+          faceOpacity = frontFacing ? twoSidedOpacity.front : twoSidedOpacity.back;
         }
 
         const points = face.indices.map((i) => {
