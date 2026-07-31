@@ -108,10 +108,15 @@
     <section class="spinner-card">
       <h2>Car (two-sided opacity shorthand)</h2>
       <div class="transparency-controls">
-        <label for="car-opacity">
-          <span>Opacity</span>
-          <input id="car-opacity" type="range" min="0" max="1" step="0.01" value="0.56" autocomplete="off" />
-          <output id="car-opacity-value" for="car-opacity">0.56</output>
+        <label for="car-front-opacity">
+          <span>Front</span>
+          <input id="car-front-opacity" type="range" min="0" max="1" step="0.01" value="0.56" autocomplete="off" />
+          <output id="car-front-opacity-value" for="car-front-opacity">0.56</output>
+        </label>
+        <label for="car-back-opacity">
+          <span>Back</span>
+          <input id="car-back-opacity" type="range" min="0" max="1" step="0.01" value="0.37" autocomplete="off" />
+          <output id="car-back-opacity-value" for="car-back-opacity">0.37</output>
         </label>
       </div>
       <div id="stage-transparent-car" class="stage checker-stage"></div>
@@ -181,7 +186,7 @@
       f 5 1 4 8
     `;
 
-    const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
+    const carObj = await fetch("/meshes/test/car1/SportsCar.obj").then((r) => r.text());
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
@@ -192,7 +197,9 @@
     const oneFrontOpacity = document.getElementById("one-front-opacity");
     const twoFrontOpacity = document.getElementById("two-front-opacity");
     const twoBackOpacity = document.getElementById("two-back-opacity");
-    const carOpacity = document.getElementById("car-opacity");
+    const carFrontOpacity = document.getElementById("car-front-opacity");
+    const carBackOpacity = document.getElementById("car-back-opacity");
+    const carBackOpacityValue = document.getElementById("car-back-opacity-value");
     const oneSidedTransparency = {
       mode: "one-sided",
       opacity: Number(oneFrontOpacity.value),
@@ -204,7 +211,12 @@
     };
     const carTransparency = {
       mode: "two-sided",
-      opacity: Number(carOpacity.value),
+      opacity: Number(carFrontOpacity.value),
+    };
+    const syncCarBackFromShorthand = (front) => {
+      const derivedBack = front * (2 / 3);
+      carBackOpacity.value = String(derivedBack);
+      carBackOpacityValue.value = derivedBack.toFixed(2);
     };
 
     const opacityControls = [
@@ -224,9 +236,19 @@
         update: (value) => { twoSidedTransparency.backOpacity = value; },
       },
       {
-        input: carOpacity,
-        output: document.getElementById("car-opacity-value"),
-        update: (value) => { carTransparency.opacity = value; },
+        input: carFrontOpacity,
+        output: document.getElementById("car-front-opacity-value"),
+        update: (value) => {
+          carTransparency.opacity = value;
+          delete carTransparency.frontOpacity;
+          delete carTransparency.backOpacity;
+          syncCarBackFromShorthand(value);
+        },
+      },
+      {
+        input: carBackOpacity,
+        output: carBackOpacityValue,
+        update: (value) => { carTransparency.backOpacity = value; },
       },
     ];
     opacityControls.forEach(({ input, output, update }) => {
