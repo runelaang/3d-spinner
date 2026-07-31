@@ -33,7 +33,7 @@ export interface ProgressAnimationVisual {
   hidden: boolean;
 }
 
-type Phase = "idle" | "startPop" | "active" | "endPop" | "done";
+type Phase = "idle" | "startPop" | "active" | "endPop" | "done" | "finished";
 
 interface ResolvedOptions {
   popDurationMs: number;
@@ -67,6 +67,14 @@ function popPhaseT(now: number, phaseStart: number, durationMs: number): number 
  * active phase whose scale tracks progress, and an outro pop ({@link exit})
  * that fades to a done label. The owner triggers `enter`/`exit`; this class
  * does not infer them from the progress value.
+ *
+ * Lifecycle stages:
+ * - `idle`: waiting for {@link enter}; nothing is visible.
+ * - `startPop`: the object pops in and settles at the current progress scale.
+ * - `active`: the object scale tracks progress.
+ * - `endPop`: the object pops out after {@link exit}.
+ * - `done`: the object is gone while the done label fades.
+ * - `finished`: all visuals are complete and {@link isFinished} returns true.
  */
 export class ProgressAnimation {
   private readonly options: ResolvedOptions;
@@ -97,7 +105,7 @@ export class ProgressAnimation {
   }
 
   isFinished(): boolean {
-    return this.phase === "done";
+    return this.phase === "finished";
   }
 
   update(now: number, progress: number, targetProgress?: number): ProgressAnimationVisual {
@@ -162,6 +170,7 @@ export class ProgressAnimation {
       const fadeT = popPhaseT(now, this.doneFadeStart, doneFadeDurationMs);
       if (fadeT >= 1) {
         if (removeOnComplete) hidden = true;
+        this.phase = "finished";
       } else {
         text = doneText;
         textOpacity = 0.65 * (1 - fadeT);
