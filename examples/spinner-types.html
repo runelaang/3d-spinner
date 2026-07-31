@@ -117,7 +117,7 @@
     import { figureEightMotion } from "/dist/motion/motion.js";
     import { enterFromObjectDirection, leaveInObjectDirection } from "/dist/motion/transitions.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
-    import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+    import { cube, planeMesh, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
 
     // A flight-style object-motion: follows the figure-8 path, flies in along the
     // path direction, and flies off the same way (the velocity-aware transitions).
@@ -129,7 +129,6 @@
         ...options,
       });
 
-    const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
     const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
 
     const PRIMARY = {
@@ -159,7 +158,7 @@
       {
         target: document.getElementById("stage-plane"),
         create: () =>
-          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
+          flight({ backend: backend(), mesh: planeMesh, color: PRIMARY.plane }),
       },
     ];
 
@@ -366,9 +365,9 @@
     const motionDemos = [
       {
         title: "Plane",
-        config: () => cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.plane}",\n`),
+        config: () => cfg("figureEightMotion()", `  mesh: planeMesh,\n  color: "${PRIMARY.plane}",\n`),
         create: () =>
-          flight({ backend: backend(), mesh: () => parseObj(planeObj), color: PRIMARY.plane }),
+          flight({ backend: backend(), mesh: planeMesh, color: PRIMARY.plane }),
       },
       {
         title: "Car (facing + slower)",
@@ -449,11 +448,11 @@
       {
         title: "Objects with tail",
         config: () =>
-          cfg("figureEightMotion()", `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, gapMs: 90 },\n`),
+          cfg("figureEightMotion()", `  mesh: planeMesh,\n  color: "${PRIMARY.tail}",\n  size: 0.6,\n  tail: { count: 20, gapMs: 90 },\n`),
         create: () =>
           flight({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: PRIMARY.tail,
             size: 0.6,
             tail: { count: 20, gapMs: 90 },
@@ -463,11 +462,11 @@
         title: "Speed (configurable)",
         speedControl: true,
         config: (card) =>
-          cfg(`figureEightMotion({ periodMs: ${periodFor(cardSpeed(card))} })`, `  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.speed}",\n`),
+          cfg(`figureEightMotion({ periodMs: ${periodFor(cardSpeed(card))} })`, `  mesh: planeMesh,\n  color: "${PRIMARY.speed}",\n`),
         create: (card) =>
           flight({
             backend: backend(),
-            mesh: () => parseObj(planeObj),
+            mesh: planeMesh,
             color: PRIMARY.speed,
             periodMs: periodFor(cardSpeed(card)),
           }),

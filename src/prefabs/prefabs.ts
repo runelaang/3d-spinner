@@ -5,8 +5,8 @@ import { ObjectMotionAnimation, type ObjectMotionOptions } from "../animations/o
 import { ParticlesAnimation, type ParticlesOptions } from "../animations/particles.js";
 import {
   tetrahedron,
+  planeMesh,
   type Backend,
-  type Mesh,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import { figureEightMotion } from "../motion/figure-eight.js";
 import { wanderMotion } from "../motion/wander.js";
@@ -100,40 +100,6 @@ function streakTexture(): HTMLCanvasElement {
     ctx.lineTo(91, 48);
     ctx.stroke();
   });
-}
-
-function planeMesh(): Mesh {
-  const vertices = [
-    { x: 0.9, y: 0, z: 0 },
-    { x: -0.2, y: 0, z: 0.82 },
-    { x: -0.55, y: 0, z: 0.16 },
-    { x: -0.72, y: 0, z: 0 },
-    { x: -0.55, y: 0, z: -0.16 },
-    { x: -0.2, y: 0, z: -0.82 },
-    { x: -0.08, y: 0.12, z: 0 },
-    { x: -0.08, y: -0.1, z: 0 },
-    { x: -0.52, y: 0.38, z: 0 },
-  ];
-  const colors = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#f8fafc"];
-  return {
-    vertices,
-    faces: [
-      { indices: [6, 1, 0], color: colors[0] },
-      { indices: [6, 2, 1], color: colors[3] },
-      { indices: [6, 3, 2], color: colors[1] },
-      { indices: [6, 4, 3], color: colors[2] },
-      { indices: [6, 5, 4], color: colors[3] },
-      { indices: [6, 0, 5], color: colors[0] },
-      { indices: [7, 0, 1], color: colors[1] },
-      { indices: [7, 1, 2], color: colors[2] },
-      { indices: [7, 2, 3], color: colors[1] },
-      { indices: [7, 3, 4], color: colors[2] },
-      { indices: [7, 4, 5], color: colors[1] },
-      { indices: [7, 5, 0], color: colors[2] },
-      { indices: [3, 6, 8], color: colors[0] },
-      { indices: [3, 8, 6], color: colors[1] },
-    ],
-  };
 }
 
 function pulsingLabel(): HTMLDivElement {
