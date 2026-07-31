@@ -1,5 +1,67 @@
 :root {
+  color-scheme: light dark;
+  --page-bg: #f8fafc;
+  --page-text: #1e293b;
+  --border: #e2e8f0;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-elevated: #f8fafc;
+  --control-bg: #f1f5f9;
+  --control-bg-hover: #e2e8f0;
+  --control-border: #cbd5e1;
+  --control-text: #1e293b;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --note-bg: #fefce8;
+  --note-border: #eab308;
+  --note-text: #854d0e;
+  --code-bg: #e2e8f0;
+  --config-bg: #f0fdf4;
+  --config-text: #047857;
+}
+
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --page-bg: #0f1117;
+  --page-text: #e2e8f0;
+  --border: #2d3748;
+  --surface: #141927;
+  --surface-muted: #1a1f2e;
+  --surface-elevated: #11161f;
+  --control-bg: #2d3748;
+  --control-bg-hover: #3d4a60;
+  --control-border: #4a5568;
+  --control-text: #e2e8f0;
+  --note-bg: #1a1a0a;
+  --note-border: #4a3f00;
+  --note-text: #c8b84a;
+  --code-bg: #2d3748;
+  --config-bg: #11161f;
+  --config-text: #9ad0bf;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page-bg: #0f1117;
+    --page-text: #e2e8f0;
+    --border: #2d3748;
+    --surface: #141927;
+    --surface-muted: #1a1f2e;
+    --surface-elevated: #11161f;
+    --control-bg: #2d3748;
+    --control-bg-hover: #3d4a60;
+    --control-border: #4a5568;
+    --control-text: #e2e8f0;
+    --note-bg: #1a1a0a;
+    --note-border: #4a3f00;
+    --note-text: #c8b84a;
+    --code-bg: #2d3748;
+    --config-bg: #11161f;
+    --config-text: #9ad0bf;
+  }
 }
 
 body {
@@ -8,16 +70,17 @@ body {
   margin: 2rem auto;
   padding: 0 1rem;
   line-height: 1.5;
-  background: #0f1117;
-  color: #e2e8f0;
+  background: var(--page-bg);
+  color: var(--page-text);
 }
 
 .topbar {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
   margin: 0 0 1.5rem;
-  border-bottom: 1px solid #2d3748;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.75rem;
 }
 
@@ -25,20 +88,26 @@ body {
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   text-decoration: none;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
-  background: #2d3748;
+  color: var(--control-text);
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
   font-size: 0.9rem;
 }
 
 .topbar a:hover {
-  background: #3d4a60;
+  background: var(--control-bg-hover);
 }
 
 .topbar a.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  min-width: 4.5rem;
+  font-size: 0.9rem;
 }
 
 .controls {
@@ -63,25 +132,25 @@ body {
 }
 
 .playback-controls #start {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 .playback-controls #start:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .playback-controls #stop {
-  background: #dc2626;
-  border-color: #dc2626;
+  background: var(--danger);
+  border-color: var(--danger);
   color: #fff;
 }
 
 .playback-controls #stop:hover {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 .progress-control {
@@ -117,16 +186,16 @@ body {
 }
 
 .spinner-card {
-  border: 1px solid #2d3748;
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: #141927;
+  background: var(--surface);
 }
 
 .spinner-card h2 {
   margin: 0;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #2d3748;
+  border-bottom: 1px solid var(--border);
   font-size: 1rem;
   display: flex;
   align-items: center;
@@ -147,31 +216,31 @@ body {
 }
 
 .card-playback .card-start {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 .card-playback .card-start:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .card-playback .card-stop {
-  background: #dc2626;
-  border-color: #dc2626;
+  background: var(--danger);
+  border-color: var(--danger);
   color: #fff;
 }
 
 .card-playback .card-stop:hover {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 select {
-  background: #2d3748;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
+  background: var(--control-bg);
+  color: var(--control-text);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 0.2rem 0.4rem;
   font: inherit;
@@ -185,7 +254,7 @@ select {
   height: 340px;
   min-height: 340px;
   font-size: 1.25rem;
-  background: #1a1f2e;
+  background: var(--surface-muted);
 }
 
 label {
@@ -197,27 +266,27 @@ label {
 button {
   padding: 0.4rem 0.8rem;
   cursor: pointer;
-  background: #2d3748;
-  color: #e2e8f0;
-  border: 1px solid #4a5568;
+  background: var(--control-bg);
+  color: var(--control-text);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
 }
 
 button:hover {
-  background: #3d4a60;
+  background: var(--control-bg-hover);
 }
 
 .note {
-  background: #1a1a0a;
-  border: 1px solid #4a3f00;
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-size: 0.9rem;
-  color: #c8b84a;
+  color: var(--note-text);
 }
 
 code {
-  background: #2d3748;
+  background: var(--code-bg);
   padding: 0.1rem 0.3rem;
   border-radius: 4px;
 }
@@ -229,7 +298,7 @@ code {
 
 .card-control {
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid #2d3748;
+  border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
 }
 
@@ -238,9 +307,9 @@ code {
   padding: 0.6rem 0.85rem;
   font-size: 0.72rem;
   line-height: 1.45;
-  color: #9ad0bf;
-  background: #11161f;
-  border-top: 1px solid #2d3748;
+  color: var(--config-text);
+  background: var(--config-bg);
+  border-top: 1px solid var(--border);
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -250,5 +319,9 @@ code {
   .spinner-grid,
   .progress-control {
     grid-template-columns: 1fr;
+  }
+
+  .theme-toggle {
+    margin-left: 0;
   }
 }
