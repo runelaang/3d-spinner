@@ -1,4 +1,4 @@
-import type { Mesh } from "../mesh.js";
+import type { Mesh } from "../core/mesh.js";
 
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
 

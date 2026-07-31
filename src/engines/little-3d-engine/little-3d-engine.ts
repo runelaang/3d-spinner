@@ -1,5 +1,5 @@
-import { Camera, type CameraOptions } from "./camera.js";
-import { Light, type LightOptions } from "./light.js";
+import { Camera, type CameraOptions } from "./core/camera.js";
+import { Light, type LightOptions } from "./core/light.js";
 import {
   type Mat4,
   multiply,
@@ -7,8 +7,8 @@ import {
   rotationY,
   rotationZ,
   translation,
-} from "./math.js";
-import { type Mesh, type Transform, transform as makeTransform } from "./mesh.js";
+} from "./core/math.js";
+import { type Mesh, type Transform, transform as makeTransform } from "./core/mesh.js";
 import { type Backend, type Renderer, type RenderItem, createRenderer } from "./renderer.js";
 
 /** Options for {@link Little3dEngine}. */
@@ -179,8 +179,8 @@ export class Little3dEngine {
   }
 }
 
-export { Camera, type CameraOptions } from "./camera.js";
-export { Light, type LightOptions, type LightParams } from "./light.js";
+export { Camera, type CameraOptions } from "./core/camera.js";
+export { Light, type LightOptions, type LightParams } from "./core/light.js";
 export { cube } from "./shapes/cube.js";
 export { tetrahedron } from "./shapes/tetrahedron.js";
 export { octahedron } from "./shapes/octahedron.js";
@@ -189,9 +189,9 @@ export { uvSphere } from "./shapes/uv-sphere.js";
 export { icosphere } from "./shapes/icosphere.js";
 export { octaSphere } from "./shapes/octa-sphere.js";
 export { cubeSphere } from "./shapes/cube-sphere.js";
-export { expandToTriangles } from "./geometry.js";
-export type { Mesh, Face, Transform } from "./mesh.js";
-export { transform } from "./mesh.js";
+export { expandToTriangles } from "./core/geometry.js";
+export type { Mesh, Face, Transform } from "./core/mesh.js";
+export { transform } from "./core/mesh.js";
 export type { Backend, Renderer, RenderFrame, RenderItem, RendererOptions } from "./renderer.js";
 export {
   type Vec3,
@@ -201,4 +201,4 @@ export {
   dot,
   scale,
   normalize,
-} from "./math.js";
+} from "./core/math.js";

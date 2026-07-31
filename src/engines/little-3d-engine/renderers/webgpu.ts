@@ -1,6 +1,6 @@
-import { expandToTriangles, parseColor } from "../geometry.js";
-import { type Mat4, multiply } from "../math.js";
-import type { Mesh } from "../mesh.js";
+import { expandToTriangles, parseColor } from "../core/geometry.js";
+import { type Mat4, multiply } from "../core/math.js";
+import type { Mesh } from "../core/mesh.js";
 import type { Renderer, RenderFrame, RendererOptions } from "../renderer.js";
 
 const WGSL = `

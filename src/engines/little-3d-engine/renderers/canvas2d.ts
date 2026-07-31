@@ -1,5 +1,5 @@
-import { shadeColor } from "../light.js";
-import { dot, cross, normalize, subtract, transformAffine, transformPoint } from "../math.js";
+import { shadeColor } from "../core/light.js";
+import { dot, cross, normalize, subtract, transformAffine, transformPoint } from "../core/math.js";
 import type { Renderer, RenderFrame, RendererOptions } from "../renderer.js";
 
 interface Polygon {

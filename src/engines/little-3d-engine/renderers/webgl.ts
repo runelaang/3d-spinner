@@ -1,5 +1,5 @@
-import { expandToTriangles, parseColor } from "../geometry.js";
-import type { Mesh } from "../mesh.js";
+import { expandToTriangles, parseColor } from "../core/geometry.js";
+import type { Mesh } from "../core/mesh.js";
 import type { Renderer, RenderFrame, RendererOptions } from "../renderer.js";
 
 const VERTEX_SHADER = `#version 300 es
