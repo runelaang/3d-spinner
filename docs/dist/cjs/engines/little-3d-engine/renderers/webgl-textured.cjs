@@ -344,6 +344,7 @@ void main() {
             for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
           }
           if (this.program) gl.deleteProgram(this.program);
+          gl.getExtension("WEBGL_lose_context")?.loseContext();
         }
         this.cache.clear();
         this.gl = void 0;

@@ -26,7 +26,7 @@ export interface ParticlesOptions {
     alignToMotion?: boolean;
     /** Seed for the deterministic particle stream. Default `1`. */
     seed?: number;
-    /** Rendering backend. Default `"canvas2d"`. */
+    /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
     /** Optional moving emission origin. Each particle keeps the origin where it was emitted. */
     emitter?: MotionController;
@@ -39,9 +39,8 @@ export interface ParticlesOptions {
     outroMs?: number;
     /**
      * Image applied to every particle (a URL or a drawable element), tinted by
-     * the particle color; the image's alpha shapes the particle. Renders
-     * through a textured renderer, fetched on demand: the WebGPU one when
-     * `backend` is `"webgpu"`, otherwise the WebGL one.
+     * the particle color; the image's alpha shapes the particle. Renders through
+     * the textured renderer matching the resolved `backend`, fetched on demand.
      */
     texture?: string | TexImageSource;
     /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */

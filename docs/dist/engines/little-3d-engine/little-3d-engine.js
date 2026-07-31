@@ -24,7 +24,7 @@ export class Little3dEngine {
         this.running = false;
         this.camera = new Camera(options.camera);
         this.light = new Light(options.light);
-        this.backend = options.backend ?? "canvas2d";
+        this.backend = options.backend ?? "auto";
         this.background = options.background;
     }
     /**
@@ -172,5 +172,5 @@ export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
 export { expandToTriangles } from "./core/geometry.js";
 export { transform, attachMaterial } from "./core/mesh.js";
-export { orderRenderItems } from "./renderer.js";
+export { orderRenderItems, chooseBackend, detectBackendSupport, resolveBackend, } from "./renderer.js";
 export { vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";

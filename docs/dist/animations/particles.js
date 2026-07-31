@@ -1,5 +1,5 @@
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, quad, cross, normalize, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, quad, resolveBackend, cross, normalize, } from "../engines/little-3d-engine/little-3d-engine.js";
 const DEFAULT_COLORS = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
 const FADE_IN_END = 0.15;
 const FADE_OUT_START = 0.6;
@@ -120,9 +120,10 @@ export class ParticlesAnimation {
         const texture = this.texture;
         const backend = texture
             ? async (rendererOptions) => {
-                const renderer = this.backend === "webgpu"
+                const picked = await resolveBackend(this.backend ?? "auto");
+                const renderer = picked === "webgpu"
                     ? new (await import("../engines/little-3d-engine/renderers/webgpu-textured.js")).WebGPUTexturedRenderer(rendererOptions)
-                    : this.backend === "webgl"
+                    : picked === "webgl"
                         ? new (await import("../engines/little-3d-engine/renderers/webgl-textured.js")).WebGLTexturedRenderer(rendererOptions)
                         : new (await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")).Canvas2DTexturedRenderer(rendererOptions);
                 for (const mesh of meshes)

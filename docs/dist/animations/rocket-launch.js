@@ -1,5 +1,5 @@
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, pyramid, quad, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, pyramid, quad, resolveBackend, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { canvasTexture } from "../engines/little-3d-engine/textures/dynamic/canvas-texture.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 const ROCKETS = 20; // one per 5% of progress
@@ -117,9 +117,10 @@ export class RocketLaunchAnimation {
         const smokeTexture = puffTexture(0.85, 0.5);
         const fireTexture = puffTexture(1, 0.32);
         const backend = async (rendererOptions) => {
-            const renderer = this.backend === "webgpu"
+            const picked = await resolveBackend(this.backend ?? "auto");
+            const renderer = picked === "webgpu"
                 ? new (await import("../engines/little-3d-engine/renderers/webgpu-textured.js")).WebGPUTexturedRenderer(rendererOptions)
-                : this.backend === "webgl"
+                : picked === "webgl"
                     ? new (await import("../engines/little-3d-engine/renderers/webgl-textured.js")).WebGLTexturedRenderer(rendererOptions)
                     : new (await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")).Canvas2DTexturedRenderer(rendererOptions);
             for (const mesh of smokeMeshes)

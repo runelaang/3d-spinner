@@ -33,8 +33,9 @@
   <div class="controls">
     <label>Renderer
       <select id="render-tech">
+        <option value="auto" selected>Auto (best available)</option>
         <option value="canvas2d">Canvas 2D (software)</option>
-        <option value="webgl" selected>WebGL</option>
+        <option value="webgl">WebGL</option>
         <option value="webgpu">WebGPU</option>
       </select>
     </label>
@@ -55,7 +56,7 @@
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
-    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+    const backendLabel = () => ({ auto: "Auto", canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
 
     const demos = [
       {
@@ -84,7 +85,17 @@
       },
     ];
 
+    // One story plays at a time: playing a card releases the previous one, so the page never
+    // holds more than a single spinner (and a single GPU context) alive.
+    let live = null;
+
+    function release() {
+      live?.release();
+      live = null;
+    }
+
     function buildShowcase() {
+      release();
       const grid = document.getElementById("prefab-showcase");
       grid.replaceChildren();
       for (const demo of demos) {
@@ -101,6 +112,11 @@
           </div>`;
         const stage = document.createElement("div");
         stage.className = "stage";
+        const idle = () => stage.replaceChildren(Object.assign(document.createElement("span"), {
+          className: "stage-hint",
+          textContent: "Press Play",
+        }));
+        idle();
         const config = document.createElement("pre");
         config.className = "config";
         config.textContent = demo.code;
@@ -122,13 +138,23 @@
           slider.value = String(value);
           output.textContent = `${value}%`;
         };
+        const entry = {
+          release: () => {
+            stopSim();
+            spinner?.destroy();
+            spinner = undefined;
+            slider.disabled = true;
+            show(0);
+            idle();
+          },
+        };
         card.querySelector(".card-start").onclick = () => {
-          spinner?.destroy();
-          stopSim();
+          release();
           stage.replaceChildren();
           show(0);
           slider.disabled = false;
           spinner = createSpinner(stage, demo.create());
+          live = entry;
           const startAt = performance.now();
           const tick = (now) => {
             const value = Math.min(100, Math.round(((now - startAt) / PLAY_MS) * 100));
@@ -148,6 +174,7 @@
 
     buildShowcase();
     renderTech.onchange = buildShowcase;
+    addEventListener("pagehide", release);
   </script>
 </body>
 

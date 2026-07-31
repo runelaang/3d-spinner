@@ -468,6 +468,7 @@ void main() {
             for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
           }
           if (this.program) gl.deleteProgram(this.program);
+          gl.getExtension("WEBGL_lose_context")?.loseContext();
         }
         this.cache.clear();
         this.gl = void 0;
@@ -902,6 +903,40 @@ var init_canvas2d = __esm({
 });
 
 // src/engines/little-3d-engine/renderer.ts
+function chooseBackend(support) {
+  if (support.webgpu) return "webgpu";
+  if (support.webgl) return "webgl";
+  return "canvas2d";
+}
+async function detectBackendSupport() {
+  return { webgpu: await hasWebGPU(), webgl: hasWebGL2() };
+}
+async function hasWebGPU() {
+  const gpu = globalThis.navigator?.gpu;
+  if (!gpu) return false;
+  try {
+    return Boolean(await gpu.requestAdapter());
+  } catch {
+    return false;
+  }
+}
+function hasWebGL2() {
+  const doc = globalThis.document;
+  if (!doc?.createElement) return false;
+  try {
+    const gl = doc.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function resolveBackend(backend) {
+  if (backend !== "auto") return backend;
+  supportProbe ?? (supportProbe = detectBackendSupport());
+  return chooseBackend(await supportProbe);
+}
 function opacity(value, fallback) {
   return Math.max(0, Math.min(1, value ?? fallback));
 }
@@ -935,7 +970,7 @@ function orderRenderItems(items, eye) {
 }
 async function createRenderer(backend, options = {}) {
   if (typeof backend === "function") return backend(options);
-  switch (backend) {
+  switch (await resolveBackend(backend)) {
     case "webgl":
       return new (await Promise.resolve().then(() => (init_webgl(), webgl_exports))).WebGLRenderer(options);
     case "webgpu":
@@ -945,7 +980,7 @@ async function createRenderer(backend, options = {}) {
       return new (await Promise.resolve().then(() => (init_canvas2d(), canvas2d_exports))).Canvas2DRenderer(options);
   }
 }
-var DEFAULT_ONE_SIDED_OPACITY, DEFAULT_BACK_OPACITY, DEFAULT_FRONT_OPACITY;
+var supportProbe, DEFAULT_ONE_SIDED_OPACITY, DEFAULT_BACK_OPACITY, DEFAULT_FRONT_OPACITY;
 var init_renderer = __esm({
   "src/engines/little-3d-engine/renderer.ts"() {
     "use strict";
@@ -1131,7 +1166,7 @@ var Little3dEngine = class {
     this.running = false;
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
-    this.backend = options.backend ?? "canvas2d";
+    this.backend = options.backend ?? "auto";
     this.background = options.background;
   }
   /**
