@@ -32,22 +32,47 @@ test("parseObj attaches specular, shininess, and emissive from MTL", () => {
   });
 });
 
+test("parseObj attaches a non-identity Ka as ambient", () => {
+  const kaMtl = `
+newmtl Dim
+Kd 1 1 1
+Ka 0.25 0.5 0.75
+`;
+  const single = "v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Dim\nf 1 2 3\n";
+  const mesh = parseObj(single, { mtl: kaMtl, useMtlColors: true });
+  assert.deepEqual(mesh.faces[0].material, { ambient: [0.25, 0.5, 0.75] });
+});
+
+test("parseObj drops identity Ka so a Kd+Ka 1 1 1 material stays material-less", () => {
+  const whiteKa = `
+newmtl WhiteKa
+Kd 0.5 0.5 0.5
+Ka 1 1 1
+`;
+  const single = "v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl WhiteKa\nf 1 2 3\n";
+  const mesh = parseObj(single, { mtl: whiteKa, useMtlColors: true });
+  assert.equal(mesh.faces[0].material, undefined);
+  assert.equal(mesh.faces[0].color, "#808080");
+});
+
 test("parseObj leaves material undefined for a Kd-only material", () => {
   const mesh = parseObj(obj, { mtl, useMtlColors: true });
   assert.equal(mesh.faces[1].material, undefined);
   assert.equal(mesh.faces[1].color, "#808080");
 });
 
-test("parseObj clamps Ks/Ke channels into 0..1", () => {
+test("parseObj clamps Ka/Ks/Ke channels into 0..1", () => {
   const clampMtl = `
 newmtl Over
 Kd 1 1 1
+Ka 2 -1 0.5
 Ks 2 -1 0.5
 Ke -0.5 3 0.25
 `;
   const single = "v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Over\nf 1 2 3\n";
   const mesh = parseObj(single, { mtl: clampMtl, useMtlColors: true });
   assert.deepEqual(mesh.faces[0].material, {
+    ambient: [1, 0, 0.5],
     specular: [1, 0, 0.5],
     emissive: [0, 1, 0.25],
   });

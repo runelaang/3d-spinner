@@ -97,11 +97,12 @@ Shapes exported from `3d-spinner/engines/little-3d-engine` include `cube`, `tetr
 
 ## Surface materials
 
-Faces are flat-shaded from their color by default. A `Material` adds a specular highlight and
-self-illumination on top, using the Wavefront MTL properties of the same names:
+Faces are flat-shaded from their color by default. A `Material` adds ambient scaling, a specular
+highlight, and self-illumination on top, using the Wavefront MTL properties of the same names:
 
 | Field | MTL | Type | Description |
 | --- | --- | --- | --- |
+| `ambient` | `Ka` | `[r, g, b]` | Scales the scene ambient fill per channel, linear `0..1`. Omit or `[1,1,1]` for the full ambient (the engine default). |
 | `specular` | `Ks` | `[r, g, b]` | Highlight color and strength, linear `0..1`. Omit for a matte surface. |
 | `shininess` | `Ns` | `number` | Highlight tightness, `0..1000`. Higher is smaller and glossier. Defaults to `32` when `specular` is set. Ignored without `specular`. |
 | `emissive` | `Ke` | `[r, g, b]` | Color added after shading, linear `0..1`, so the face reads as self-lit. |
@@ -131,7 +132,8 @@ To apply one to a mesh from elsewhere, `attachMaterial(mesh, material)` sets it 
 place.
 
 Meshes loaded through the OBJ loader pick their materials up from the accompanying MTL file when
-`useMtlColors` is set - `Kd` becomes the face color, and `Ks`/`Ns`/`Ke` become the face material:
+`useMtlColors` is set - `Kd` becomes the face color, and `Ka`/`Ks`/`Ns`/`Ke` become the face
+material:
 
 ```js
 import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
