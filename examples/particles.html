@@ -50,6 +50,7 @@
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
+    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
 
     const cfg = (body) => `new ParticlesAnimation({\n${body}\n})`;
 
@@ -162,7 +163,7 @@
           }),
       },
       {
-        title: "Textured glow (WebGL / WebGPU)",
+        title: () => `Textured glow (${backendLabel()})`,
         config: () =>
           cfg(`  texture: glowTexture(), // any image URL or canvas\n  size: 0.3,\n  rate: 26,\n  spin: 0,\n  label: "Just a sec",`),
         create: () =>
@@ -176,7 +177,7 @@
           }),
       },
       {
-        title: "Textured stars (WebGL / WebGPU)",
+        title: () => `Textured stars (${backendLabel()})`,
         config: () =>
           cfg(`  texture: starTexture(),\n  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.8,\n  speed: 1.2,\n  gravity: { x: 0, y: -1.1, z: 0 },\n  spin: 0.008,\n  size: 0.2,\n  colors: ["#fde047", "#f472b6", "#5eead4"],\n  label: "Fetching data",`),
         create: () =>
@@ -219,7 +220,8 @@
       demos.forEach((demo) => {
         const card = document.createElement("section");
         card.className = "spinner-card";
-        card.innerHTML = `<h2>${demo.title}
+        const title = typeof demo.title === "function" ? demo.title() : demo.title;
+        card.innerHTML = `<h2>${title}
           <span class="card-playback">
             <button type="button" class="card-start">Start</button>
             <button type="button" class="card-stop">Stop</button>
