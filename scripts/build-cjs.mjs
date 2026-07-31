@@ -12,6 +12,7 @@ const entryPoints = [
   "src/motion/transitions.ts",
   "src/engines/little-3d-engine/little-3d-engine.ts",
   "src/engines/little-3d-engine/renderers/webgl-textured.ts",
+  "src/engines/little-3d-engine/renderers/webgpu-textured.ts",
   "src/engines/little-3d-engine/loaders/obj.ts",
   "src/engines/little-tween-engine/little-tween-engine.ts",
 ];

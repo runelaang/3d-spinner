@@ -50,6 +50,11 @@
       "import": "./dist/engines/little-3d-engine/renderers/webgl-textured.js",
       "require": "./dist/cjs/engines/little-3d-engine/renderers/webgl-textured.cjs"
     },
+    "./engines/little-3d-engine/renderers/webgpu-textured": {
+      "types": "./dist/engines/little-3d-engine/renderers/webgpu-textured.d.ts",
+      "import": "./dist/engines/little-3d-engine/renderers/webgpu-textured.js",
+      "require": "./dist/cjs/engines/little-3d-engine/renderers/webgpu-textured.cjs"
+    },
     "./engines/little-3d-engine/loaders/obj": {
       "types": "./dist/engines/little-3d-engine/loaders/obj.d.ts",
       "import": "./dist/engines/little-3d-engine/loaders/obj.js",
