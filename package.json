@@ -23,9 +23,9 @@
       "types": "./dist/animations/spin.d.ts",
       "import": "./dist/animations/spin.js"
     },
-    "./animations/plane": {
-      "types": "./dist/animations/plane.d.ts",
-      "import": "./dist/animations/plane.js"
+    "./animations/object-flight": {
+      "types": "./dist/animations/object-flight.d.ts",
+      "import": "./dist/animations/object-flight.js"
     },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",

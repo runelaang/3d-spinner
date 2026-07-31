@@ -222,6 +222,29 @@ code {
   border-radius: 4px;
 }
 
+.showcase-title {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.card-control {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #2d3748;
+  font-size: 0.85rem;
+}
+
+.spinner-card .config {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #9ad0bf;
+  background: #11161f;
+  border-top: 1px solid #2d3748;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 @media (max-width: 700px) {
 
   .spinner-grid,

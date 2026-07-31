@@ -93,13 +93,33 @@
     </section>
   </div>
 
+  <h2 class="showcase-title">Object-flight configurations</h2>
+  <p class="note">
+    Each card is an always-running <code>indeterminate</code> object-flight; the exact config used
+    to build it is shown beneath. Mesh works with OBJ imports or engine primitives;
+    <code>facing</code> corrects a model that flies backwards/sideways, and <code>tail</code> adds
+    chasing copies.
+  </p>
+  <div class="spinner-grid" id="flight-showcase"></div>
+
   <script type="module">
     import { createSpinner } from "/dist/index.js";
     import { SpinAnimation } from "/dist/animations/spin.js";
-    import { PlaneAnimation } from "/dist/animations/plane.js";
+    import { ObjectFlightAnimation } from "/dist/animations/object-flight.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
+    import { cube, tetrahedron } from "/dist/engines/little-3d-engine/little-3d-engine.js";
 
     const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
+    const carObj = await fetch("/meshes/test/car1/car.obj").then((r) => r.text());
+
+    const PASTEL = {
+      plane: "#a8d0f0", // soft blue
+      car: "#f7b8cd", // soft pink
+      cube: "#b9e8c9", // soft green
+      tetra: "#cdbcf2", // soft lavender
+      tail: "#a8e6e2", // soft teal
+      speed: "#fbd9a5", // soft peach
+    };
 
     const type = document.getElementById("type");
     const loop = document.getElementById("loop");
@@ -114,12 +134,12 @@
     const animations = [
       {
         target: document.getElementById("stage-cube"),
-        create: () => new SpinAnimation({ backend: backend(), progressAnimation: {} }),
+        create: () => new SpinAnimation({ backend: backend(), color: PASTEL.cube, progressAnimation: {} }),
       },
       {
         target: document.getElementById("stage-plane"),
         create: () =>
-          new PlaneAnimation({ backend: backend(), mesh: () => parseObj(planeObj, { colors: ["#cbd5e1"] }) }),
+          new ObjectFlightAnimation({ backend: backend(), mesh: () => parseObj(planeObj), color: PASTEL.plane }),
       },
     ];
 
@@ -314,8 +334,143 @@
       applySliderProgress();
     };
 
+    // Showcase of object-flight configs (independent of the controls above).
+    // Each card has its own Start/Stop and does not auto-start; the exact config
+    // used to build it is shown beneath.
+    const cfg = (body) => `new ObjectFlightAnimation({\n${body}\n})`;
+    const cardSpeed = (card) => Number(card.querySelector(".show-speed")?.value ?? "0.5");
+
+    const flightDemos = [
+      {
+        title: "Plane",
+        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.plane}",\n  tail: { count: 7, distance: 0.6 },`),
+        create: () =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: PASTEL.plane,
+            tail: { count: 7, distance: 0.6 },
+          }),
+      },
+      {
+        title: "Car (facing + 2/3 speed)",
+        config: () =>
+          cfg(`  mesh: () => parseObj(carObj),\n  color: "${PASTEL.car}",\n  facing: "-z",\n  size: 1.8,\n  speed: 2 / 3,\n  tail: { count: 7, distance: 0.7 },`),
+        create: () =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => parseObj(carObj),
+            color: PASTEL.car,
+            facing: "-z",
+            size: 1.8,
+            speed: 2 / 3,
+            tail: { count: 7, distance: 0.7 },
+          }),
+      },
+      {
+        title: "Cube primitive",
+        config: () => cfg(`  mesh: () => cube(),\n  color: "${PASTEL.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        create: () =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => cube(),
+            color: PASTEL.cube,
+            size: 0.5,
+            tail: { count: 7, distance: 0.4 },
+          }),
+      },
+      {
+        title: "Tetrahedron primitive",
+        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PASTEL.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        create: () =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => tetrahedron(),
+            color: PASTEL.tetra,
+            size: 0.5,
+            tail: { count: 7, distance: 0.4 },
+          }),
+      },
+      {
+        title: "Tail (wide spacing)",
+        config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.tail}",\n  tail: { count: 7, distance: 1.2 },`),
+        create: () =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: PASTEL.tail,
+            tail: { count: 7, distance: 1.2 },
+          }),
+      },
+      {
+        title: "Speed (configurable)",
+        speedControl: true,
+        config: (card) =>
+          cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PASTEL.speed}",\n  speed: ${cardSpeed(card)},\n  tail: { count: 7, distance: 0.6 },`),
+        create: (card) =>
+          new ObjectFlightAnimation({
+            backend: backend(),
+            mesh: () => parseObj(planeObj),
+            color: PASTEL.speed,
+            speed: cardSpeed(card),
+            tail: { count: 7, distance: 0.6 },
+          }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("flight-showcase");
+      grid.replaceChildren();
+      flightDemos.forEach((demo) => {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        card.innerHTML = `<h2>${demo.title}
+          <span class="card-playback">
+            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-stop">Stop</button>
+          </span></h2>`;
+        if (demo.speedControl) {
+          const control = document.createElement("div");
+          control.className = "card-control";
+          control.innerHTML = `<label><span>speed</span>
+            <select class="show-speed">
+              <option value="0.25">0.25&times;</option>
+              <option value="0.5" selected>0.5&times;</option>
+              <option value="1">1&times;</option>
+              <option value="2">2&times;</option>
+            </select></label>`;
+          card.appendChild(control);
+        }
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        card.append(stage, config);
+        grid.appendChild(card);
+
+        let spinner = null;
+        const refresh = () => { config.textContent = demo.config(card); };
+        refresh();
+        const startButton = card.querySelector(".card-start");
+        startButton.onclick = () => {
+          spinner?.destroy();
+          stage.replaceChildren();
+          spinner = createSpinner(stage, { type: "indeterminate", animation: demo.create(card) });
+        };
+        card.querySelector(".card-stop").onclick = () => spinner?.stop();
+        const speedSelect = card.querySelector(".show-speed");
+        if (speedSelect) {
+          speedSelect.onchange = () => {
+            refresh();
+            if (spinner) startButton.onclick();
+          };
+        }
+      });
+    }
+
     syncControls();
     mountAll();
+    buildShowcase();
   </script>
 </body>
 
