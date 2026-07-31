@@ -14,6 +14,7 @@ const entry = {
     export * from "../src/motion/motion.ts";
     export * from "../src/motion/transitions.ts";
     export * from "../src/engines/little-3d-engine/little-3d-engine.ts";
+    export * from "../src/engines/little-3d-engine/renderers/webgl-textured.ts";
     export * from "../src/engines/little-3d-engine/loaders/obj.ts";
     export * from "../src/engines/little-tween-engine/little-tween-engine.ts";
   `,

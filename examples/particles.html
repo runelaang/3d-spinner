@@ -53,6 +53,36 @@
 
     const cfg = (body) => `new ParticlesAnimation({\n${body}\n})`;
 
+    function glowTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      return canvas;
+    }
+
+    function starTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.translate(32, 32);
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 30 : 12;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(r * Math.cos(a), r * Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.fill();
+      return canvas;
+    }
+
     const demos = [
       {
         title: "Sparkle burst (defaults)",
@@ -129,6 +159,36 @@
             size: 0.12,
             colors: ["#f43f5e", "#22d3ee", "#facc15", "#4ade80", "#a78bfa"],
             label: "Almost there",
+          }),
+      },
+      {
+        title: "Textured glow (always WebGL)",
+        config: () =>
+          cfg(`  texture: glowTexture(), // any image URL or canvas\n  size: 0.3,\n  rate: 26,\n  spin: 0,\n  label: "Just a sec",`),
+        create: () =>
+          new ParticlesAnimation({
+            texture: glowTexture(),
+            size: 0.3,
+            rate: 26,
+            spin: 0,
+            label: "Just a sec",
+          }),
+      },
+      {
+        title: "Textured stars (always WebGL)",
+        config: () =>
+          cfg(`  texture: starTexture(),\n  direction: { x: 0, y: 1, z: 0 },\n  spread: 0.8,\n  speed: 1.2,\n  gravity: { x: 0, y: -1.1, z: 0 },\n  spin: 0.008,\n  size: 0.2,\n  colors: ["#fde047", "#f472b6", "#5eead4"],\n  label: "Fetching data",`),
+        create: () =>
+          new ParticlesAnimation({
+            texture: starTexture(),
+            direction: { x: 0, y: 1, z: 0 },
+            spread: 0.8,
+            speed: 1.2,
+            gravity: { x: 0, y: -1.1, z: 0 },
+            spin: 0.008,
+            size: 0.2,
+            colors: ["#fde047", "#f472b6", "#5eead4"],
+            label: "Fetching data",
           }),
       },
       {
