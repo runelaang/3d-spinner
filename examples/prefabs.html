@@ -44,10 +44,13 @@
     import { createSpinner } from "/dist/index.js";
     import {
       crystalComet,
+      monochromeStreak,
       planeStarTrail,
       pulsingStarfield,
       starSwarm,
     } from "/dist/prefabs/prefabs.js";
+    import { cube } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+    import { circleMotion, squareMotion } from "/dist/motion/motion.js";
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
@@ -82,6 +85,59 @@
         title: "Star swarm with custom HTML",
         code: `const message = document.createElement("div");\ncreateSpinner(target, starSwarm({ label: message }))`,
         create: () => starSwarm({ backend: backend(), label: customMessage() }),
+      },
+      {
+        title: "Ice blue plane trail",
+        code: `createSpinner(target, planeStarTrail({\n  periodMs: 3200,\n  particles: {\n    colors: ["#fff", "#a5f3fc", "#60a5fa"],\n    rate: 52,\n    lifeMs: 2600\n  }\n}))`,
+        create: () => planeStarTrail({
+          backend: backend(),
+          periodMs: 3200,
+          particles: {
+            colors: ["#fff", "#a5f3fc", "#60a5fa"],
+            rate: 52,
+            lifeMs: 2600,
+          },
+        }),
+      },
+      {
+        title: "Cube orbit",
+        code: `createSpinner(target, crystalComet({\n  object: {\n    mesh: cube,\n    motion: circleMotion({ radius: .72 })\n  }\n}))`,
+        create: () => crystalComet({
+          backend: backend(),
+          object: {
+            mesh: cube,
+            motion: circleMotion({ radius: 0.72 }),
+          },
+        }),
+      },
+      {
+        title: "Star fountain",
+        code: `createSpinner(target, pulsingStarfield({\n  label: "Preparing launch",\n  particles: {\n    direction: { x: 0, y: 1, z: 0 },\n    gravity: { x: 0, y: -0.35, z: 0 }\n  }\n}))`,
+        create: () => pulsingStarfield({
+          backend: backend(),
+          label: "Preparing launch",
+          particles: {
+            direction: { x: 0, y: 1, z: 0 },
+            gravity: { x: 0, y: -0.35, z: 0 },
+          },
+        }),
+      },
+      {
+        title: "Square star patrol",
+        code: `createSpinner(target, starSwarm({\n  loop: "restart",\n  particles: {\n    emitter: squareMotion({ size: 1.1 }),\n    colors: ["#fef3c7", "#fb7185", "#c4b5fd"]\n  }\n}))`,
+        create: () => starSwarm({
+          backend: backend(),
+          loop: "restart",
+          particles: {
+            emitter: squareMotion({ size: 1.1 }),
+            colors: ["#fef3c7", "#fb7185", "#c4b5fd"],
+          },
+        }),
+      },
+      {
+        title: "Monochrome streak",
+        code: `createSpinner(target, monochromeStreak())`,
+        create: () => monochromeStreak({ backend: backend() }),
       },
     ];
 
