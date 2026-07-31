@@ -78,6 +78,54 @@ Shapes exported from `3d-spinner/engines/little-3d-engine` include `cube`, `tetr
 `octahedron`, `pyramid`, `quad`, and several spheres (`uvSphere`, `icosphere`, `octaSphere`,
 `cubeSphere`).
 
+## Surface materials
+
+Faces are flat-shaded from their color by default. A `Material` adds a specular highlight and
+self-illumination on top, using the Wavefront MTL properties of the same names:
+
+| Field | MTL | Type | Description |
+| --- | --- | --- | --- |
+| `specular` | `Ks` | `[r, g, b]` | Highlight color and strength, linear `0..1`. Omit for a matte surface. |
+| `shininess` | `Ns` | `number` | Highlight tightness, `0..1000`. Higher is smaller and glossier. Defaults to `32` when `specular` is set. Ignored without `specular`. |
+| `emissive` | `Ke` | `[r, g, b]` | Color added after shading, linear `0..1`, so the face reads as self-lit. |
+
+`SpinAnimation` takes a `material` that applies to every face, alongside `color`:
+
+```js
+import { SpinAnimation } from "3d-spinner/animations/spin";
+
+new SpinAnimation({
+  color: "#3b82f6",
+  material: { specular: [1, 1, 1], shininess: 64 },
+});
+```
+
+Every shape builder also takes an optional trailing `material`, after its colors, for when you
+build the mesh yourself:
+
+```js
+import { cube, icosphere } from "3d-spinner/engines/little-3d-engine";
+
+cube(1, ["#3b82f6"], { specular: [1, 0.9, 0.6], shininess: 120 }); // (size, colors, material)
+icosphere(1, 2, ["#111827"], { emissive: [0.1, 0.2, 0.3] });       // (size, detail, colors, material)
+```
+
+To apply one to a mesh from elsewhere, `attachMaterial(mesh, material)` sets it on every face in
+place.
+
+Meshes loaded through the OBJ loader pick their materials up from the accompanying MTL file when
+`useMtlColors` is set - `Kd` becomes the face color, and `Ks`/`Ns`/`Ke` become the face material:
+
+```js
+import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
+
+const mesh = parseObj(objText, { mtl: mtlText, useMtlColors: true });
+```
+
+Materials work on all three backends. Canvas 2D computes the highlight once per face, so it lands
+flat, while WebGL and WebGPU compute it per pixel and produce a gradient across the face. The
+textured renderer variants do not apply materials.
+
 ## How it fits together
 
 A spinner is assembled from a few independent pieces, so you can swap one without touching the
