@@ -85,8 +85,8 @@ others:
 - **Motion controller** (for `ObjectMotionAnimation`) is a small, separate object that decides
   *how* a thing moves - a circle, square, figure-8, or wander. Swap the controller to change the
   path without changing the animation.
-- **Transition** (for `ObjectMotionAnimation`) is the optional intro/outro effect - grow or shrink
-  in place, or fly in and out along the path.
+- **Transition** (for `ObjectMotionAnimation`) is the intro/outro effect - by default the object
+  flies in and out along the path; grow or shrink in place is available as an option.
 - **The 3D engine** is the renderer underneath: a small, dependency-free engine that draws shapes
   and meshes to a canvas, with swappable Canvas 2D, WebGL, and WebGPU backends.
 
