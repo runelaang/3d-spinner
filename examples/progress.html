@@ -14,10 +14,10 @@
     <a href="/examples/progress.html" class="active">Progress</a>
   </nav>
 
-  <h1>3d-Spinner progress &amp; indeterminate</h1>
+  <h1>3d-Spinner: progress &amp; indeterminate</h1>
 
   <p class="note">
-    Every animation runs under either spinner <strong>type</strong>: <code>progress</code> (Start
+    every animation runs under either spinner <strong>type</strong>: <code>progress</code> (Start
     simulates progress with the speed and loop settings, or drive the slider manually) or
     <code>indeterminate</code> (self-driving on a timer until you press Stop, which plays each
     animation's outro).
@@ -117,7 +117,7 @@
       car: "#dc2626",
       cube: "#16a34a",
       tetra: "#facc15",
-      tail: "#0891b2",
+      tail: "#77EE55",
       speed: "#ea580c",
     };
 
@@ -367,37 +367,38 @@
       },
       {
         title: "Cube primitive",
-        config: () => cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        config: () => cfg(`  mesh: () => cube(),\n  color: "${PRIMARY.cube}",\n  size: 0.5,\n  tail: { count: 7, distance: 1 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => cube(),
             color: PRIMARY.cube,
             size: 0.5,
-            tail: { count: 7, distance: 0.4 },
+            tail: { count: 7, distance: 1 },
           }),
       },
       {
         title: "Tetrahedron primitive",
-        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 0.4 },`),
+        config: () => cfg(`  mesh: () => tetrahedron(),\n  color: "${PRIMARY.tetra}",\n  size: 0.5,\n  tail: { count: 7, distance: 1 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => tetrahedron(),
             color: PRIMARY.tetra,
             size: 0.5,
-            tail: { count: 7, distance: 0.4 },
+            tail: { count: 7, distance: 1 },
           }),
       },
       {
-        title: "Tail (wide spacing)",
+        title: "Objects with tail",
         config: () => cfg(`  mesh: () => parseObj(planeObj),\n  color: "${PRIMARY.tail}",\n  tail: { count: 7, distance: 1.2 },`),
         create: () =>
           new ObjectFlightAnimation({
             backend: backend(),
             mesh: () => parseObj(planeObj),
             color: PRIMARY.tail,
-            tail: { count: 7, distance: 1.2 },
+            size: 0.6,
+            tail: { count: 20, distance: 1.2 },
           }),
       },
       {

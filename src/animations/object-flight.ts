@@ -18,7 +18,10 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export interface ObjectFlightTail {
   /** Number of trailing copies. */
   count: number;
-  /** Spacing between consecutive objects along the path, in scene units. */
+  /**
+   * Spacing between consecutive copies, as a multiple of the mesh length along
+   * the nose (+X) axis. `1` places each copy where the previous ends.
+   */
   distance: number;
 }
 
@@ -146,6 +149,17 @@ function faceForward(mesh: Mesh, facing: Facing): Mesh {
   return { vertices: mesh.vertices.map(turn), faces: mesh.faces };
 }
 
+/** Length of a centered, nose-forward mesh along +X (the flight nose axis). */
+function meshLengthAlongNose(mesh: Mesh): number {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  for (const vertex of mesh.vertices) {
+    minX = Math.min(minX, vertex.x);
+    maxX = Math.max(maxX, vertex.x);
+  }
+  return Math.max(maxX - minX, 1e-6);
+}
+
 /** Centers mesh at the origin and scales it to fit within `targetSize`. */
 export function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh {
   let minX = Infinity;
@@ -248,9 +262,10 @@ export class ObjectFlightAnimation implements SpinnerAnimation {
     this.outroMs = BASE_OUTRO_MS / speed;
 
     this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
-    const distance = Math.max(0, options.tail?.distance ?? 0);
+    const spacing =
+      Math.max(0, options.tail?.distance ?? 0) * meshLengthAlongNose(facing);
     const avgSpeed = LOOP_PERIMETER / this.lapMs; // scene units per ms
-    this.tailDelay = avgSpeed > 0 ? distance / avgSpeed : 0;
+    this.tailDelay = avgSpeed > 0 ? spacing / avgSpeed : 0;
   }
 
   mount(target: HTMLElement): void {
