@@ -17,9 +17,10 @@
   <h1>3d-Spinner progress &amp; indeterminate</h1>
 
   <p class="note">
-    Every animation runs under either spinner <strong>type</strong>: <code>progress</code> (drive
-    the slider) or <code>indeterminate</code> (self-driving on a timer until you press Stop, which
-    plays each animation's outro).
+    Every animation runs under either spinner <strong>type</strong>: <code>progress</code> (Start
+    simulates progress with the speed and loop settings, or drive the slider manually) or
+    <code>indeterminate</code> (self-driving on a timer until you press Stop, which plays each
+    animation's outro).
   </p>
 
   <div class="controls">
@@ -30,14 +31,14 @@
         <option value="indeterminate">indeterminate</option>
       </select>
     </label>
-    <label id="loop-ctl" for="loop" hidden>
+    <label id="loop-ctl" for="loop">
       <span>Loop</span>
       <select id="loop" autocomplete="off">
         <option value="bounce" selected>bounce</option>
         <option value="restart">restart</option>
       </select>
     </label>
-    <label id="speed-ctl" for="speed" hidden>
+    <label id="speed-ctl" for="speed">
       <span>Speed</span>
       <select id="speed" autocomplete="off">
         <option value="3500">slow</option>
@@ -45,8 +46,6 @@
         <option value="1000">fast</option>
       </select>
     </label>
-    <button id="start">Start</button>
-    <button id="stop">Stop</button>
     <button id="destroy">Destroy</button>
     <label for="render-tech">
       <span>Render tech</span>
@@ -58,6 +57,11 @@
     </label>
   </div>
 
+  <div class="playback-controls">
+    <button id="start" type="button">Start</button>
+    <button id="stop" type="button">Stop</button>
+  </div>
+
   <label class="progress-control" id="progress-ctl" for="progress">
     <span>Progress</span>
     <input id="progress" type="range" min="0" max="100" value="0" />
@@ -66,32 +70,32 @@
 
   <div class="spinner-grid">
     <section class="spinner-card">
-      <h2>Progress bar</h2>
-      <div id="stage-progress-bar" class="stage"></div>
-    </section>
-
-    <section class="spinner-card">
-      <h2>Cube (pop + scale)</h2>
+      <h2>
+        Cube (pop + scale)
+        <span class="card-playback">
+          <button type="button" class="card-start" data-index="0">Start</button>
+          <button type="button" class="card-stop" data-index="0">Stop</button>
+        </span>
+      </h2>
       <div id="stage-cube" class="stage"></div>
     </section>
 
     <section class="spinner-card">
-      <h2>Plane (3D fly-through)</h2>
+      <h2>
+        Plane (3D fly-through)
+        <span class="card-playback">
+          <button type="button" class="card-start" data-index="1">Start</button>
+          <button type="button" class="card-stop" data-index="1">Stop</button>
+        </span>
+      </h2>
       <div id="stage-plane" class="stage"></div>
-    </section>
-
-    <section class="spinner-card">
-      <h2>Test</h2>
-      <div id="stage-test" class="stage"></div>
     </section>
   </div>
 
   <script type="module">
     import { createSpinner } from "/dist/index.js";
-    import { ProgressBarAnimation } from "/dist/animations/progress-bar.js";
     import { SpinAnimation } from "/dist/animations/spin.js";
     import { PlaneAnimation } from "/dist/animations/plane.js";
-    import { TestAnimation } from "/dist/animations/test.js";
     import { parseObj } from "/dist/engines/little-3d-engine/loaders/obj.js";
 
     const planeObj = await fetch("/meshes/test/plane01/PUSHILIN_Plane.obj").then((r) => r.text());
@@ -107,7 +111,6 @@
     const isIndeterminate = () => type.value === "indeterminate";
 
     const animations = [
-      { target: document.getElementById("stage-progress-bar"), create: () => new ProgressBarAnimation() },
       {
         target: document.getElementById("stage-cube"),
         create: () => new SpinAnimation({ backend: backend(), progressAnimation: {} }),
@@ -117,57 +120,173 @@
         create: () =>
           new PlaneAnimation({ backend: backend(), mesh: () => parseObj(planeObj, { colors: ["#cbd5e1"] }) }),
       },
-      { target: document.getElementById("stage-test"), create: () => new TestAnimation() },
     ];
 
-    let spinners = [];
+    let spinners = animations.map(() => undefined);
+    let simRunning = false;
+    let simIndices = new Set();
+    let simStart = 0;
+    let simRafId = 0;
 
-    function options(animation) {
+    function simulatedProgress(now) {
+      const period = Number(speed.value);
+      const elapsed = (now - simStart) / period;
+      if (loop.value === "restart") return elapsed - Math.floor(elapsed);
+      const phase = elapsed - 2 * Math.floor(elapsed / 2);
+      return phase <= 1 ? phase : 2 - phase;
+    }
+
+    function stopSimulation(playOutro = true, indices = null) {
+      simRunning = false;
+      simIndices = new Set();
+      if (simRafId) {
+        cancelAnimationFrame(simRafId);
+        simRafId = 0;
+      }
+      if (playOutro) {
+        const targets = indices ?? spinners.map((_, index) => index);
+        targets.forEach((index) => spinners[index]?.stop());
+      }
+    }
+
+    function tickSimulation(now) {
+      if (!simRunning) return;
+      const value = simulatedProgress(now);
+      progress.value = String(Math.round(value * 100));
+      progressLabel.textContent = `${progress.value}%`;
+      simIndices.forEach((index) => spinners[index]?.setProgress(value));
+      simRafId = requestAnimationFrame(tickSimulation);
+    }
+
+    function startSimulation(indices) {
+      stopSimulation(false);
+      simRunning = true;
+      simIndices = new Set(indices);
+      simStart = performance.now();
+      tickSimulation(simStart);
+    }
+
+    function options(animation, progressValue = Number(progress.value) / 100) {
       if (isIndeterminate()) {
         return { type: "indeterminate", animation, loop: loop.value, periodMs: Number(speed.value) };
       }
-      return { type: "progress", animation, progress: Number(progress.value) / 100 };
+      return { type: "progress", animation, progress: progressValue };
     }
 
-    function mount() {
-      spinners.forEach((spinner) => spinner.destroy());
-      spinners = animations.map((demo) => {
-        demo.target.innerHTML = "";
-        return createSpinner(demo.target, options(demo.create()));
+    function clearStage(index) {
+      const target = animations[index].target;
+      target.replaceChildren();
+      target.style.removeProperty("position");
+    }
+
+    function mountDemo(index, progressValue) {
+      const demo = animations[index];
+      spinners[index]?.destroy();
+      clearStage(index);
+      spinners[index] = createSpinner(demo.target, options(demo.create(), progressValue));
+    }
+
+    function unmountDemo(index) {
+      spinners[index]?.destroy();
+      spinners[index] = undefined;
+      clearStage(index);
+    }
+
+    function mountAll(resetProgress = false) {
+      stopSimulation(false);
+      if (resetProgress) {
+        progress.value = "0";
+        progressLabel.textContent = "0%";
+      }
+      const progressValue = Number(progress.value) / 100;
+      animations.forEach((_, index) => mountDemo(index, progressValue));
+    }
+
+    function remountMounted() {
+      stopSimulation(false);
+      const progressValue = Number(progress.value) / 100;
+      spinners.forEach((spinner, index) => {
+        if (spinner) mountDemo(index, progressValue);
       });
     }
 
+    function startDemo(index) {
+      progress.value = "0";
+      progressLabel.textContent = "0%";
+      animations.forEach((_, otherIndex) => {
+        if (otherIndex !== index) unmountDemo(otherIndex);
+      });
+      mountDemo(index, 0);
+      if (!isIndeterminate()) startSimulation([index]);
+    }
+
+    function stopDemo(index) {
+      if (isIndeterminate()) spinners[index]?.stop();
+      else if (simIndices.has(index)) stopSimulation(true, [index]);
+      else spinners[index]?.stop();
+    }
+
+    function startAll() {
+      progress.value = "0";
+      progressLabel.textContent = "0%";
+      mountAll(true);
+      if (!isIndeterminate()) startSimulation(animations.map((_, index) => index));
+    }
+
+    function stopAll() {
+      if (isIndeterminate()) spinners.forEach((spinner) => spinner?.stop());
+      else stopSimulation();
+    }
+
     function syncControls() {
-      const indeterminate = isIndeterminate();
-      document.getElementById("loop-ctl").hidden = !indeterminate;
-      document.getElementById("speed-ctl").hidden = !indeterminate;
-      document.getElementById("progress-ctl").hidden = indeterminate;
+      document.getElementById("progress-ctl").hidden = isIndeterminate();
     }
 
     type.onchange = () => {
+      stopSimulation(false);
       syncControls();
-      mount();
+      mountAll();
     };
-    loop.onchange = () => mount();
-    speed.onchange = () => mount();
-    renderTech.onchange = () => mount();
+    loop.onchange = () => {
+      if (simRunning) {
+        const progressValue = Number(progress.value) / 100;
+        [...simIndices].forEach((index) => mountDemo(index, progressValue));
+        startSimulation([...simIndices]);
+      } else remountMounted();
+    };
+    speed.onchange = () => {
+      if (simRunning) {
+        const progressValue = Number(progress.value) / 100;
+        [...simIndices].forEach((index) => mountDemo(index, progressValue));
+        startSimulation([...simIndices]);
+      } else remountMounted();
+    };
+    renderTech.onchange = () => remountMounted();
 
-    document.getElementById("start").onclick = () => mount();
-    document.getElementById("stop").onclick = () => spinners.forEach((spinner) => spinner.stop());
+    document.getElementById("start").onclick = () => startAll();
+    document.getElementById("stop").onclick = () => stopAll();
     document.getElementById("destroy").onclick = () => {
-      spinners.forEach((spinner) => spinner.destroy());
-      spinners = [];
+      stopSimulation(false);
+      animations.forEach((_, index) => unmountDemo(index));
     };
+
+    document.querySelectorAll(".card-start").forEach((button) => {
+      button.onclick = () => startDemo(Number(button.dataset.index));
+    });
+    document.querySelectorAll(".card-stop").forEach((button) => {
+      button.onclick = () => stopDemo(Number(button.dataset.index));
+    });
 
     progress.oninput = () => {
       progressLabel.textContent = `${progress.value}%`;
-      if (!isIndeterminate()) {
-        spinners.forEach((spinner) => spinner.setProgress(Number(progress.value) / 100));
-      }
+      if (isIndeterminate()) return;
+      stopSimulation(false);
+      const value = Number(progress.value) / 100;
+      spinners.forEach((spinner) => spinner?.setProgress(value));
     };
 
     syncControls();
-    mount();
+    mountAll();
   </script>
 </body>
 

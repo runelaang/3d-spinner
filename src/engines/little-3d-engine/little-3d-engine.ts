@@ -88,19 +88,34 @@ export class Little3dEngine {
     this.resize();
 
     const generation = this.generation;
-    const renderer = await createRenderer(this.backend, { background: this.background });
-    if (generation !== this.generation) {
-      renderer.destroy();
-      return;
+    const dropCanvas = () => {
+      if (this.canvas !== canvas) return;
+      this.observer?.disconnect();
+      this.observer = undefined;
+      canvas.remove();
+      this.canvas = undefined;
+    };
+
+    try {
+      const renderer = await createRenderer(this.backend, { background: this.background });
+      if (generation !== this.generation) {
+        renderer.destroy();
+        dropCanvas();
+        return;
+      }
+      await renderer.init(canvas);
+      if (generation !== this.generation) {
+        renderer.destroy();
+        dropCanvas();
+        return;
+      }
+      this.renderer = renderer;
+      this.resize();
+      this.ready = true;
+    } catch (error) {
+      dropCanvas();
+      throw error;
     }
-    await renderer.init(canvas);
-    if (generation !== this.generation) {
-      renderer.destroy();
-      return;
-    }
-    this.renderer = renderer;
-    this.resize();
-    this.ready = true;
   }
 
   /** Add a mesh to the scene and return a handle for animating it. */
