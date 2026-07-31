@@ -23,7 +23,7 @@ export interface IndeterminateSpinnerOptions {
   animation: SpinnerAnimation;
   /** `"bounce"` ramps 0->1->0; `"restart"` ramps 0->1 then repeats. Default `"bounce"`. */
   loop?: "bounce" | "restart";
-  /** Milliseconds for one 0->1 sweep. Default `2000`. */
+  /** Milliseconds for one 0->1 sweep. Must be finite and greater than zero. Default `2000`. */
   periodMs?: number;
 }
 
@@ -34,7 +34,7 @@ export interface Spinner {
   setProgress(target: number): void;
   /** Play the outro, then stop animating (keeps the injected DOM in place). */
   stop(): void;
-  /** Stop immediately and remove the injected DOM (no outro). */
+  /** Stop immediately and remove the injected DOM (no outro). Safe to call more than once. */
   destroy(): void;
 }
 
@@ -54,11 +54,19 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 
   const { animation } = options;
   const indeterminate = options.type === "indeterminate";
+  if (
+    indeterminate &&
+    options.periodMs !== undefined &&
+    (!Number.isFinite(options.periodMs) || options.periodMs <= 0)
+  ) {
+    throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
+  }
   animation.mount(target);
 
   const start = performance.now();
   let rafId = 0;
   let stopped = false;
+  let destroyed = false;
   let entered = false;
   let exiting = false;
 
@@ -136,6 +144,8 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   }
 
   function destroy(): void {
+    if (destroyed) return;
+    destroyed = true;
     halt();
     animation.destroy();
   }
