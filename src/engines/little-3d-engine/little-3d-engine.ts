@@ -11,8 +11,8 @@ import {
 import { type Mesh, type Transform, transform as makeTransform } from "./mesh.js";
 import { type Backend, type Renderer, type RenderItem, createRenderer } from "./renderer.js";
 
-/** Options for {@link ThreeDEngine}. */
-export interface ThreeDEngineOptions {
+/** Options for {@link Little3dEngine}. */
+export interface Little3dEngineOptions {
   /** Rendering backend. Loaded on demand. Default `"canvas2d"`. */
   backend?: Backend;
   camera?: Partial<CameraOptions>;
@@ -43,7 +43,7 @@ function modelMatrix(t: Transform): Mat4 {
  * into any element to render in a component, or into a transparent positioned
  * element to overlay a page.
  */
-export class ThreeDEngine {
+export class Little3dEngine {
   private readonly camera: Camera;
   private readonly light: Light;
   private readonly backend: Backend;
@@ -60,7 +60,7 @@ export class ThreeDEngine {
   private rafId = 0;
   private running = false;
 
-  constructor(options: ThreeDEngineOptions = {}) {
+  constructor(options: Little3dEngineOptions = {}) {
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "canvas2d";

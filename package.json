@@ -23,9 +23,9 @@
       "types": "./dist/plugins/basic-3d-cube.d.ts",
       "import": "./dist/plugins/basic-3d-cube.js"
     },
-    "./engines/3dengine": {
-      "types": "./dist/engines/little-3d-engine/3dengine.d.ts",
-      "import": "./dist/engines/little-3d-engine/3dengine.js"
+    "./engines/little-3d-engine": {
+      "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
+      "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
     }
   },
   "files": [
