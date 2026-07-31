@@ -12,6 +12,7 @@ const entry = {
     export * from "../src/animations/object-motion.ts";
     export * from "../src/animations/particles.ts";
     export * from "../src/plugins/adaptive-quality.ts";
+    export * from "../src/prefabs/prefabs.ts";
     export * from "../src/motion/motion.ts";
     export * from "../src/motion/transitions.ts";
     export * from "../src/engines/little-3d-engine/little-3d-engine.ts";

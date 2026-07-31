@@ -191,6 +191,15 @@ body {
   gap: 1rem;
 }
 
+.prefab-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.prefab-grid .stage {
+  height: 680px;
+  min-height: 680px;
+}
+
 .spinner-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -359,5 +368,10 @@ code {
 
   .theme-toggle {
     margin-left: 0;
+  }
+
+  .prefab-grid .stage {
+    height: 520px;
+    min-height: 520px;
   }
 }

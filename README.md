@@ -100,6 +100,31 @@ Each animation is imported from its own subpath, so you only pull in the one you
 | `3d-spinner/animations/object-motion` | `ObjectMotionAnimation` | A mesh that follows a motion path, with an intro/outro you choose. |
 | `3d-spinner/animations/particles` | `ParticlesAnimation` | A stream of camera-facing billboard particles: a burst, a fountain, snow, confetti. |
 
+## Prefabs
+
+Prefabs provide complete indeterminate spinner options, including layered animation and adaptive
+particle quality. They need no configuration and accept an optional override object.
+
+```js
+import { createSpinner } from "3d-spinner";
+import { planeStarTrail } from "3d-spinner/prefabs";
+
+const spinner = createSpinner(document.getElementById("app"), planeStarTrail());
+```
+
+Common overrides include `backend`, `label`, `periodMs`, and `plugins`. Motion prefabs also accept
+`object` and `particles` option objects. A label can be text or any `HTMLElement`.
+
+```js
+const message = document.createElement("div");
+message.innerHTML = "<strong>Preparing preview</strong>";
+
+createSpinner(document.getElementById("app"), planeStarTrail({
+  label: message,
+  particles: { rate: 48 },
+}));
+```
+
 `ObjectMotionAnimation` takes a motion controller from `3d-spinner/motion` (`circleMotion`,
 `squareMotion`, `figureEightMotion`, `wanderMotion`) and optional entrance/exit transitions from
 `3d-spinner/motion/transitions` (`grow`, `shrink`, `enterFromObjectDirection`,
