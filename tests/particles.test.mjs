@@ -77,6 +77,20 @@ test("particleField: direction and spread confine emission to the cone", () => {
   }
 });
 
+test("particleField: alignToMotion follows velocity as gravity turns a particle", () => {
+  const field = particleField({
+    direction: { x: 1, y: 1, z: 0 },
+    spread: 0,
+    speed: 1,
+    gravity: { x: 0, y: -2, z: 0 },
+    alignToMotion: true,
+  });
+  const upward = field.sample(0, 100).roll;
+  const downward = field.sample(0, 1000).roll;
+  assert.ok(upward > 0, "starts angled upward");
+  assert.ok(downward < 0, "turns downward under gravity");
+});
+
 test("particleField: invalid rate or lifeMs throws RangeError", () => {
   assert.throws(() => particleField({ rate: 0 }), RangeError);
   assert.throws(() => particleField({ rate: Infinity }), RangeError);

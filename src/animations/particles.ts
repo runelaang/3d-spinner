@@ -35,6 +35,8 @@ export interface ParticlesOptions {
   opacity?: number;
   /** Maximum spin around the view axis in radians per millisecond. Default `0.002`. */
   spin?: number;
+  /** Rotate each billboard around the view axis to follow its current velocity. Default `false`. */
+  alignToMotion?: boolean;
   /** Seed for the deterministic particle stream. Default `1`. */
   seed?: number;
   /** Rendering backend. Default `"canvas2d"`. */
@@ -121,6 +123,7 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
   const spread = options.spread ?? 0.5;
   const peak = Math.max(0, Math.min(1, options.opacity ?? 0.9));
   const spin = options.spin ?? 0.002;
+  const alignToMotion = options.alignToMotion ?? false;
   const seed = options.seed ?? 1;
   const basis = options.direction && emitBasis(options.direction);
   const spawnGapMs = 1000 / rate;
@@ -154,16 +157,24 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
 
       const seconds = age / 1000;
       const dir = directionOf(index);
-      const travel = speed * (0.6 + 0.8 * rand01(seed, index, 2)) * seconds;
+      const particleSpeed = speed * (0.6 + 0.8 * rand01(seed, index, 2));
+      const travel = particleSpeed * seconds;
       const pull = gravity ? 0.5 * seconds * seconds : 0;
       const life = age / lifeMs;
+      const roll = alignToMotion
+        ? Math.atan2(
+            dir.y * particleSpeed + (gravity?.y ?? 0) * seconds,
+            dir.x * particleSpeed + (gravity?.x ?? 0) * seconds,
+          )
+        : 2 * Math.PI * rand01(seed, index, 3)
+          + (2 * rand01(seed, index, 4) - 1) * spin * age;
       return {
         position: {
           x: dir.x * travel + (gravity ? gravity.x * pull : 0),
           y: dir.y * travel + (gravity ? gravity.y * pull : 0),
           z: dir.z * travel + (gravity ? gravity.z * pull : 0),
         },
-        roll: 2 * Math.PI * rand01(seed, index, 3) + (2 * rand01(seed, index, 4) - 1) * spin * age,
+        roll,
         size: size * (0.7 + 0.6 * rand01(seed, index, 5)),
         opacity:
           peak * smoothstep(0, FADE_IN_END, life) * (1 - smoothstep(FADE_OUT_START, 1, life)),
