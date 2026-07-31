@@ -1,7 +1,7 @@
-export type { MotionPrefabOptions, MotionProgressPrefabOptions, ParticlePrefabOptions, PrefabOptions, ProgressPrefabOptions, } from "./types.js";
+export type { MotionPrefabOptions, ParticlePrefabOptions, PrefabOptions, ProgressPrefabOptions, } from "./types.js";
 export { chargedOrb, type ChargedOrbPrefabOptions } from "./charged-orb.js";
 export { crystalComet } from "./crystal-comet.js";
-export { ghostTrain } from "./ghost-train.js";
+export { ghostTrain, type GhostTrainPrefabOptions } from "./ghost-train.js";
 export { gridAssembly, type GridAssemblyPrefabOptions } from "./grid-assembly.js";
 export { monochromeStreak } from "./monochrome-streak.js";
 export { planeStarTrail } from "./plane-star-trail.js";

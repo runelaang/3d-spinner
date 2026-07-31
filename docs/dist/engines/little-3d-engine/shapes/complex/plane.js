@@ -32,6 +32,8 @@ export function planeMesh(colors = DEFAULT_COLORS, material) {
             { indices: [7, 3, 4], color: colors[2] ?? DEFAULT_COLORS[2] },
             { indices: [7, 4, 5], color: colors[1] ?? DEFAULT_COLORS[1] },
             { indices: [7, 5, 0], color: colors[2] ?? DEFAULT_COLORS[2] },
+            // Tail fin: the same triangle in both windings so the zero-thickness fin
+            // stays visible from either side under backface culling.
             { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS[0] },
             { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS[1] },
         ],

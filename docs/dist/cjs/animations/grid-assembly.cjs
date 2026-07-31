@@ -389,9 +389,11 @@ void main() {
         const data = expandToTriangles(mesh);
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
+        const buffers = [];
         const attribute = (location, array, size = 3) => {
           if (location < 0) return;
           const buffer = gl.createBuffer();
+          buffers.push(buffer);
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
           gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
           gl.enableVertexAttribArray(location);
@@ -403,7 +405,7 @@ void main() {
         attribute(loc.aEmissive, data.emissives);
         attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);
-        const result = { vao, count: data.count };
+        const result = { vao, buffers, count: data.count };
         this.cache.set(mesh, result);
         return result;
       }
@@ -461,7 +463,10 @@ void main() {
       destroy() {
         const gl = this.gl;
         if (gl) {
-          for (const mesh of this.cache.values()) gl.deleteVertexArray(mesh.vao);
+          for (const mesh of this.cache.values()) {
+            gl.deleteVertexArray(mesh.vao);
+            for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
+          }
           if (this.program) gl.deleteProgram(this.program);
         }
         this.cache.clear();

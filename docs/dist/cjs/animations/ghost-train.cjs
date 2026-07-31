@@ -185,31 +185,6 @@ function expandToTriangles(mesh) {
   }
   return { positions, normals, colors, emissives, speculars, count: positions.length / 3 };
 }
-function midpoint(a, b) {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
-}
-function sphereFromTriangles(seedVertices, seedFaces, size, detail, colors) {
-  const radius = size / 2;
-  let triangles = seedFaces.map((f) => f.map((i) => normalize(seedVertices[i])));
-  const levels = Math.max(0, Math.floor(detail) - 1);
-  for (let level = 0; level < levels; level++) {
-    const next = [];
-    for (const [a, b, c] of triangles) {
-      const ab = normalize(midpoint(a, b));
-      const bc = normalize(midpoint(b, c));
-      const ca = normalize(midpoint(c, a));
-      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
-    }
-    triangles = next;
-  }
-  const vertices = [];
-  const faces = triangles.map((tri, i) => {
-    const base = vertices.length;
-    vertices.push(scale(tri[0], radius), scale(tri[1], radius), scale(tri[2], radius));
-    return { indices: [base, base + 1, base + 2], color: colors[i % colors.length] };
-  });
-  return { vertices, faces };
-}
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
@@ -980,12 +955,54 @@ var init_renderer = __esm({
   }
 });
 
-// src/animations/charged-orb.ts
-var charged_orb_exports = {};
-__export(charged_orb_exports, {
-  ChargedOrbAnimation: () => ChargedOrbAnimation
+// src/animations/ghost-train.ts
+var ghost_train_exports = {};
+__export(ghost_train_exports, {
+  GhostTrainAnimation: () => GhostTrainAnimation
 });
-module.exports = __toCommonJS(charged_orb_exports);
+module.exports = __toCommonJS(ghost_train_exports);
+
+// src/animation-label.ts
+var LABEL_STYLE = [
+  "position:absolute",
+  "inset:0",
+  "display:flex",
+  "align-items:center",
+  "justify-content:center",
+  "pointer-events:none",
+  "font:700 1.6rem/1 system-ui,sans-serif",
+  "letter-spacing:0.02em",
+  "color:rgba(255,255,255,0.9)",
+  "text-shadow:0 1px 10px rgba(0,0,0,0.6)",
+  "z-index:1"
+].join(";");
+function animationLabelOpacity(now, enterAt, introDurationMs, exitAt, outroDurationMs) {
+  if (enterAt === Infinity) return 0;
+  const intro = introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
+  const outro = exitAt === Infinity ? 1 : outroDurationMs <= 0 ? 0 : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
+  return Math.min(intro, outro);
+}
+function mountAnimationLabel(target, content) {
+  var _a;
+  const container = document.createElement("div");
+  container.style.cssText = LABEL_STYLE;
+  container.setAttribute("role", "status");
+  if (typeof content === "string") container.textContent = content;
+  else if (content) {
+    (_a = content.style).pointerEvents || (_a.pointerEvents = "auto");
+    container.appendChild(content);
+  }
+  target.appendChild(container);
+  return {
+    container,
+    setText(value) {
+      if (typeof content !== "object") container.textContent = value;
+    },
+    setOpacity(value) {
+      container.style.opacity = String(value);
+    }
+  };
+}
 
 // src/engines/little-3d-engine/core/camera.ts
 init_math();
@@ -1043,9 +1060,33 @@ function transform(init) {
 init_renderer();
 init_light();
 
+// src/engines/little-3d-engine/shapes/primitives/cube.ts
+var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
+function cube(size = 1, colors = DEFAULT_COLORS, material) {
+  const h = size / 2;
+  const vertices = [
+    { x: -h, y: -h, z: h },
+    { x: h, y: -h, z: h },
+    { x: h, y: h, z: h },
+    { x: -h, y: h, z: h },
+    { x: -h, y: -h, z: -h },
+    { x: h, y: -h, z: -h },
+    { x: h, y: h, z: -h },
+    { x: -h, y: h, z: -h }
+  ];
+  const faces = [
+    { indices: [0, 1, 2, 3], color: colors[0 % colors.length] },
+    { indices: [5, 4, 7, 6], color: colors[1 % colors.length] },
+    { indices: [3, 2, 6, 7], color: colors[2 % colors.length] },
+    { indices: [4, 5, 1, 0], color: colors[3 % colors.length] },
+    { indices: [1, 5, 6, 2], color: colors[4 % colors.length] },
+    { indices: [4, 0, 3, 7], color: colors[5 % colors.length] }
+  ];
+  return attachMaterial({ vertices, faces }, material);
+}
+
 // src/engines/little-3d-engine/shapes/primitives/spheres/icosphere.ts
 init_geometry();
-var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 var T = (1 + Math.sqrt(5)) / 2;
 var SEED_VERTICES = [
   { x: -1, y: T, z: 0 },
@@ -1061,34 +1102,6 @@ var SEED_VERTICES = [
   { x: -T, y: 0, z: -1 },
   { x: -T, y: 0, z: 1 }
 ];
-var SEED_FACES = [
-  [0, 11, 5],
-  [0, 5, 1],
-  [0, 1, 7],
-  [0, 7, 10],
-  [0, 10, 11],
-  [1, 5, 9],
-  [5, 11, 4],
-  [11, 10, 2],
-  [10, 7, 6],
-  [7, 1, 8],
-  [3, 9, 4],
-  [3, 4, 2],
-  [3, 2, 6],
-  [3, 6, 8],
-  [3, 8, 9],
-  [4, 9, 5],
-  [2, 4, 11],
-  [6, 2, 10],
-  [8, 6, 7],
-  [9, 8, 1]
-];
-function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
-  return attachMaterial(
-    sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
-    material
-  );
-}
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/octa-sphere.ts
 init_geometry();
@@ -1241,31 +1254,45 @@ var Little3dEngine = class {
   }
 };
 
+// src/motion/square.ts
+function squareMotion(options = {}) {
+  const half = (options.size ?? 2.4) / 2;
+  const periodMs = options.periodMs ?? 4e3;
+  const tilt = options.tilt ?? 0.45;
+  const direction = options.direction ?? 1;
+  const cosTilt = Math.cos(tilt);
+  const sinTilt = Math.sin(tilt);
+  return {
+    positionAt(t) {
+      const lap = direction * t / periodMs;
+      const s = (lap - Math.floor(lap)) * 4;
+      const edge = Math.floor(s);
+      const f = s - edge;
+      let flatX;
+      let flatY;
+      if (edge === 0) {
+        flatX = -half + 2 * half * f;
+        flatY = -half;
+      } else if (edge === 1) {
+        flatX = half;
+        flatY = -half + 2 * half * f;
+      } else if (edge === 2) {
+        flatX = half - 2 * half * f;
+        flatY = half;
+      } else {
+        flatX = -half;
+        flatY = half - 2 * half * f;
+      }
+      return { x: flatX, y: flatY * cosTilt, z: flatY * sinTilt };
+    }
+  };
+}
+
 // src/engines/little-tween-engine/core/tweens.ts
 function input(value, overextend) {
   if (Number.isNaN(value)) return 0;
   if (overextend) return value;
   return Math.min(1, Math.max(0, value));
-}
-function easeInQuad(value, overextend = false) {
-  const x = input(value, overextend);
-  return x * x;
-}
-function easeOutQuad(value, overextend = false) {
-  const x = input(value, overextend);
-  return 1 - (1 - x) * (1 - x);
-}
-function easeInCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return x * x * x;
-}
-function easeOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return 1 - Math.pow(1 - x, 3);
-}
-function easeInOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
-  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 function easeOutBack(value, overextend = false) {
   const x = input(value, overextend);
@@ -1274,208 +1301,212 @@ function easeOutBack(value, overextend = false) {
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
 }
 
-// src/animations/charged-orb.ts
-var MINIS = 10;
+// src/animations/ghost-train.ts
+var MAX_CARS = 50;
 var CAMERA_Z = 3;
-var CENTER_SCALE = 0.76;
-var MINI_SCALE = 0.36;
-var MINI_TRANSPARENCY = { mode: "two-sided", frontOpacity: 0.68, backOpacity: 0.87 };
-var ORBIT_RADIUS = 1.2;
-var TILT = 0.8;
-var TWO_PI = Math.PI * 2;
-var CENTER_POP_MS = 500;
-var LAUNCH_MS = 550;
-var EXIT_HURRY = 2.5;
-var SPREAD_TAU_MS = 250;
-var EXTRA_PAUSE_MS = 250;
-var EXTRA_SPIN_MS = 1300;
-var REENTER_MS = 600;
-var REENTER_STAGGER_MS = 45;
-var CENTER_POP_OUT_AT = REENTER_MS + (MINIS - 1) * REENTER_STAGGER_MS + 150;
-var CENTER_POP_OUT_MS = 420;
-var PARKED = { x: 0, y: 0, z: 50 };
-var ORB_MATERIAL = { specular: [1, 1, 1], shininess: 28 };
-var CENTER_COLORS = ["#67e8f9", "#22d3ee", "#0ea5e9", "#38bdf8", "#7dd3fc"];
-var MINI_COLORS = [
-  ["#e0f2fe", "#bae6fd", "#7dd3fc"],
-  ["#c7d2fe", "#a5b4fc", "#818cf8"],
-  ["#a5f3fc", "#67e8f9", "#22d3ee"]
-];
+var FOV = 55 * Math.PI / 180;
+var HALF_HEIGHT = Math.tan(FOV / 2) * CAMERA_Z;
+var RUN_GAP_MS = 130;
+var POP_MS = 320;
+var SAMPLE_MS = 8;
+var TURN_RATE = 0.4 * Math.PI / 180;
+var MAX_OUTRO_MS = 4e3;
+var WARP_ACCEL = 1e3;
+var TRAIL_OUTRO_MS = 1200;
+var TRANSPARENCY = { mode: "two-sided", opacity: 0.275 };
+var CAR_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"];
+var CAR_MATERIAL = { emissive: [0.1, 0.2, 0.3] };
+var WORLD_UP = { x: 0, y: 1, z: 0 };
 function clamp012(value) {
   return Math.max(0, Math.min(1, value));
 }
-var ChargedOrbAnimation = class {
+function orientationFor(forward) {
+  const fwd = normalize(forward);
+  let right = cross(fwd, WORLD_UP);
+  if (Math.hypot(right.x, right.y, right.z) < 1e-4) right = { x: 0, y: 0, z: 1 };
+  right = normalize(right);
+  const up = cross(right, fwd);
+  const w = normalize(cross(fwd, up));
+  return {
+    x: Math.atan2(cross(w, fwd).z, w.z),
+    y: Math.asin(Math.max(-1, Math.min(1, -fwd.z))),
+    z: Math.atan2(fwd.y, fwd.x)
+  };
+}
+function rotateToward(from, to, maxRad) {
+  const a = normalize(from);
+  const b = normalize(to);
+  const d = Math.max(-1, Math.min(1, dot(a, b)));
+  const angle = Math.acos(d);
+  if (angle <= maxRad || angle < 1e-4) return b;
+  const sin = Math.sin(angle);
+  if (sin < 1e-4) return b;
+  const t = maxRad / angle;
+  const w1 = Math.sin((1 - t) * angle) / sin;
+  const w2 = Math.sin(t * angle) / sin;
+  return normalize({ x: a.x * w1 + b.x * w2, y: a.y * w1 + b.y * w2, z: a.z * w1 + b.z * w2 });
+}
+var GhostTrainAnimation = class {
   constructor(options = {}) {
-    this.minis = [];
-    this.blends = new Array(MINIS).fill(0);
-    this.offsets = new Array(MINIS).fill(0);
+    this.cars = [];
+    this.appear = new Array(MAX_CARS).fill(0);
+    this.headings = new Array(MAX_CARS).fill(void 0);
+    this.aspect = 16 / 9;
     this.enterAt = Infinity;
-    this.exitAt = Infinity;
-    this.allOutAt = Infinity;
+    this.outroAt = Infinity;
+    this.carsAtOutro = 0;
+    this.exitPathTime = 0;
+    // lead car's path-time at blast-off (the escape switch point)
+    this.exitPoint = { x: 0, y: 0, z: 0 };
+    this.exitDir = { x: 1, y: 0, z: 0 };
+    // shared escape direction, outward from the track
+    this.exitSpeed = 1e-3;
+    // path-units per path-millisecond at the switch (keeps speed continuous)
     this.lastNow = 0;
     this.finished = false;
-    this.orbitPeriodMs = options.orbitPeriodMs ?? 6e3;
+    this.motion = options.motion ?? squareMotion({ size: 1.7, periodMs: 6800, tilt: 0.5 });
+    this.size = options.size ?? 0.15;
     this.backend = options.backend;
+    this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
   }
   mount(target) {
     if (!target.style.position) target.style.position = "relative";
     const engine = new Little3dEngine({
       backend: this.backend,
-      camera: { position: { x: 0, y: 0, z: CAMERA_Z } }
+      camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV }
     });
-    this.center = engine.add(icosphere(1, 2, CENTER_COLORS, ORB_MATERIAL), { scale: 0 });
-    for (let i = 0; i < MINIS; i++) {
-      const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length], ORB_MATERIAL);
-      this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
+    const mesh = cube(1, CAR_COLORS, CAR_MATERIAL);
+    for (let i = 0; i < MAX_CARS; i++) {
+      this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
     }
     this.engine = engine;
     engine.mount(target).catch((error) => {
       target.textContent = error instanceof Error ? error.message : String(error);
     });
+    const measure = () => {
+      if (target.clientWidth > 0 && target.clientHeight > 0) {
+        this.aspect = target.clientWidth / target.clientHeight;
+      }
+    };
+    measure();
+    this.observer = new ResizeObserver(measure);
+    this.observer.observe(target);
+    this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
   }
   enter(now) {
     if (this.enterAt === Infinity) this.enterAt = now;
   }
   exit(now) {
-    if (this.exitAt === Infinity) this.exitAt = now;
+    if (this.outroAt !== Infinity || this.enterAt === Infinity) return;
+    this.outroAt = now;
+    this.carsAtOutro = this.appear.filter((a) => a > 0.5).length;
+    this.exitPathTime = now - this.enterAt;
+    const from = this.motion.positionAt(this.exitPathTime);
+    const velocity = subtract(
+      this.motion.positionAt(this.exitPathTime + 1),
+      this.motion.positionAt(this.exitPathTime - 1)
+    );
+    const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+    this.exitPoint = from;
+    if (speed > 1e-6) this.exitSpeed = speed / 2;
+    this.exitDir = speed > 1e-6 ? normalize(velocity) : { x: 1, y: 0, z: 0 };
   }
   isFinished() {
     return this.finished;
   }
-  /** Milliseconds after {@link exit} during which the satellites are still flying. */
-  get outroEmitMs() {
-    return EXTRA_PAUSE_MS + EXTRA_SPIN_MS + CENTER_POP_OUT_AT;
+  /** Milliseconds the lead car keeps moving into the outro; feed a trail layer's `outroMs`. */
+  get outroDurationMs() {
+    return TRAIL_OUTRO_MS;
   }
   /**
-   * A {@link MotionController} that cycles across the live satellites, one
-   * spawn slot per orb, so a particle layer emits one stream per satellite.
-   * `spawnGapMs` must match the particle layer's emission gap (`1000 / rate`).
+   * A {@link MotionController} following the lead car's actual position, through
+   * laps and the accelerating escape. Feed it to a particle layer's `emitter`
+   * so the star trail stays behind the train.
    */
-  satelliteEmitter(spawnGapMs) {
+  trailEmitter() {
     return {
-      positionAt: (t) => {
-        const live = [];
-        for (let i = 0; i < MINIS; i++) {
-          const sample = this.miniSample(i, t);
-          if (sample) live.push(sample.position);
-        }
-        if (live.length === 0) return PARKED;
-        const slot = Math.abs(Math.floor(t / spawnGapMs)) % live.length;
-        return live[slot];
-      }
+      positionAt: (t) => this.enterAt === Infinity ? this.motion.positionAt(t) : this.pathPosition(t - this.enterAt + this.warp(t))
     };
   }
   render(now, frame) {
-    if (!this.engine || !this.center) return;
+    if (!this.engine || !this.label) return;
+    for (const car of this.cars) car.transform.scale = 0;
     if (this.enterAt === Infinity) {
-      this.center.transform.scale = 0;
-      for (const mini of this.minis) mini.transform.scale = 0;
       this.engine.render();
       return;
     }
     const dt = this.lastNow === 0 ? 16 : Math.min(50, now - this.lastNow);
     this.lastNow = now;
-    this.updateBlends(dt, frame.progress, now);
-    this.updateSpread(dt);
-    const t = now - this.enterAt;
-    this.center.transform.scale = this.centerScale(now, t);
-    this.center.transform.rotation.x = t * 2e-4;
-    this.center.transform.rotation.y = t * 5e-4;
-    for (let i = 0; i < MINIS; i++) {
-      const transform2 = this.minis[i].transform;
-      const sample = this.miniSample(i, now);
-      if (!sample) {
-        transform2.scale = 0;
+    const want = this.outroAt !== Infinity ? this.carsAtOutro : Math.min(MAX_CARS, Math.round(frame.progress * MAX_CARS));
+    const halfWidth = HALF_HEIGHT * this.aspect;
+    const warp = this.warp(now);
+    let anyOnScreen = false;
+    for (let k = 0; k < MAX_CARS; k++) {
+      const target = k < want ? 1 : 0;
+      this.appear[k] = clamp012(this.appear[k] + Math.sign(target - this.appear[k]) * (dt / POP_MS));
+      if (this.appear[k] <= 0) {
+        this.headings[k] = void 0;
         continue;
       }
-      transform2.position.x = sample.position.x;
-      transform2.position.y = sample.position.y;
-      transform2.position.z = sample.position.z;
-      transform2.scale = sample.scale;
-      transform2.rotation.y = t * 12e-4;
+      const p = now - this.enterAt - k * RUN_GAP_MS + warp;
+      const position = this.pathPosition(p);
+      if (Math.abs(position.x) > halfWidth + this.size || Math.abs(position.y) > HALF_HEIGHT + this.size) {
+        continue;
+      }
+      const ahead = subtract(this.pathPosition(p + SAMPLE_MS), position);
+      const targetDir = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5 ? ahead : this.headings[k] ?? { x: 1, y: 0, z: 0 };
+      this.headings[k] = this.headings[k] ? rotateToward(this.headings[k], targetDir, TURN_RATE * dt) : normalize(targetDir);
+      const orientation = orientationFor(this.headings[k]);
+      const transform2 = this.cars[k].transform;
+      transform2.position.x = position.x;
+      transform2.position.y = position.y;
+      transform2.position.z = position.z;
+      transform2.rotation.x = orientation.x;
+      transform2.rotation.y = orientation.y;
+      transform2.rotation.z = orientation.z;
+      transform2.scale = this.size * easeOutBack(this.appear[k]);
+      anyOnScreen = true;
+    }
+    this.label.setText(frame.indeterminate ? typeof this.labelContent === "string" ? this.labelContent : "" : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
+    }
+    if (this.outroAt !== Infinity && now > this.outroAt + 300 && (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
+      this.finished = true;
     }
     this.engine.render();
   }
   destroy() {
+    this.observer?.disconnect();
+    this.observer = void 0;
+    this.label?.container.remove();
+    this.label = void 0;
     this.engine?.destroy();
     this.engine = void 0;
-    this.center = void 0;
-    this.minis.length = 0;
+    this.cars.length = 0;
   }
-  updateBlends(dt, progress, now) {
-    const exiting = this.exitAt !== Infinity;
-    const want = exiting ? MINIS : Math.min(MINIS, Math.floor(progress * MINIS + 1e-9));
-    const rate = dt / LAUNCH_MS * (exiting ? EXIT_HURRY : 1);
-    for (let i = 0; i < MINIS; i++) {
-      const target = i < want ? 1 : 0;
-      const blend = this.blends[i];
-      if (target > blend && (i === 0 || this.blends[i - 1] >= 0.6)) {
-        this.blends[i] = Math.min(1, blend + rate);
-        if (blend === 0) this.offsets[i] = this.slotAngle(i);
-      } else if (target < blend && (i === MINIS - 1 || this.blends[i + 1] <= 0.4)) {
-        this.blends[i] = Math.max(0, blend - rate);
-      }
+  /** Extra path-time every car has accelerated forward by, `now` ms into the outro. */
+  warp(now) {
+    if (this.outroAt === Infinity) return 0;
+    const seconds = (now - this.outroAt) / 1e3;
+    return 0.5 * WARP_ACCEL * seconds * seconds;
+  }
+  /**
+   * The single trajectory every car rides, sampled at path-time `p`: the track
+   * up to the exit switch point, then a straight escape outward. Because the
+   * switch point and direction are shared, all cars follow the exact same path.
+   */
+  pathPosition(p) {
+    if (this.outroAt === Infinity || p <= this.exitPathTime) {
+      return this.motion.positionAt(p);
     }
-    if (exiting && this.allOutAt === Infinity && this.blends.every((blend) => blend >= 1)) {
-      this.allOutAt = now;
-    }
-  }
-  updateSpread(dt) {
-    const ease = 1 - Math.exp(-dt / SPREAD_TAU_MS);
-    for (let i = 0; i < MINIS; i++) {
-      if (this.blends[i] <= 0) continue;
-      this.offsets[i] += (this.slotAngle(i) - this.offsets[i]) * ease;
-    }
-  }
-  slotAngle(index) {
-    const launched = Math.max(1, this.blends.filter((blend) => blend > 0).length);
-    return TWO_PI * Math.min(index, launched - 1) / launched;
-  }
-  baseAngleAt(t) {
-    let angle = -TWO_PI * (t - this.enterAt) / this.orbitPeriodMs;
-    if (this.allOutAt !== Infinity) {
-      const u = clamp012((t - this.allOutAt - EXTRA_PAUSE_MS) / EXTRA_SPIN_MS);
-      angle -= TWO_PI * easeInOutCubic(u);
-    }
-    return angle;
-  }
-  reenterStart() {
-    return this.allOutAt + EXTRA_PAUSE_MS + EXTRA_SPIN_MS;
-  }
-  miniSample(index, t) {
-    const blend = this.blends[index];
-    if (blend <= 0) return void 0;
-    let radial = easeOutCubic(blend);
-    let scale2 = MINI_SCALE * easeOutBack(blend);
-    if (this.allOutAt !== Infinity) {
-      const start = this.reenterStart() + index * REENTER_STAGGER_MS;
-      const pull = easeInCubic(clamp012((t - start) / REENTER_MS));
-      if (pull >= 1) return void 0;
-      radial *= 1 - pull;
-      scale2 *= 1 - pull;
-    }
-    const angle = this.baseAngleAt(t) + this.offsets[index];
-    const flat = Math.sin(angle) * ORBIT_RADIUS * radial;
+    const distance = this.exitSpeed * (p - this.exitPathTime);
     return {
-      position: {
-        x: Math.cos(angle) * ORBIT_RADIUS * radial,
-        y: flat * Math.cos(TILT),
-        z: flat * Math.sin(TILT)
-      },
-      scale: scale2
+      x: this.exitPoint.x + this.exitDir.x * distance,
+      y: this.exitPoint.y + this.exitDir.y * distance,
+      z: this.exitPoint.z + this.exitDir.z * distance
     };
-  }
-  centerScale(now, t) {
-    if (this.allOutAt !== Infinity) {
-      const w = clamp012((now - this.reenterStart() - CENTER_POP_OUT_AT) / CENTER_POP_OUT_MS);
-      if (w >= 1) {
-        this.finished = true;
-        return 0;
-      }
-      if (w > 0) {
-        return CENTER_SCALE * (w < 0.35 ? 1 + 0.18 * easeOutQuad(w / 0.35) : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)));
-      }
-    }
-    return CENTER_SCALE * easeOutBack(clamp012(t / CENTER_POP_MS));
   }
 };

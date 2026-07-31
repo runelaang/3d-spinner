@@ -414,9 +414,11 @@ void main() {
         const data = expandToTriangles(mesh);
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
+        const buffers = [];
         const attribute = (location, array, size = 3) => {
           if (location < 0) return;
           const buffer = gl.createBuffer();
+          buffers.push(buffer);
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
           gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
           gl.enableVertexAttribArray(location);
@@ -428,7 +430,7 @@ void main() {
         attribute(loc.aEmissive, data.emissives);
         attribute(loc.aSpecular, data.speculars, 4);
         gl.bindVertexArray(null);
-        const result = { vao, count: data.count };
+        const result = { vao, buffers, count: data.count };
         this.cache.set(mesh, result);
         return result;
       }
@@ -486,7 +488,10 @@ void main() {
       destroy() {
         const gl = this.gl;
         if (gl) {
-          for (const mesh of this.cache.values()) gl.deleteVertexArray(mesh.vao);
+          for (const mesh of this.cache.values()) {
+            gl.deleteVertexArray(mesh.vao);
+            for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
+          }
           if (this.program) gl.deleteProgram(this.program);
         }
         this.cache.clear();
@@ -1428,9 +1433,11 @@ void main() {
         const data = expandToTriangles(mesh);
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
+        const buffers = [];
         const attribute = (location, array, size) => {
           if (location < 0) return;
           const buffer = gl.createBuffer();
+          buffers.push(buffer);
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
           gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
           gl.enableVertexAttribArray(location);
@@ -1440,7 +1447,7 @@ void main() {
         attribute(loc.aColor, data.colors, 3);
         attribute(loc.aUV, planarUVs(mesh), 2);
         gl.bindVertexArray(null);
-        const result = { vao, count: data.count };
+        const result = { vao, buffers, count: data.count };
         this.buffers.set(mesh, result);
         return result;
       }
@@ -1478,7 +1485,10 @@ void main() {
         const gl = this.gl;
         if (gl) {
           for (const texture of this.textures.values()) gl.deleteTexture(texture);
-          for (const buffers of this.buffers.values()) gl.deleteVertexArray(buffers.vao);
+          for (const cached of this.buffers.values()) {
+            gl.deleteVertexArray(cached.vao);
+            for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+          }
           if (this.program) gl.deleteProgram(this.program);
         }
         this.textures.clear();
@@ -1810,7 +1820,7 @@ function quad(size = 1, colors = DEFAULT_COLORS2, material) {
     { x: -s, y: s, z: 0 }
   ];
   return attachMaterial(
-    { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0] }] },
+    { vertices, faces: [{ indices: [0, 1, 2, 3], color: colors[0 % colors.length] }] },
     material
   );
 }
@@ -1933,6 +1943,8 @@ function planeMesh(colors = DEFAULT_COLORS6, material) {
       { indices: [7, 3, 4], color: colors[2] ?? DEFAULT_COLORS6[2] },
       { indices: [7, 4, 5], color: colors[1] ?? DEFAULT_COLORS6[1] },
       { indices: [7, 5, 0], color: colors[2] ?? DEFAULT_COLORS6[2] },
+      // Tail fin: the same triangle in both windings so the zero-thickness fin
+      // stays visible from either side under backface culling.
       { indices: [3, 6, 8], color: colors[0] ?? DEFAULT_COLORS6[0] },
       { indices: [3, 8, 6], color: colors[1] ?? DEFAULT_COLORS6[1] }
     ]
@@ -3289,8 +3301,8 @@ var GhostTrainAnimation = class {
 function ghostTrain(options = {}) {
   const particles = options.particles ?? {};
   const train = new GhostTrainAnimation({
-    motion: options.object?.motion,
-    backend: options.backend
+    backend: options.backend,
+    ...options.train
   });
   const trail = new ParticlesAnimation({
     rate: 30,
