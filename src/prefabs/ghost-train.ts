@@ -24,10 +24,10 @@ export function ghostTrain(options: MotionProgressPrefabOptions = {}): ProgressS
   const trail = new ParticlesAnimation({
     rate: 30,
     lifeMs: 1700,
-    size: 0.13,
-    speed: 0.07,
+    size: 0.15,
+    speed: 0.11,
     colors: ["#e0f2fe", "#a5f3fc", "#c4b5fd"],
-    texture: particles.texture ?? starTexture(),
+    texture: particles.texture ?? starTexture({ glow: 5 }),
     emitter: train.trailEmitter(),
     outroMs: train.outroDurationMs,
     seed: 17,
