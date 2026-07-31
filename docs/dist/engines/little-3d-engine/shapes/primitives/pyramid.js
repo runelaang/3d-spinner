@@ -1,3 +1,4 @@
+import { attachMaterial } from "../../core/mesh.js";
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
 /**
  * Build a square pyramid mesh centered on the origin, base down.
@@ -5,8 +6,9 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
  * @param size Base edge length (also the height). Defaults to `1`.
  * @param colors Five CSS colors: the square base, then the four triangular sides.
  *   Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function pyramid(size = 1, colors = DEFAULT_COLORS) {
+export function pyramid(size = 1, colors = DEFAULT_COLORS, material) {
     const h = size / 2;
     const vertices = [
         { x: -h, y: -h, z: h },
@@ -22,5 +24,5 @@ export function pyramid(size = 1, colors = DEFAULT_COLORS) {
         { indices: [4, 2, 3], color: colors[3 % colors.length] },
         { indices: [4, 3, 0], color: colors[4 % colors.length] },
     ];
-    return { vertices, faces };
+    return attachMaterial({ vertices, faces }, material);
 }

@@ -1,3 +1,4 @@
+import { attachMaterial } from "../../core/mesh.js";
 const DEFAULT_COLORS = [
     "#3b82f6",
     "#8b5cf6",
@@ -13,8 +14,9 @@ const DEFAULT_COLORS = [
  *
  * @param size Distance between opposite vertices. Defaults to `1`.
  * @param colors Eight CSS colors, one per triangular face. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function octahedron(size = 1, colors = DEFAULT_COLORS) {
+export function octahedron(size = 1, colors = DEFAULT_COLORS, material) {
     const r = size / 2;
     const vertices = [
         { x: r, y: 0, z: 0 },
@@ -34,5 +36,5 @@ export function octahedron(size = 1, colors = DEFAULT_COLORS) {
         { indices: [5, 3, 1], color: colors[6 % colors.length] },
         { indices: [5, 0, 3], color: colors[7 % colors.length] },
     ];
-    return { vertices, faces };
+    return attachMaterial({ vertices, faces }, material);
 }

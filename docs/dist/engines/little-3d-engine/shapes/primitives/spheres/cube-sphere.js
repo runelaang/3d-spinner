@@ -1,3 +1,4 @@
+import { attachMaterial } from "../../../core/mesh.js";
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 // right x up == normal for each face, so generated quads wind CCW outward.
 const CUBE_FACES = [
@@ -16,8 +17,9 @@ const CUBE_FACES = [
  * @param detail Subdivisions per cube face edge, `1` = simplest (6 quads).
  *   Defaults to `1`.
  * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS) {
+export function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
     const r = size / 2;
     const n = Math.max(1, Math.floor(detail));
     const vertices = [];
@@ -46,5 +48,5 @@ export function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS) {
             }
         }
     }
-    return { vertices, faces };
+    return attachMaterial({ vertices, faces }, material);
 }

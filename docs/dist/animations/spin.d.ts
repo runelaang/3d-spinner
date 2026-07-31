@@ -1,11 +1,13 @@
 import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
-import { type Backend, type Mesh, type Transparency } from "../engines/little-3d-engine/little-3d-engine.js";
+import { type Backend, type Material, type Mesh, type Transparency } from "../engines/little-3d-engine/little-3d-engine.js";
 import { type ProgressAnimationOptions } from "../progress-animation.js";
 export interface SpinAnimationOptions {
     /** Shape to spin: a mesh, or a factory that returns one. Default: a cube. */
     shape?: Mesh | (() => Mesh);
     /** Face color(s): one color for every face, or an array applied per face. */
     color?: string | string[];
+    /** Surface material (specular, shininess, emissive) applied to every face. */
+    material?: Material;
     /** Rotation speed around the X axis, in radians per millisecond. Default `0.0007`. */
     spinX?: number;
     /** Rotation speed around the Y axis, in radians per millisecond. Default `0.0011`. */

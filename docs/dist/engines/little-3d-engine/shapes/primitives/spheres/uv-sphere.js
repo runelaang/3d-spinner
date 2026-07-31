@@ -1,3 +1,4 @@
+import { attachMaterial } from "../../../core/mesh.js";
 const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 /**
  * Build a UV (latitude/longitude) sphere centered on the origin.
@@ -6,8 +7,9 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "
  * @param detail Tessellation level, `1` = simplest. Higher values add rings and
  *   segments. Defaults to `1`.
  * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param material Optional surface material applied to every face.
  */
-export function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS) {
+export function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
     const r = size / 2;
     const d = Math.max(1, Math.floor(detail));
     const slices = Math.max(4, d * 4);
@@ -46,5 +48,5 @@ export function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS) {
             color: color(),
         });
     }
-    return { vertices, faces };
+    return attachMaterial({ vertices, faces }, material);
 }

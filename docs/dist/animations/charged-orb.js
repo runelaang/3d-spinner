@@ -19,6 +19,8 @@ const REENTER_STAGGER_MS = 45;
 const CENTER_POP_OUT_AT = REENTER_MS + (MINIS - 1) * REENTER_STAGGER_MS + 150;
 const CENTER_POP_OUT_MS = 420;
 const PARKED = { x: 0, y: 0, z: 50 };
+// A glossy white highlight over the cyan orbs, for a charged, energetic sheen.
+const ORB_MATERIAL = { specular: [1, 1, 1], shininess: 28 };
 const CENTER_COLORS = ["#67e8f9", "#22d3ee", "#0ea5e9", "#38bdf8", "#7dd3fc"];
 const MINI_COLORS = [
     ["#e0f2fe", "#bae6fd", "#7dd3fc"],
@@ -58,9 +60,9 @@ export class ChargedOrbAnimation {
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: CAMERA_Z } },
         });
-        this.center = engine.add(icosphere(1, 2, CENTER_COLORS), { scale: 0 });
+        this.center = engine.add(icosphere(1, 2, CENTER_COLORS, ORB_MATERIAL), { scale: 0 });
         for (let i = 0; i < MINIS; i++) {
-            const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length]);
+            const mesh = icosphere(1, 1, MINI_COLORS[i % MINI_COLORS.length], ORB_MATERIAL);
             this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
         }
         this.engine = engine;

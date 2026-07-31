@@ -18,6 +18,8 @@ const WARP_ACCEL = 1000; // extra path-milliseconds accrued, = 0.5 * WARP_ACCEL 
 const TRAIL_OUTRO_MS = 1200; // how long the lead keeps shedding stars into the outro
 const TRANSPARENCY = { mode: "two-sided", opacity: 0.275 };
 const CAR_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#a5f3fc", "#e0f2fe"];
+// A faint icy self-glow so the translucent cars read as ghostly rather than flat.
+const CAR_MATERIAL = { emissive: [0.1, 0.2, 0.3] };
 const WORLD_UP = { x: 0, y: 1, z: 0 };
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -92,7 +94,7 @@ export class GhostTrainAnimation {
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
         });
-        const mesh = cube(1, CAR_COLORS);
+        const mesh = cube(1, CAR_COLORS, CAR_MATERIAL);
         for (let i = 0; i < MAX_CARS; i++) {
             this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
         }

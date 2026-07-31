@@ -24,6 +24,11 @@ function applyColor(mesh, color) {
     const pick = Array.isArray(color) ? (i) => color[i % color.length] : () => color;
     return { vertices: mesh.vertices, faces: mesh.faces.map((f, i) => ({ ...f, color: pick(i) })) };
 }
+function applyMaterial(mesh, material) {
+    if (!material)
+        return mesh;
+    return { vertices: mesh.vertices, faces: mesh.faces.map((f) => ({ ...f, material })) };
+}
 /**
  * A spinning, flat-lit 3D shape (a cube by default). With `progressAnimation`
  * set it pops in/out and its scale tracks progress, with an optional label;
@@ -32,7 +37,7 @@ function applyColor(mesh, color) {
 export class SpinAnimation {
     constructor(options = {}) {
         this.exited = false;
-        this.mesh = applyColor(resolveMesh(options.shape), options.color);
+        this.mesh = applyMaterial(applyColor(resolveMesh(options.shape), options.color), options.material);
         this.spinX = options.spinX ?? 0.0007;
         this.spinY = options.spinY ?? 0.0011;
         this.backend = options.backend;

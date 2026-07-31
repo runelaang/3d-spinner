@@ -60,9 +60,31 @@ export class Canvas2DRenderer {
                     depth += dot(d, d);
                 }
                 depth /= face.indices.length;
+                // Specular needs the view direction from the face toward the eye; use
+                // the face centroid. Emissive-only or plain faces skip that work.
+                let surface;
+                const material = face.material;
+                if (material) {
+                    if (material.specular) {
+                        let cx = 0;
+                        let cy = 0;
+                        let cz = 0;
+                        for (const i of face.indices) {
+                            cx += world[i].x;
+                            cy += world[i].y;
+                            cz += world[i].z;
+                        }
+                        const inv = 1 / face.indices.length;
+                        const viewDir = normalize(subtract(frame.eye, { x: cx * inv, y: cy * inv, z: cz * inv }));
+                        surface = { material, viewDir };
+                    }
+                    else {
+                        surface = { material };
+                    }
+                }
                 polygons.push({
                     points,
-                    color: shadeColor(normal, face.color, frame.light),
+                    color: shadeColor(normal, face.color, frame.light, surface),
                     depth,
                     opacity: faceOpacity,
                 });
