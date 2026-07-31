@@ -1,8 +1,10 @@
 import type { ProgressSpinnerOptions } from "../index.js";
-import type { MotionProgressPrefabOptions } from "./types.js";
+import type { ProgressPrefabOptions } from "./types.js";
 /**
- * A progress story: a silver rocket glides in and patrols a slow loop on a
- * column of embers while progress climbs; at 100% it pitches up and blasts off
- * the top of the view, exhaust trailing behind it.
+ * A progress story on a launch pad: every 5% of progress a small rocket slides
+ * in cartoon-style from the right and lines up under the progress text, idling
+ * on a thin wisp of smoke. At 100% the whole row blasts off in a loose stagger
+ * on columns of fire; partway up, three of them suddenly veer 30-50 degrees and
+ * streak away.
  */
-export declare function rocketLaunch(options?: MotionProgressPrefabOptions): ProgressSpinnerOptions;
+export declare function rocketLaunch(options?: ProgressPrefabOptions): ProgressSpinnerOptions;

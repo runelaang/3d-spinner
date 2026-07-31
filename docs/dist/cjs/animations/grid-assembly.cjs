@@ -165,31 +165,6 @@ function expandToTriangles(mesh) {
   }
   return { positions, normals, colors, count: positions.length / 3 };
 }
-function midpoint(a, b) {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
-}
-function sphereFromTriangles(seedVertices, seedFaces, size, detail, colors) {
-  const radius = size / 2;
-  let triangles = seedFaces.map((f) => f.map((i) => normalize(seedVertices[i])));
-  const levels = Math.max(0, Math.floor(detail) - 1);
-  for (let level = 0; level < levels; level++) {
-    const next = [];
-    for (const [a, b, c] of triangles) {
-      const ab = normalize(midpoint(a, b));
-      const bc = normalize(midpoint(b, c));
-      const ca = normalize(midpoint(c, a));
-      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
-    }
-    triangles = next;
-  }
-  const vertices = [];
-  const faces = triangles.map((tri, i) => {
-    const base = vertices.length;
-    vertices.push(scale(tri[0], radius), scale(tri[1], radius), scale(tri[2], radius));
-    return { indices: [base, base + 1, base + 2], color: colors[i % colors.length] };
-  });
-  return { vertices, faces };
-}
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
@@ -967,83 +942,8 @@ function cube(size = 1, colors = DEFAULT_COLORS) {
   return { vertices, faces };
 }
 
-// src/engines/little-3d-engine/shapes/primitives/tetrahedron.ts
-var DEFAULT_COLORS2 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
-function tetrahedron(size = 1, colors = DEFAULT_COLORS2) {
-  const s = size / 2;
-  const vertices = [
-    { x: s, y: s, z: s },
-    { x: s, y: -s, z: -s },
-    { x: -s, y: s, z: -s },
-    { x: -s, y: -s, z: s }
-  ];
-  const faces = [
-    { indices: [0, 1, 2], color: colors[0 % colors.length] },
-    { indices: [0, 3, 1], color: colors[1 % colors.length] },
-    { indices: [0, 2, 3], color: colors[2 % colors.length] },
-    { indices: [1, 3, 2], color: colors[3 % colors.length] }
-  ];
-  return { vertices, faces };
-}
-
-// src/engines/little-3d-engine/shapes/primitives/octahedron.ts
-var DEFAULT_COLORS3 = [
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-  "#f59e0b",
-  "#10b981",
-  "#ef4444",
-  "#06b6d4",
-  "#eab308"
-];
-function octahedron(size = 1, colors = DEFAULT_COLORS3) {
-  const r = size / 2;
-  const vertices = [
-    { x: r, y: 0, z: 0 },
-    { x: -r, y: 0, z: 0 },
-    { x: 0, y: r, z: 0 },
-    { x: 0, y: -r, z: 0 },
-    { x: 0, y: 0, z: r },
-    { x: 0, y: 0, z: -r }
-  ];
-  const faces = [
-    { indices: [4, 0, 2], color: colors[0 % colors.length] },
-    { indices: [4, 2, 1], color: colors[1 % colors.length] },
-    { indices: [4, 1, 3], color: colors[2 % colors.length] },
-    { indices: [4, 3, 0], color: colors[3 % colors.length] },
-    { indices: [5, 2, 0], color: colors[4 % colors.length] },
-    { indices: [5, 1, 2], color: colors[5 % colors.length] },
-    { indices: [5, 3, 1], color: colors[6 % colors.length] },
-    { indices: [5, 0, 3], color: colors[7 % colors.length] }
-  ];
-  return { vertices, faces };
-}
-
-// src/engines/little-3d-engine/shapes/primitives/pyramid.ts
-var DEFAULT_COLORS4 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
-function pyramid(size = 1, colors = DEFAULT_COLORS4) {
-  const h = size / 2;
-  const vertices = [
-    { x: -h, y: -h, z: h },
-    { x: h, y: -h, z: h },
-    { x: h, y: -h, z: -h },
-    { x: -h, y: -h, z: -h },
-    { x: 0, y: h, z: 0 }
-  ];
-  const faces = [
-    { indices: [0, 3, 2, 1], color: colors[0 % colors.length] },
-    { indices: [4, 0, 1], color: colors[1 % colors.length] },
-    { indices: [4, 1, 2], color: colors[2 % colors.length] },
-    { indices: [4, 2, 3], color: colors[3 % colors.length] },
-    { indices: [4, 3, 0], color: colors[4 % colors.length] }
-  ];
-  return { vertices, faces };
-}
-
 // src/engines/little-3d-engine/shapes/primitives/spheres/icosphere.ts
 init_geometry();
-var DEFAULT_COLORS5 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 var T = (1 + Math.sqrt(5)) / 2;
 var SEED_VERTICES = [
   { x: -1, y: T, z: 0 },
@@ -1059,31 +959,6 @@ var SEED_VERTICES = [
   { x: -T, y: 0, z: -1 },
   { x: -T, y: 0, z: 1 }
 ];
-var SEED_FACES = [
-  [0, 11, 5],
-  [0, 5, 1],
-  [0, 1, 7],
-  [0, 7, 10],
-  [0, 10, 11],
-  [1, 5, 9],
-  [5, 11, 4],
-  [11, 10, 2],
-  [10, 7, 6],
-  [7, 1, 8],
-  [3, 9, 4],
-  [3, 4, 2],
-  [3, 2, 6],
-  [3, 6, 8],
-  [3, 8, 9],
-  [4, 9, 5],
-  [2, 4, 11],
-  [6, 2, 10],
-  [8, 6, 7],
-  [9, 8, 1]
-];
-function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS5) {
-  return sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors);
-}
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/octa-sphere.ts
 init_geometry();
@@ -1263,6 +1138,7 @@ var FOV = 55 * Math.PI / 180;
 var TWO_PI = Math.PI * 2;
 var INTRO_MS = 900;
 var INTRO_STAGGER_MS = 60;
+var INTRO_DONE_MS = (COUNT - 1) * INTRO_STAGGER_MS + INTRO_MS;
 var GATE_DOCK = 0.35;
 var GATE_UNDOCK = 0.65;
 var EXIT_HURRY = 2.5;
@@ -1271,15 +1147,11 @@ var SPIN_MS = 380;
 var SPIN_STAGGER_MS = 80;
 var HOLD_MS = 1e3;
 var COLLAPSE_MS = 700;
+var COLLAPSE_SPREAD_MS = 500;
 var POP_MS = 170;
 var LABEL_FADE_MS = 600;
-var DEFAULT_MESHES = [
-  () => cube(1, ["#60a5fa", "#3b82f6", "#2563eb", "#38bdf8", "#0ea5e9", "#1d4ed8"]),
-  () => tetrahedron(1, ["#f472b6", "#ec4899", "#db2777", "#f9a8d4"]),
-  () => octahedron(1, ["#34d399", "#10b981", "#059669", "#6ee7b7", "#a7f3d0", "#047857", "#4ade80", "#065f46"]),
-  () => pyramid(1, ["#fbbf24", "#f59e0b", "#d97706", "#fde68a", "#fcd34d"]),
-  () => icosphere(1, 1, ["#a78bfa", "#8b5cf6", "#7c3aed", "#c4b5fd"])
-];
+var CUBE_COLORS = ["#8397c6", "#7186b8", "#6176a8", "#93a6cf", "#556a9c", "#7a8fc0"];
+var DEFAULT_MESHES = [() => cube(1, CUBE_COLORS)];
 function clamp012(value) {
   return Math.max(0, Math.min(1, value));
 }
@@ -1307,6 +1179,9 @@ var GridAssemblyAnimation = class {
     this.dockedAt = new Array(COUNT).fill(Infinity);
     this.tumbleX = [];
     this.tumbleY = [];
+    this.collapseDelay = [];
+    this.popStarted = new Array(COUNT).fill(false);
+    this.maxCollapseDelay = 0;
     this.fades = [];
     this.slots = [];
     this.aspect = 16 / 9;
@@ -1315,7 +1190,6 @@ var GridAssemblyAnimation = class {
     this.allDockedAt = Infinity;
     this.collapseAt = Infinity;
     this.lastNow = 0;
-    this.popFading = false;
     this.finished = false;
     const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
     this.meshes = sources.map(resolveMesh);
@@ -1332,7 +1206,9 @@ var GridAssemblyAnimation = class {
       this.slots.push({ x: (col - 2) * spacing, y: (2 - row) * spacing, z: 0 });
       this.tumbleX.push(TWO_PI * hash01(i, 2) - Math.PI);
       this.tumbleY.push(TWO_PI * hash01(i, 4) - Math.PI);
+      this.collapseDelay.push(hash01(i, 7) * COLLAPSE_SPREAD_MS);
     }
+    this.maxCollapseDelay = Math.max(...this.collapseDelay);
   }
   mount(target) {
     if (!target.style.position) target.style.position = "relative";
@@ -1393,7 +1269,7 @@ var GridAssemblyAnimation = class {
         COLLAPSE_MS
       ));
     }
-    if (this.collapseAt !== Infinity && now >= this.collapseAt + COLLAPSE_MS + POP_MS) {
+    if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
       this.finished = true;
     }
     this.engine.render();
@@ -1410,7 +1286,8 @@ var GridAssemblyAnimation = class {
   }
   updateBlends(dt, progress, now) {
     const exiting = this.exitAt !== Infinity;
-    const want = exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+    const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
+    const want = !ringComplete ? 0 : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
     const rate = dt / this.dockMs * (exiting ? EXIT_HURRY : 1);
     for (let i = 0; i < COUNT; i++) {
       const target = i < want ? 1 : 0;
@@ -1473,25 +1350,30 @@ var GridAssemblyAnimation = class {
     if (!this.captured) {
       this.captured = this.handles.map((handle) => ({ ...handle.transform.position }));
     }
-    const u = clamp012((now - this.collapseAt) / COLLAPSE_MS);
-    const pull = easeInCubic(u);
     for (let i = 0; i < COUNT; i++) {
       const transform2 = this.handles[i].transform;
       const from = this.captured[i];
+      const local = now - this.collapseAt - this.collapseDelay[i];
+      if (local <= 0) {
+        transform2.position.x = from.x;
+        transform2.position.y = from.y;
+        transform2.position.z = from.z;
+        transform2.scale = this.size;
+        continue;
+      }
+      const pull = easeInCubic(clamp012(local / COLLAPSE_MS));
       transform2.position.x = from.x * (1 - pull);
       transform2.position.y = from.y * (1 - pull);
       transform2.position.z = from.z * (1 - pull);
       transform2.scale = this.size * (1 - 0.99 * pull);
-    }
-    if (u >= 1) {
-      if (!this.popFading) {
-        this.popFading = true;
-        for (let i = 0; i < COUNT; i++) this.handles[i].transparency = this.fades[i];
-      }
-      const v = clamp012((now - this.collapseAt - COLLAPSE_MS) / POP_MS);
-      for (let i = 0; i < COUNT; i++) {
+      if (local >= COLLAPSE_MS) {
+        if (!this.popStarted[i]) {
+          this.popStarted[i] = true;
+          this.handles[i].transparency = this.fades[i];
+        }
+        const v = clamp012((local - COLLAPSE_MS) / POP_MS);
         this.fades[i].opacity = 1 - v;
-        this.handles[i].transform.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
+        transform2.scale = v >= 1 ? 0 : this.size * 0.01 * (1 + 1.6 * Math.sin(Math.PI * v));
       }
     }
   }
