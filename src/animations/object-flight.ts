@@ -10,6 +10,13 @@ import {
   scale,
   subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
+import {
+  type Mat4,
+  multiply,
+  rotationX,
+  rotationY,
+  rotationZ,
+} from "../engines/little-3d-engine/core/math.js";
 
 /** Which local axis the object's nose points down, used to correct a model that flies backwards or sideways. */
 export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
@@ -23,6 +30,18 @@ export interface ObjectFlightTail {
    * the nose (+X) axis. `1` places each copy where the previous ends.
    */
   distance: number;
+}
+
+/** Extra local-space orientation on top of path following. */
+export interface ObjectFlightRotation {
+  /** Fixed local-space Euler offset, radians. */
+  x?: number;
+  y?: number;
+  z?: number;
+  /** Continuous spin around local X/Y/Z, radians per millisecond. */
+  spinX?: number;
+  spinY?: number;
+  spinZ?: number;
 }
 
 export interface ObjectFlightOptions {
@@ -40,6 +59,8 @@ export interface ObjectFlightOptions {
   speed?: number;
   /** Trailing copies that chase the lead. Omit for a single object. */
   tail?: ObjectFlightTail;
+  /** Additional local-space rotation on top of path orientation. */
+  rotation?: ObjectFlightRotation;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
   label?: string;
 }
@@ -214,6 +235,35 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   };
 }
 
+/** Engine rotation matrix from Euler angles (Rz * Ry * Rx). */
+function rotationMatrix(x: number, y: number, z: number): Mat4 {
+  return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
+}
+
+/** Inverse of {@link rotationMatrix} for the engine's Rz * Ry * Rx order. */
+function eulerFromRotationMatrix(matrix: Mat4): Vec3 {
+  const sy = Math.hypot(matrix[0], matrix[1]);
+  if (sy > 1e-6) {
+    return {
+      x: Math.atan2(matrix[9], matrix[10]),
+      y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
+      z: Math.atan2(matrix[4], matrix[0]),
+    };
+  }
+  return {
+    x: Math.atan2(-matrix[6], matrix[5]),
+    y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
+    z: 0,
+  };
+}
+
+/** Compose path orientation with a local-space offset/spin rotation. */
+function combineLocalRotation(path: Vec3, extra: Vec3): Vec3 {
+  return eulerFromRotationMatrix(
+    multiply(rotationMatrix(path.x, path.y, path.z), rotationMatrix(extra.x, extra.y, extra.z)),
+  );
+}
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -239,6 +289,9 @@ export class ObjectFlightAnimation implements SpinnerAnimation {
   private readonly outroMs: number;
   private readonly tailCount: number;
   private readonly tailDelay: number;
+  private readonly rotationOffset: Vec3;
+  private readonly rotationSpin: Vec3;
+  private readonly hasExtraRotation: boolean;
 
   private started = false;
   private finished = false;
@@ -266,6 +319,25 @@ export class ObjectFlightAnimation implements SpinnerAnimation {
       Math.max(0, options.tail?.distance ?? 0) * meshLengthAlongNose(facing);
     const avgSpeed = LOOP_PERIMETER / this.lapMs; // scene units per ms
     this.tailDelay = avgSpeed > 0 ? spacing / avgSpeed : 0;
+
+    const rotation = options.rotation;
+    this.rotationOffset = {
+      x: rotation?.x ?? 0,
+      y: rotation?.y ?? 0,
+      z: rotation?.z ?? 0,
+    };
+    this.rotationSpin = {
+      x: rotation?.spinX ?? 0,
+      y: rotation?.spinY ?? 0,
+      z: rotation?.spinZ ?? 0,
+    };
+    this.hasExtraRotation =
+      this.rotationOffset.x != 0 ||
+      this.rotationOffset.y != 0 ||
+      this.rotationOffset.z != 0 ||
+      this.rotationSpin.x != 0 ||
+      this.rotationSpin.y != 0 ||
+      this.rotationSpin.z != 0;
   }
 
   mount(target: HTMLElement): void {
@@ -340,13 +412,20 @@ export class ObjectFlightAnimation implements SpinnerAnimation {
         Math.min(BANK_LIMIT, cross(heading, ahead).y * BANK_GAIN),
       );
       this.banks[k] += (targetBank - this.banks[k]) * BANK_SMOOTH;
-      const orientation = orientationFor(heading, this.banks[k]);
+      let euler = orientationFor(heading, this.banks[k]);
+      if (this.hasExtraRotation) {
+        euler = combineLocalRotation(euler, {
+          x: this.rotationOffset.x + this.rotationSpin.x * t,
+          y: this.rotationOffset.y + this.rotationSpin.y * t,
+          z: this.rotationOffset.z + this.rotationSpin.z * t,
+        });
+      }
       transform.position.x = here.x;
       transform.position.y = here.y;
       transform.position.z = here.z;
-      transform.rotation.x = orientation.x;
-      transform.rotation.y = orientation.y;
-      transform.rotation.z = orientation.z;
+      transform.rotation.x = euler.x;
+      transform.rotation.y = euler.y;
+      transform.rotation.z = euler.z;
     }
 
     this.label.textContent = frame.indeterminate ? (this.labelText ?? "") : `${Math.round(frame.progress * 100)}%`;
