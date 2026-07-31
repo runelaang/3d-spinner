@@ -27,7 +27,7 @@ export interface GhostTrainOptions {
   motion?: MotionController;
   /** Uniform car size in scene units. Default `0.15`. */
   size?: number;
-  /** Rendering backend. Default `"canvas2d"`. */
+  /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
   /** Overlay label; progress mode shows a percentage. */
   label?: AnimationLabel;

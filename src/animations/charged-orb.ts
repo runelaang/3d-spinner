@@ -21,7 +21,7 @@ import {
 export interface ChargedOrbOptions {
   /** Milliseconds for one satellite revolution around the center orb. Default `6000`. */
   orbitPeriodMs?: number;
-  /** Rendering backend. Default `"canvas2d"`. */
+  /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
 }
 

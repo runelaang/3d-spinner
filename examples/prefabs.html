@@ -25,19 +25,21 @@
 
   <p class="note">
     Each prefab supplies complete spinner options with no configuration. Pass an optional object
-    to override its backend, message, timing, moving object, or particles.
+    to override its backend, message, timing, moving object, or particles. Press Play on a card to
+    run it - one plays at a time, so the page stays light on any machine.
   </p>
 
   <div class="controls">
     <label>Renderer
       <select id="render-tech">
+        <option value="auto" selected>Auto (best available)</option>
         <option value="canvas2d">Canvas 2D (software)</option>
-        <option value="webgl" selected>WebGL</option>
+        <option value="webgl">WebGL</option>
         <option value="webgpu">WebGPU</option>
       </select>
     </label>
-    <button id="restart">Restart all</button>
-    <button id="stop">Stop all</button>
+    <span class="stage-hint" id="auto-note"></span>
+    <button id="stop">Stop</button>
   </div>
 
   <div class="spinner-grid prefab-grid" id="prefab-showcase"></div>
@@ -51,12 +53,18 @@
       pulsingStarfield,
       starSwarm,
     } from "/dist/prefabs/prefabs.js";
-    import { cube } from "/dist/engines/little-3d-engine/little-3d-engine.js";
+    import { cube, resolveBackend } from "/dist/engines/little-3d-engine/little-3d-engine.js";
     import { circleMotion, squareMotion } from "/dist/motion/motion.js";
 
     const renderTech = document.getElementById("render-tech");
     const backend = () => renderTech.value;
-    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+    const names = { auto: "Auto", canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" };
+    const backendLabel = () => names[backend()];
+
+    const autoNote = document.getElementById("auto-note");
+    resolveBackend("auto").then((picked) => {
+      autoNote.textContent = `Auto picks ${names[picked]} here`;
+    });
 
     function customMessage() {
       const message = document.createElement("div");
@@ -143,16 +151,25 @@
       },
     ];
 
+    // One prefab is mounted at a time: playing a card releases the previous one, so the page
+    // never holds more than a single spinner (and a single GPU context) alive.
+    let live = null;
+
+    function release() {
+      live?.release();
+      live = null;
+    }
+
     function buildShowcase() {
+      release();
       const grid = document.getElementById("prefab-showcase");
       grid.replaceChildren();
-      const spinners = [];
       for (const demo of demos) {
         const card = document.createElement("section");
         card.className = "spinner-card";
         card.innerHTML = `<h2>${demo.title} (${backendLabel()})
           <span class="card-playback">
-            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-start">Play</button>
             <button type="button" class="card-stop">Stop</button>
           </span></h2>`;
         const stage = document.createElement("div");
@@ -164,23 +181,33 @@
         grid.appendChild(card);
 
         let spinner;
-        const start = () => {
-          spinner?.destroy();
+        const idle = () => stage.replaceChildren(Object.assign(document.createElement("span"), {
+          className: "stage-hint",
+          textContent: "Press Play",
+        }));
+        const entry = {
+          stop: () => spinner?.stop(),
+          release: () => {
+            spinner?.destroy();
+            spinner = undefined;
+            idle();
+          },
+        };
+        card.querySelector(".card-start").onclick = () => {
+          release();
           stage.replaceChildren();
           spinner = createSpinner(stage, demo.create());
+          live = entry;
         };
-        card.querySelector(".card-start").onclick = start;
-        card.querySelector(".card-stop").onclick = () => spinner?.stop();
-        start();
-        spinners.push({ start, stop: () => spinner?.stop() });
+        card.querySelector(".card-stop").onclick = () => entry.stop();
+        idle();
       }
-      return spinners;
     }
 
-    let spinners = buildShowcase();
-    renderTech.onchange = () => { spinners = buildShowcase(); };
-    document.getElementById("restart").onclick = () => spinners.forEach((spinner) => spinner.start());
-    document.getElementById("stop").onclick = () => spinners.forEach((spinner) => spinner.stop());
+    buildShowcase();
+    renderTech.onchange = buildShowcase;
+    document.getElementById("stop").onclick = () => live?.stop();
+    addEventListener("pagehide", release);
   </script>
 </body>
 
