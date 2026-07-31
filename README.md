@@ -10,6 +10,16 @@ canvas and ships primarily as ES modules split across separate import paths, so 
 only the animation, motion path, and rendering backend they actually use - nothing else is pulled
 in. CommonJS and a browser-global build are also published; see [Module formats](#module-formats).
 
+## Screenshots
+
+| `starSwarm` with custom HTML | `pulsingStarfield` | `chargedOrb` at 74% |
+| --- | --- | --- |
+| ![starSwarm prefab with a custom HTML label](screenshots/shot1.png) | ![pulsingStarfield prefab with a Preparing launch label](screenshots/shot2.png) | ![chargedOrb progress prefab at 74 percent](screenshots/shot3.png) |
+
+| `ghostTrain` progress prefab | `ParticlesAnimation` with glow texture |
+| --- | --- |
+| ![ghostTrain progress prefab on a tilted track](screenshots/shot4.png) | ![particle loader with a Just a sec label](screenshots/shot5.png) |
+
 ## Install
 
 ```sh
