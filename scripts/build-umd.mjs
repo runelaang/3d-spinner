@@ -12,13 +12,16 @@ const entry = {
     export * from "../src/animations/object-motion.ts";
     export * from "../src/animations/particles.ts";
     export * from "../src/animations/charged-orb.ts";
+    export * from "../src/animations/ghost-train.ts";
     export * from "../src/animations/grid-assembly.ts";
+    export * from "../src/animations/rocket-launch.ts";
     export * from "../src/composite-animation.ts";
     export * from "../src/prefabs/prefabs.ts";
     export * from "../src/motion/motion.ts";
     export * from "../src/motion/transitions.ts";
     export * from "../src/engines/little-3d-engine/little-3d-engine.ts";
     export * from "../src/engines/little-3d-engine/renderers/webgl-textured.ts";
+    export * from "../src/engines/little-3d-engine/renderers/canvas2d-textured.ts";
     export * from "../src/engines/little-3d-engine/renderers/webgpu-textured.ts";
     export * from "../src/engines/little-3d-engine/loaders/obj.ts";
     export * from "../src/engines/little-tween-engine/little-tween-engine.ts";

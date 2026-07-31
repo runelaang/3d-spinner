@@ -42,6 +42,7 @@ export type { TextureSource } from "./textured-helpers.js";
 
 interface TexturedBuffers {
   vao: WebGLVertexArrayObject;
+  buffers: WebGLBuffer[];
   count: number;
 }
 
@@ -181,9 +182,11 @@ export class WebGLTexturedRenderer implements Renderer {
     const data = expandToTriangles(mesh);
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
+    const buffers: WebGLBuffer[] = [];
     const attribute = (location: number, array: Float32Array, size: number) => {
       if (location < 0) return;
-      const buffer = gl.createBuffer();
+      const buffer = gl.createBuffer()!;
+      buffers.push(buffer);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(location);
@@ -193,7 +196,7 @@ export class WebGLTexturedRenderer implements Renderer {
     attribute(loc.aColor, data.colors, 3);
     attribute(loc.aUV, planarUVs(mesh), 2);
     gl.bindVertexArray(null);
-    const result = { vao, count: data.count };
+    const result = { vao, buffers, count: data.count };
     this.buffers.set(mesh, result);
     return result;
   }
@@ -234,7 +237,10 @@ export class WebGLTexturedRenderer implements Renderer {
     const gl = this.gl;
     if (gl) {
       for (const texture of this.textures.values()) gl.deleteTexture(texture);
-      for (const buffers of this.buffers.values()) gl.deleteVertexArray(buffers.vao);
+      for (const cached of this.buffers.values()) {
+        gl.deleteVertexArray(cached.vao);
+        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+      }
       if (this.program) gl.deleteProgram(this.program);
     }
     this.textures.clear();
