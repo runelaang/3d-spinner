@@ -5,8 +5,9 @@
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
 A zero-dependency 3D spinner, loader, and progress indicator for the browser. It renders to a
-canvas and ships as ES modules split across separate import paths, so a consumer loads only the
-animation, motion path, and rendering backend they actually use - nothing else is pulled in.
+canvas and ships primarily as ES modules split across separate import paths, so a consumer loads
+only the animation, motion path, and rendering backend they actually use - nothing else is pulled
+in. CommonJS and a browser-global build are also published; see [Module formats](#module-formats).
 
 ## Install
 
@@ -175,17 +176,40 @@ directly:
 
 Each has no dependencies of its own.
 
-## Module format
+## Module formats
 
-ES modules only, for the browser. Use a bundler or native `<script type="module">`; the engine
-draws to a canvas, so there is no server-side rendering. ES modules do not load over `file://`,
-so serve the page over HTTP rather than opening the file directly.
+Every example above is **ES modules** - the primary, tree-shakeable format, and the one to reach
+for by default. Use a bundler or native `<script type="module">`; the engine draws to a canvas, so
+there is no server-side rendering. ES modules do not load over `file://`, so serve the page over
+HTTP rather than opening the file directly.
+
+Two other formats are published for cases where ESM isn't an option:
+
+**CommonJS** (`require`), for older Node tooling:
+
+```js
+const { createSpinner } = require("3d-spinner");
+const { SpinAnimation } = require("3d-spinner/animations/spin");
+```
+
+**Browser global** (IIFE), for a plain `<script>` tag with no bundler or module loader. This build
+bundles the whole public API onto one `window.Spinner3D` object:
+
+```html
+<script src="https://unpkg.com/3d-spinner"></script>
+<script>
+  const spinner = Spinner3D.createSpinner(document.getElementById("app"), {
+    type: "indeterminate",
+    animation: new Spinner3D.SpinAnimation(),
+  });
+</script>
+```
 
 ## Development
 
 ```sh
 npm install
-npm run build   # compile src/ to dist/ (ESM + type declarations)
+npm run build   # compile src/ to dist/ (ESM + type declarations, CJS, and a browser-global build)
 npm test        # build, then run the unit tests
 npm run dev     # serve this folder; open /examples/index.html
 ```
