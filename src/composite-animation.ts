@@ -1,5 +1,4 @@
 import type { AnimationFrame, SpinnerAnimation } from "./animation.js";
-import { hasAdjustableQuality, type AdjustableQuality, type AdjustableQualitySetting } from "./quality.js";
 
 /** One animation layer in a {@link CompositeAnimation}. Later layers render above earlier ones. */
 export interface CompositeAnimationLayer {
@@ -8,7 +7,7 @@ export interface CompositeAnimationLayer {
 }
 
 /** Run multiple animations through one spinner lifecycle in stacked layers. */
-export class CompositeAnimation implements SpinnerAnimation, AdjustableQuality {
+export class CompositeAnimation implements SpinnerAnimation {
   private readonly layers: ReadonlyArray<CompositeAnimationLayer>;
   private readonly elements: HTMLElement[] = [];
 
@@ -41,12 +40,6 @@ export class CompositeAnimation implements SpinnerAnimation, AdjustableQuality {
 
   isFinished(): boolean {
     return this.layers.every((layer) => layer.animation.isFinished());
-  }
-
-  getQualitySettings(): ReadonlyArray<AdjustableQualitySetting> {
-    return this.layers.flatMap((layer) =>
-      hasAdjustableQuality(layer.animation) ? layer.animation.getQualitySettings() : []
-    );
   }
 
   destroy(): void {

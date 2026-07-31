@@ -102,8 +102,8 @@ Each animation is imported from its own subpath, so you only pull in the one you
 
 ## Prefabs
 
-Prefabs provide complete indeterminate spinner options, including layered animation and adaptive
-particle quality. They need no configuration and accept an optional override object.
+Prefabs provide complete indeterminate spinner options, including layered animation. They need
+no configuration and accept an optional override object.
 
 ```js
 import { createSpinner } from "3d-spinner";
@@ -112,7 +112,7 @@ import { planeStarTrail } from "3d-spinner/prefabs";
 const spinner = createSpinner(document.getElementById("app"), planeStarTrail());
 ```
 
-Common overrides include `backend`, `label`, `periodMs`, and `plugins`. Motion prefabs also accept
+Common overrides include `backend`, `label`, and `periodMs`. Motion prefabs also accept
 `object` and `particles` option objects. A label can be text or any `HTMLElement`.
 
 ```js
@@ -151,23 +151,6 @@ const spinner = createSpinner(document.getElementById("app"), {
     gravity: { x: 0, y: -1.6, z: 0 },
     speed: 1.5,
   }),
-});
-
-console.log(spinner.getFrameRate()); // rolling FPS, available without a visible meter
-```
-
-Adaptive quality can reduce the live particle count in small steps when FPS falls below its target,
-then restore it after FPS stabilizes. The plugin samples once per second and targets 60 FPS by
-default. Its named-setting interface can also support other animation quality controls.
-
-```js
-import { adaptiveQuality } from "3d-spinner/plugins/adaptive-quality";
-
-const animation = new ParticlesAnimation({ rate: 80, lifeMs: 2400 });
-const spinner = createSpinner(document.getElementById("app"), {
-  type: "indeterminate",
-  animation,
-  plugins: [adaptiveQuality({ targetFps: 60 })],
 });
 ```
 

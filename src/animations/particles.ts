@@ -1,7 +1,6 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { mountAnimationLabel, type MountedAnimationLabel } from "../animation-label.js";
 import type { MotionController } from "../motion/controller.js";
-import type { AdjustableQuality, AdjustableQualitySetting } from "../quality.js";
 import {
   Little3dEngine,
   quad,
@@ -190,7 +189,7 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
  * starts emission, {@link exit} stops it and lets the live particles die out
  * as the outro.
  */
-export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
+export class ParticlesAnimation implements SpinnerAnimation {
   private engine?: Little3dEngine;
   private label?: MountedAnimationLabel;
   private readonly handles: MeshHandle[] = [];
@@ -205,8 +204,6 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
   private enterAt = Infinity;
   private exitAt = Infinity;
   private finished = false;
-  private particleLimit: number;
-  private readonly particleQuality: AdjustableQualitySetting;
 
   constructor(options: ParticlesOptions = {}) {
     this.field = particleField(options);
@@ -215,22 +212,6 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
     this.texture = options.texture;
     this.labelContent = options.label;
     this.emitter = options.emitter;
-    this.particleLimit = this.field.maxLive;
-    const animation = this;
-    this.particleQuality = {
-      name: "particles",
-      requested: this.field.maxLive,
-      minimum: 1,
-      get current() { return animation.particleLimit; },
-      set: (value) => {
-        this.particleLimit = Math.max(1, Math.min(this.field.maxLive, Math.round(value)));
-      },
-    };
-  }
-
-  /** Runtime-adjustable settings available to quality plugins. */
-  getQualitySettings(): ReadonlyArray<AdjustableQualitySetting> {
-    return [this.particleQuality];
   }
 
   mount(target: HTMLElement): void {
@@ -299,7 +280,7 @@ export class ParticlesAnimation implements SpinnerAnimation, AdjustableQuality {
       if (this.exitAt !== Infinity) {
         last = Math.min(last, Math.floor((this.exitAt - this.enterAt) / gap));
       }
-      first = Math.max(first, last - this.particleLimit + 1);
+      first = Math.max(first, last - this.field.maxLive + 1);
       for (let index = first; index <= last; index++) {
         const sample = this.field.sample(index, t);
         if (!sample) continue;

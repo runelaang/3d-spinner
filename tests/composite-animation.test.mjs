@@ -33,10 +33,3 @@ test("CompositeAnimation delegates lifecycle and waits for every layer", () => {
   assert.deepEqual(first.calls, ["enter", "render", "exit", "destroy"]);
   assert.deepEqual(second.calls, ["enter", "render", "exit", "destroy"]);
 });
-
-test("CompositeAnimation exposes adjustable settings from its layers", () => {
-  const layer = fakeAnimation().animation;
-  layer.getQualitySettings = () => [{ name: "trails", requested: 8, minimum: 1, current: 8, set() {} }];
-  const composite = new CompositeAnimation([layer]);
-  assert.equal(composite.getQualitySettings()[0].name, "trails");
-});
