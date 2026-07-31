@@ -1,5 +1,9 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
-import { mountAnimationLabel, type MountedAnimationLabel } from "../animation-label.js";
+import {
+  animationLabelOpacity,
+  mountAnimationLabel,
+  type MountedAnimationLabel,
+} from "../animation-label.js";
 import {
   Little3dEngine,
   type Backend,
@@ -78,6 +82,8 @@ export interface ObjectMotionOptions {
   tail?: ObjectMotionTail;
   /** Overlay label shown in indeterminate mode (no value to show). Hidden if omitted. */
   label?: AnimationLabel;
+  /** Fade the label with the intro and outro transitions. Default `true`. */
+  fadeLabel?: boolean;
 }
 
 interface ResolvedObjectMotionTransition {
@@ -252,6 +258,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private readonly backend?: Backend;
   private readonly transparency?: Transparency;
   private readonly labelContent?: AnimationLabel;
+  private readonly fadeLabel: boolean;
   private readonly tailCount: number;
   private readonly tailGap: number;
   private readonly intro: ResolvedObjectMotionTransition;
@@ -276,6 +283,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.backend = options.backend;
     this.transparency = options.transparency;
     this.labelContent = options.label;
+    this.fadeLabel = options.fadeLabel ?? true;
     this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
     this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
@@ -314,6 +322,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     });
 
     this.label = mountAnimationLabel(target, this.labelContent);
+    if (this.fadeLabel) this.label.setOpacity(0);
   }
 
   enter(now: number): void {
@@ -332,6 +341,21 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
 
   isFinished(): boolean {
     return this.finished;
+  }
+
+  /** Milliseconds the fly-out takes; used to align a following particle trail's outro. */
+  get outroDurationMs(): number {
+    return this.outro.durationMs;
+  }
+
+  /**
+   * A {@link MotionController} that follows the object's *actual* position, including
+   * the intro fly-in and outro fly-out (it falls back to the raw motion path before
+   * {@link enter} and once idle). Feed it to a particle layer's `emitter` so the
+   * particles trail the object through its transitions instead of the bare path.
+   */
+  trailEmitter(): MotionController {
+    return { positionAt: (t) => this.sampleAt(t)?.position ?? this.motion.positionAt(t) };
   }
 
   render(now: number, frame: AnimationFrame): void {
@@ -382,6 +406,15 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.label.setText(frame.indeterminate
       ? (typeof this.labelContent === "string" ? this.labelContent : "")
       : `${Math.round(frame.progress * 100)}%`);
+    if (this.fadeLabel) {
+      this.label.setOpacity(animationLabelOpacity(
+        now,
+        this.started ? this.introStart : Infinity,
+        this.intro.durationMs,
+        this.outroStart,
+        this.outro.durationMs,
+      ));
+    }
     this.engine.render();
   }
 

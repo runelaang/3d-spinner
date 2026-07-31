@@ -16,6 +16,8 @@ export interface PrefabOptions {
   backend?: Backend;
   /** Text or custom HTML shown over the prefab. */
   label?: AnimationLabel;
+  /** Fade the label during intro and outro. Default `true`. */
+  fadeLabel?: boolean;
   /** Indeterminate progress loop. Default `"bounce"`. */
   loop?: "bounce" | "restart";
   /** Milliseconds for one progress sweep. Default `2000`. */
@@ -84,12 +86,14 @@ function shineTexture(): HTMLCanvasElement {
 
 function streakTexture(): HTMLCanvasElement {
   return texture((ctx) => {
+    // Head at x=91 (alignToMotion rolls the billboard +x onto the velocity): full at the
+    // tip, a quick drop to 40% over the first 30% of the length, then a gentle 40%->0% tail.
     const gradient = ctx.createLinearGradient(5, 0, 91, 0);
     gradient.addColorStop(0, "rgba(255,255,255,0)");
-    gradient.addColorStop(0.72, "#fff");
-    gradient.addColorStop(1, "#fff");
+    gradient.addColorStop(0.7, "rgba(255,255,255,0.4)");
+    gradient.addColorStop(1, "rgba(255,255,255,1)");
     ctx.strokeStyle = gradient;
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 3.5;
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(5, 48);
@@ -133,6 +137,16 @@ function pulsingLabel(): HTMLDivElement {
 export function planeStarTrail(options: MotionPrefabOptions = {}): IndeterminateSpinnerOptions {
   const motion = options.object?.motion ?? figureEightMotion({ size: 0.72, periodMs: 6200 });
   const particles = options.particles ?? {};
+  // The object defines the primary direction; the particles trail its actual position through
+  // the intro/outro fly transitions (not the bare path), so the two layers stay in sync.
+  const object = new ObjectMotionAnimation({
+    mesh: planeMesh,
+    motion,
+    size: 0.48,
+    backend: options.backend,
+    ...options.object,
+    label: options.object?.label,
+  });
   const animation = new CompositeAnimation([
     new ParticlesAnimation({
       rate: 34,
@@ -141,20 +155,15 @@ export function planeStarTrail(options: MotionPrefabOptions = {}): Indeterminate
       speed: 0.11,
       colors: ["#fde047", "#f472b6", "#7dd3fc"],
       texture: particles.texture ?? starTexture(),
-      emitter: motion,
+      emitter: object.trailEmitter(),
+      outroMs: object.outroDurationMs,
       seed: 11,
       backend: options.backend,
       ...particles,
       label: options.label ?? particles.label ?? "Flying in...",
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel,
     }),
-    new ObjectMotionAnimation({
-      mesh: planeMesh,
-      motion,
-      size: 0.48,
-      backend: options.backend,
-      ...options.object,
-      label: options.object?.label,
-    }),
+    object,
   ]);
   return spinner(animation, options);
 }
@@ -163,6 +172,17 @@ export function planeStarTrail(options: MotionPrefabOptions = {}): Indeterminate
 export function crystalComet(options: MotionPrefabOptions = {}): IndeterminateSpinnerOptions {
   const motion = options.object?.motion ?? figureEightMotion({ size: 0.66, periodMs: 7200 });
   const particles = options.particles ?? {};
+  // The object defines the primary direction; the particles trail its actual position through
+  // the intro/outro fly transitions (not the bare path), so the two layers stay in sync.
+  const object = new ObjectMotionAnimation({
+    mesh: () => tetrahedron(1, ["#f0f9ff", "#7dd3fc", "#818cf8", "#e879f9"]),
+    motion,
+    size: 0.42,
+    rotation: { spinX: 0.002, spinY: 0.003 },
+    backend: options.backend,
+    ...options.object,
+    label: options.object?.label,
+  });
   const animation = new CompositeAnimation([
     new ParticlesAnimation({
       rate: 44,
@@ -171,21 +191,15 @@ export function crystalComet(options: MotionPrefabOptions = {}): IndeterminateSp
       speed: 0.08,
       colors: ["#ffffff", "#bae6fd", "#818cf8"],
       texture: particles.texture ?? shineTexture(),
-      emitter: motion,
+      emitter: object.trailEmitter(),
+      outroMs: object.outroDurationMs,
       seed: 28,
       backend: options.backend,
       ...particles,
       label: options.label ?? particles.label ?? "Polishing pixels",
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel,
     }),
-    new ObjectMotionAnimation({
-      mesh: () => tetrahedron(1, ["#f0f9ff", "#7dd3fc", "#818cf8", "#e879f9"]),
-      motion,
-      size: 0.42,
-      rotation: { spinX: 0.002, spinY: 0.003 },
-      backend: options.backend,
-      ...options.object,
-      label: options.object?.label,
-    }),
+    object,
   ]);
   return spinner(animation, options);
 }
@@ -204,6 +218,7 @@ export function pulsingStarfield(options: ParticlePrefabOptions = {}): Indetermi
     backend: options.backend,
     ...particles,
     label: options.label ?? particles.label ?? pulsingLabel(),
+    fadeLabel: options.fadeLabel ?? particles.fadeLabel,
   }), options);
 }
 
@@ -227,6 +242,7 @@ export function starSwarm(options: ParticlePrefabOptions = {}): IndeterminateSpi
     backend: options.backend,
     ...particles,
     label: options.label ?? particles.label ?? "Loading...",
+    fadeLabel: options.fadeLabel ?? particles.fadeLabel,
   }), options);
 }
 
@@ -235,11 +251,11 @@ export function monochromeStreak(options: ParticlePrefabOptions = {}): Indetermi
   const particles = options.particles ?? {};
   return spinner(new ParticlesAnimation({
     rate: 70,
-    lifeMs: 1300,
+    lifeMs: 2800,
     size: 0.38,
     speed: 1.35,
     direction: { x: 0, y: 1, z: 0 },
-    spread: 0.48,
+    spread: 0.62,
     gravity: { x: 0, y: -1.45, z: 0 },
     colors: ["#fff", "#000"],
     texture: particles.texture ?? streakTexture(),
@@ -249,5 +265,6 @@ export function monochromeStreak(options: ParticlePrefabOptions = {}): Indetermi
     backend: options.backend,
     ...particles,
     label: options.label ?? particles.label ?? "Loading...",
+    fadeLabel: options.fadeLabel ?? particles.fadeLabel,
   }), options);
 }
