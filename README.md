@@ -112,7 +112,8 @@ import { planeStarTrail } from "3d-spinner/prefabs";
 const spinner = createSpinner(document.getElementById("app"), planeStarTrail());
 ```
 
-Common overrides include `backend`, `label`, and `periodMs`. Motion prefabs also accept
+Common overrides include `backend`, `label`, `fadeLabel`, and `periodMs`. Labels fade with the
+intro and outro by default; set `fadeLabel: false` to keep one fully visible. Motion prefabs also accept
 `object` and `particles` option objects. A label can be text or any `HTMLElement`.
 
 ```js
