@@ -23,6 +23,10 @@
       "types": "./dist/plugins/basic-3d-cube.d.ts",
       "import": "./dist/plugins/basic-3d-cube.js"
     },
+    "./plugins/basic-3d-spin": {
+      "types": "./dist/plugins/basic-3d-spin.d.ts",
+      "import": "./dist/plugins/basic-3d-spin.js"
+    },
     "./engines/little-3d-engine": {
       "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
       "import": "./dist/engines/little-3d-engine/little-3d-engine.js"
