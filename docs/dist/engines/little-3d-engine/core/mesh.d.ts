@@ -1,0 +1,40 @@
+import type { Vec3 } from "./math.js";
+/** A single flat polygon: indices into the mesh `vertices` plus a base color. */
+export interface Face {
+    /** Vertex indices, wound counter-clockwise when viewed from outside. */
+    indices: number[];
+    /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
+    color: string;
+}
+/** Geometry: a list of vertices and the colored faces that connect them. */
+export interface Mesh {
+    vertices: Vec3[];
+    faces: Face[];
+}
+/** Draw only outward-facing transparent surfaces. */
+export interface OneSidedTransparency {
+    mode: "one-sided";
+    /** Surface opacity from `0` (invisible) to `1` (opaque). Default `0.35`. */
+    opacity?: number;
+}
+/** Draw back surfaces before front surfaces to suggest a transparent solid. */
+export interface TwoSidedTransparency {
+    mode: "two-sided";
+    /** Front opacity shorthand; back opacity is derived as two-thirds of front. */
+    opacity?: number;
+    /** Back-surface opacity from `0` to `1`. Default `0.84`. */
+    backOpacity?: number;
+    /** Front-surface opacity from `0` to `1`. Default `0.56`. */
+    frontOpacity?: number;
+}
+/** Transparency mode for one mesh instance. */
+export type Transparency = OneSidedTransparency | TwoSidedTransparency;
+/** Position and orientation (Euler radians) applied to a mesh when rendered. */
+export interface Transform {
+    position: Vec3;
+    rotation: Vec3;
+    /** Uniform scale multiplier. Default `1`. */
+    scale: number;
+}
+/** Create a {@link Transform} with sensible defaults (origin, no rotation). */
+export declare function transform(init?: Partial<Transform>): Transform;

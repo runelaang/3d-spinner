@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3d-spinner and beyond - prefabs</title>
+  <link rel="stylesheet" href="/3d-spinner/examples/examples.css" />
+  <script src="/3d-spinner/examples/theme.js"></script>
+</head>
+
+<body>
+  <nav class="topbar">
+    <a href="/3d-spinner/examples/prefabs.html" class="active">Prefabs</a>
+    <a href="/3d-spinner/examples/prefabs-progress.html">Progress prefabs</a>
+    <a href="/3d-spinner/examples/shapes.html">Shapes</a>
+    <a href="/3d-spinner/examples/spinner-types.html">Spinner types</a>
+    <a href="/3d-spinner/examples/motion.html">Motion</a>
+    <a href="/3d-spinner/examples/particles.html">Particles</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Auto</button>
+  </nav>
+
+  <h1>3d-spinner and beyond: prefabs</h1>
+
+  <p class="note">
+    Each prefab supplies complete spinner options with no configuration. Pass an optional object
+    to override its backend, message, timing, moving object, or particles.
+  </p>
+
+  <div class="controls">
+    <label>Renderer
+      <select id="render-tech">
+        <option value="canvas2d">Canvas 2D (software)</option>
+        <option value="webgl" selected>WebGL</option>
+        <option value="webgpu">WebGPU</option>
+      </select>
+    </label>
+    <button id="restart">Restart all</button>
+    <button id="stop">Stop all</button>
+  </div>
+
+  <div class="spinner-grid prefab-grid" id="prefab-showcase"></div>
+
+  <script type="module">
+    import { createSpinner } from "/3d-spinner/dist/index.js";
+    import {
+      crystalComet,
+      monochromeStreak,
+      planeStarTrail,
+      pulsingStarfield,
+      starSwarm,
+    } from "/3d-spinner/dist/prefabs/prefabs.js";
+    import { cube } from "/3d-spinner/dist/engines/little-3d-engine/little-3d-engine.js";
+    import { circleMotion, squareMotion } from "/3d-spinner/dist/motion/motion.js";
+
+    const renderTech = document.getElementById("render-tech");
+    const backend = () => renderTech.value;
+    const backendLabel = () => ({ canvas2d: "Canvas 2D", webgl: "WebGL", webgpu: "WebGPU" })[backend()];
+
+    function customMessage() {
+      const message = document.createElement("div");
+      message.innerHTML = `<div style="display:grid;gap:.35rem;text-align:center">
+        <strong style="font-size:1.9rem;color:#fff">Building your scene</strong>
+        <span style="font-size:.85rem;color:#bae6fd;font-weight:500">Custom HTML message</span>
+      </div>`;
+      return message;
+    }
+
+    const demos = [
+      {
+        title: "Plane star trail",
+        code: `createSpinner(target, planeStarTrail())`,
+        create: () => planeStarTrail({ backend: backend() }),
+      },
+      {
+        title: "Crystal comet",
+        code: `createSpinner(target, crystalComet({\n  particles: { rate: 58 } // optional override\n}))`,
+        create: () => crystalComet({ backend: backend(), particles: { rate: 58 } }),
+      },
+      {
+        title: "Pulsing starfield",
+        code: `createSpinner(target, pulsingStarfield())`,
+        create: () => pulsingStarfield({ backend: backend() }),
+      },
+      {
+        title: "Star swarm with custom HTML",
+        code: `const message = document.createElement("div");\ncreateSpinner(target, starSwarm({ label: message }))`,
+        create: () => starSwarm({ backend: backend(), label: customMessage() }),
+      },
+      {
+        title: "Ice blue plane trail",
+        code: `createSpinner(target, planeStarTrail({\n  periodMs: 3200,\n  particles: {\n    colors: ["#fff", "#a5f3fc", "#60a5fa"],\n    rate: 52,\n    lifeMs: 2600\n  }\n}))`,
+        create: () => planeStarTrail({
+          backend: backend(),
+          periodMs: 3200,
+          particles: {
+            colors: ["#fff", "#a5f3fc", "#60a5fa"],
+            rate: 52,
+            lifeMs: 2600,
+          },
+        }),
+      },
+      {
+        title: "Cube orbit",
+        code: `createSpinner(target, crystalComet({\n  object: {\n    mesh: cube,\n    motion: circleMotion({ radius: .72 })\n  }\n}))`,
+        create: () => crystalComet({
+          backend: backend(),
+          object: {
+            mesh: cube,
+            motion: circleMotion({ radius: 0.72 }),
+          },
+        }),
+      },
+      {
+        title: "Star fountain",
+        code: `createSpinner(target, pulsingStarfield({\n  label: "Preparing launch",\n  particles: {\n    direction: { x: 0, y: 1, z: 0 },\n    gravity: { x: 0, y: -0.35, z: 0 }\n  }\n}))`,
+        create: () => pulsingStarfield({
+          backend: backend(),
+          label: "Preparing launch",
+          particles: {
+            direction: { x: 0, y: 1, z: 0 },
+            gravity: { x: 0, y: -0.35, z: 0 },
+          },
+        }),
+      },
+      {
+        title: "Square star patrol",
+        code: `createSpinner(target, starSwarm({\n  loop: "restart",\n  particles: {\n    emitter: squareMotion({ size: 1.1 }),\n    colors: ["#fef3c7", "#fb7185", "#c4b5fd"]\n  }\n}))`,
+        create: () => starSwarm({
+          backend: backend(),
+          loop: "restart",
+          particles: {
+            emitter: squareMotion({ size: 1.1 }),
+            colors: ["#fef3c7", "#fb7185", "#c4b5fd"],
+          },
+        }),
+      },
+      {
+        title: "Monochrome streak",
+        code: `createSpinner(target, monochromeStreak())`,
+        create: () => monochromeStreak({ backend: backend() }),
+      },
+    ];
+
+    function buildShowcase() {
+      const grid = document.getElementById("prefab-showcase");
+      grid.replaceChildren();
+      const spinners = [];
+      for (const demo of demos) {
+        const card = document.createElement("section");
+        card.className = "spinner-card";
+        card.innerHTML = `<h2>${demo.title} (${backendLabel()})
+          <span class="card-playback">
+            <button type="button" class="card-start">Start</button>
+            <button type="button" class="card-stop">Stop</button>
+          </span></h2>`;
+        const stage = document.createElement("div");
+        stage.className = "stage";
+        const config = document.createElement("pre");
+        config.className = "config";
+        config.textContent = demo.code;
+        card.append(stage, config);
+        grid.appendChild(card);
+
+        let spinner;
+        const start = () => {
+          spinner?.destroy();
+          stage.replaceChildren();
+          spinner = createSpinner(stage, demo.create());
+        };
+        card.querySelector(".card-start").onclick = start;
+        card.querySelector(".card-stop").onclick = () => spinner?.stop();
+        start();
+        spinners.push({ start, stop: () => spinner?.stop() });
+      }
+      return spinners;
+    }
+
+    let spinners = buildShowcase();
+    renderTech.onchange = () => { spinners = buildShowcase(); };
+    document.getElementById("restart").onclick = () => spinners.forEach((spinner) => spinner.start());
+    document.getElementById("stop").onclick = () => spinners.forE
