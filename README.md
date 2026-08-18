@@ -106,6 +106,7 @@ highlight, and self-illumination on top, using the Wavefront MTL properties of t
 | `specular` | `Ks` | `[r, g, b]` | Highlight color and strength, linear `0..1`. Omit for a matte surface. |
 | `shininess` | `Ns` | `number` | Highlight tightness, `0..1000`. Higher is smaller and glossier. Defaults to `32` when `specular` is set. Ignored without `specular`. |
 | `emissive` | `Ke` | `[r, g, b]` | Color added after shading, linear `0..1`, so the face reads as self-lit. |
+| `opacity` | `d` (`1 - Tr`) | `number` | Face dissolve, linear `0..1`. `1` is opaque. Omit or `1` for an opaque face. Multiplies with instance `transparency`. Canvas 2D applies it; WebGL and WebGPU still use instance `transparency` only. |
 
 `SpinAnimation` takes a `material` that applies to every face, alongside `color`:
 
@@ -132,8 +133,8 @@ To apply one to a mesh from elsewhere, `attachMaterial(mesh, material)` sets it 
 place.
 
 Meshes loaded through the OBJ loader pick their materials up from the accompanying MTL file when
-`useMtlColors` is set - `Kd` becomes the face color, and `Ka`/`Ks`/`Ns`/`Ke` become the face
-material:
+`useMtlColors` is set - `Kd` becomes the face color, and `Ka`/`Ks`/`Ns`/`Ke`/`d`/`Tr` become the
+face material:
 
 ```js
 import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
@@ -142,7 +143,8 @@ const mesh = parseObj(objText, { mtl: mtlText, useMtlColors: true });
 ```
 
 Materials work on all three backends. Canvas 2D computes the highlight once per face, so it lands
-flat, while WebGL and WebGPU compute it per pixel and produce a gradient across the face. The
+flat, while WebGL and WebGPU compute it per pixel and produce a gradient across the face. Per-face
+opacity is applied on Canvas 2D; WebGL and WebGPU still use instance `transparency` only. The
 textured renderer variants do not apply materials.
 
 ## How it fits together

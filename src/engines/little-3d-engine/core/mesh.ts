@@ -29,6 +29,13 @@ export interface Material {
    * face appears self-lit. Omit or `[0,0,0]` for no self-illumination.
    */
   emissive?: [number, number, number];
+  /**
+   * Dissolve (`d`, or `1 - Tr`) as linear `0..1`. `1` is fully opaque, `0` is
+   * fully transparent. Omit or `1` for an opaque face. Combined with instance
+   * `transparency` by multiplying the two alphas. Applied on Canvas 2D; WebGL
+   * and WebGPU still use instance `transparency` only.
+   */
+  opacity?: number;
 }
 
 /** A single flat polygon: indices into the mesh `vertices` plus a base color. */
@@ -38,8 +45,8 @@ export interface Face {
   /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
   color: string;
   /**
-   * Optional surface material (ambient, specular, shininess, emissive) from an
-   * MTL file. When absent the face is flat Lambert-shaded from `color`.
+   * Optional surface material (ambient, specular, shininess, emissive, opacity)
+   * from an MTL file. When absent the face is flat Lambert-shaded from `color`.
    */
   material?: Material;
 }
