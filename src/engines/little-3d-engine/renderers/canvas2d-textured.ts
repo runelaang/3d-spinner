@@ -92,7 +92,8 @@ export class Canvas2DTexturedRenderer implements Renderer {
 
   init(canvas: HTMLCanvasElement): void {
     this.inner.init(canvas);
-    this.ctx = canvas.getContext("2d") ?? undefined;
+    // The inner renderer already threw if there is no 2D context; this returns the same one.
+    this.ctx = canvas.getContext("2d")!;
   }
 
   resize(cssWidth: number, cssHeight: number, dpr: number): void {

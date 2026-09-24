@@ -8,14 +8,17 @@ for (const name of ["document", "window", "ResizeObserver", "navigator"]) {
 
 let observers = [];
 let requestDevice;
+let canvas2dAvailable = true;
+
+const fake2dContext = { setTransform() {} };
 
 class FakeCanvas {
   style = {};
   clientWidth = 100;
   clientHeight = 100;
   parent = undefined;
-  getContext() {
-    return null;
+  getContext(type) {
+    return type === "2d" && canvas2dAvailable ? fake2dContext : null;
   }
   remove() {
     this.parent?.children.splice(this.parent.children.indexOf(this), 1);
@@ -106,4 +109,71 @@ test("destroy during initialization stops retries and leaves nothing behind", as
   await mounting;
   assert.equal(target.children.length, 0);
   assert.equal(liveObservers(), 0);
+});
+
+test("auto rejects with every backend's error when none can start", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  canvas2dAvailable = false;
+  try {
+    const target = new FakeTarget();
+    await assert.rejects(
+      new Little3dEngine().mount(target),
+      /no renderer could start \(webgpu: .*device lost; canvas2d: .*Canvas 2D/,
+    );
+    assert.equal(target.children.length, 0);
+    assert.equal(liveObservers(), 0);
+  } finally {
+    canvas2dAvailable = true;
+  }
+});
+
+test("a WebGPU init failure after the device is acquired destroys the device", async () => {
+  observers = [];
+  const device = {
+    destroyed: false,
+    destroy() {
+      this.destroyed = true;
+    },
+  };
+  requestDevice = async () => device;
+  const target = new FakeTarget();
+  await new Little3dEngine().mount(target);
+  assert.equal(device.destroyed, true);
+  assert.equal(target.children.length, 1, "fell back to Canvas 2D");
+});
+
+test("mounting again while mounting or mounted rejects", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  const target = new FakeTarget();
+  const engine = new Little3dEngine();
+  const first = engine.mount(target);
+  await assert.rejects(engine.mount(target), /already mounted/);
+  await first;
+  await assert.rejects(engine.mount(target), /already mounted/);
+  assert.equal(target.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
+});
+
+test("a destroyed engine can be mounted again", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  const first = new FakeTarget();
+  const second = new FakeTarget();
+  const engine = new Little3dEngine();
+  await engine.mount(first);
+  engine.destroy();
+  await engine.mount(second);
+  assert.equal(first.children.length, 0);
+  assert.equal(second.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
 });

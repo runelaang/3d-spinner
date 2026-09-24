@@ -78,6 +78,7 @@ export class Little3dEngine {
   private cssWidth = 0;
   private cssHeight = 0;
   private ready = false;
+  private state: "idle" | "mounting" | "mounted" = "idle";
   private generation = 0;
   private rafId = 0;
   private running = false;
@@ -95,9 +96,27 @@ export class Little3dEngine {
    * is unavailable. With `"auto"`, a backend that fails to load or initialize
    * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
    * rejects only when all of them fail. Drawing is a no-op until it resolves.
+   *
+   * An engine mounts into one element at a time: mounting again while mounting or
+   * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
+   * mounted again, for example into another element.
    */
   async mount(target: HTMLElement): Promise<void> {
+    if (this.state !== "idle") {
+      throw new Error("3d-spinner: this engine is already mounted. Call destroy() before mounting it again.");
+    }
+    this.state = "mounting";
     const generation = this.generation;
+    try {
+      await this.startRenderer(target, generation);
+    } catch (error) {
+      if (generation === this.generation) this.state = "idle";
+      throw error;
+    }
+  }
+
+  /** Try each backend candidate in order until one initializes on a fresh canvas. */
+  private async startRenderer(target: HTMLElement, generation: number): Promise<void> {
     const candidates: Array<Backend | RendererFactory> =
       this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
     if (generation !== this.generation) return;
@@ -117,6 +136,7 @@ export class Little3dEngine {
         this.renderer = renderer;
         this.resize();
         this.ready = true;
+        this.state = "mounted";
         return;
       } catch (error) {
         try {
@@ -229,6 +249,7 @@ export class Little3dEngine {
   destroy(): void {
     this.generation++;
     this.ready = false;
+    this.state = "idle";
     this.stop();
     this.observer?.disconnect();
     this.observer = undefined;

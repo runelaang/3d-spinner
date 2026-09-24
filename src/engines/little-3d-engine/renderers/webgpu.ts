@@ -123,9 +123,14 @@ export class WebGPURenderer implements Renderer {
       device.destroy?.();
       return;
     }
+    // Every acquired resource gets an owner before the next step can fail, so a
+    // failed init is fully released by destroy().
+    this.device = device;
+    this.canvas = canvas;
 
     const context = canvas.getContext("webgpu") as any;
     if (!context) throw new Error("3d-spinner: could not get a WebGPU canvas context.");
+    this.context = context;
     const format = gpu.getPreferredCanvasFormat();
     context.configure({ device, format, alphaMode: this.alphaMode });
 
@@ -184,10 +189,6 @@ export class WebGPURenderer implements Renderer {
     this.pipeline = pipeline("back", false);
     this.transparentBackPipeline = pipeline("front", true);
     this.transparentFrontPipeline = pipeline("back", true);
-
-    this.canvas = canvas;
-    this.device = device;
-    this.context = context;
   }
 
   resize(): void {
