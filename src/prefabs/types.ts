@@ -14,6 +14,8 @@ export interface PrefabOptions {
   loop?: "bounce" | "restart";
   /** Milliseconds for one progress sweep. Default `2000`. */
   periodMs?: number;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export interface ProgressPrefabOptions {
@@ -29,6 +31,8 @@ export interface ProgressPrefabOptions {
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export interface MotionPrefabOptions extends PrefabOptions {

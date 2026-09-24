@@ -271,6 +271,7 @@ on the mode.
 | `progress` | `number` | Initial progress `0..1`. A value above 0 plays the intro immediately. |
 | `timeout` | `number` | Auto-complete after this many milliseconds. `NaN` throws a `RangeError`. |
 | `until` | `Date` | Auto-complete at this time. If both are set, the earlier wins. |
+| `ariaLabel` | `string` | Accessible name of the hidden progress bar. Default `"Loading"`. |
 
 **Indeterminate** (`type: "indeterminate"`):
 
@@ -279,6 +280,7 @@ on the mode.
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `loop` | `"bounce" \| "restart"` | `"bounce"` ramps 0 to 1 and back; `"restart"` repeats 0 to 1. Default `"bounce"`. |
 | `periodMs` | `number` | Milliseconds for one sweep. Must be finite and greater than zero. Default `2000`. |
+| `ariaLabel` | `string` | Accessible name of the hidden progress bar. Default `"Loading"`. |
 
 ### `Spinner`
 
@@ -299,6 +301,35 @@ throws. Prefab functions return a fresh animation on every call.
 ```js
 const spinner = createSpinner(target, gridAssembly({ backend: "webgpu" }));
 spinner.ready.catch((error) => showFallback(error.message));
+```
+
+## Accessibility
+
+Every spinner adds one visually hidden ARIA `progressbar` to its target. A progress spinner keeps
+`aria-valuenow` at the rounded percentage (written only when it changes); an indeterminate one has
+no value, which is how ARIA marks indeterminate progress. Its name comes from the `ariaLabel`
+option, default `"Loading"`, also accepted by every prefab:
+
+```js
+createSpinner(target, gridAssembly({ ariaLabel: "Uploading photos" }));
+```
+
+The overlay text drawn over the animation is hidden from assistive technology, so progress is
+announced once even when layers stack labels. A custom `HTMLElement` label keeps its own semantics.
+
+The spinner does not change its motion on its own when the system asks for reduced motion.
+`prefersReducedMotion()` reads that setting, for picking a calmer visual or none:
+
+```js
+import { createSpinner, prefersReducedMotion } from "3d-spinner";
+import { SpinAnimation } from "3d-spinner/animations/spin";
+
+createSpinner(target, {
+  type: "indeterminate",
+  animation: prefersReducedMotion()
+    ? new SpinAnimation({ spinX: 0.0002, spinY: 0.0003 })
+    : new SpinAnimation(),
+});
 ```
 
 ## Rendering backend

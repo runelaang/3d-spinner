@@ -5,8 +5,25 @@ import { createSpinner } from "../dist/index.js";
 const originalHTMLElement = globalThis.HTMLElement;
 const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+const originalDocument = globalThis.document;
 
-class FakeHTMLElement {}
+class FakeHTMLElement {
+  style = {};
+  attributes = {};
+  children = [];
+  parent = undefined;
+  appendChild(child) {
+    child.parent = this;
+    this.children.push(child);
+  }
+  setAttribute(name, value) {
+    this.attributes[name] = value;
+  }
+  remove() {
+    this.parent?.children.splice(this.parent.children.indexOf(this), 1);
+    this.parent = undefined;
+  }
+}
 
 let frames;
 let nextFrameId;
@@ -17,6 +34,7 @@ function resetFrameScheduler() {
   nextFrameId = 1;
   frameTime = performance.now() + 16;
   globalThis.HTMLElement = FakeHTMLElement;
+  globalThis.document = { createElement: () => new FakeHTMLElement() };
   globalThis.requestAnimationFrame = (callback) => {
     const id = nextFrameId++;
     frames.set(id, callback);
@@ -83,6 +101,7 @@ after(() => {
   restoreGlobal("HTMLElement", originalHTMLElement);
   restoreGlobal("requestAnimationFrame", originalRequestAnimationFrame);
   restoreGlobal("cancelAnimationFrame", originalCancelAnimationFrame);
+  restoreGlobal("document", originalDocument);
 });
 
 test("createSpinner mounts once and completes reported progress after the outro", () => {
@@ -337,4 +356,41 @@ test("an animation instance cannot drive a second spinner", () => {
     /already in use/,
   );
   assert.equal(animation.mounts.length, 1);
+});
+
+test("a progress spinner exposes one progressbar whose value follows the rounded progress", () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  const spinner = createSpinner(target, { animation, ariaLabel: "Uploading" });
+  const bar = target.children.find((child) => child.attributes.role === "progressbar");
+  assert.ok(bar, "progressbar element");
+  assert.equal(bar.attributes["aria-label"], "Uploading");
+  assert.equal(bar.attributes["aria-valuemin"], "0");
+  assert.equal(bar.attributes["aria-valuemax"], "100");
+
+  let writes = 0;
+  const setAttribute = bar.setAttribute.bind(bar);
+  bar.setAttribute = (name, value) => {
+    if (name === "aria-valuenow") writes++;
+    setAttribute(name, value);
+  };
+  runNextFrame();
+  runNextFrame();
+  assert.equal(bar.attributes["aria-valuenow"], "0");
+  assert.equal(writes, 1, "unchanged percentages are not rewritten");
+
+  spinner.setProgress(1);
+  runUntil(() => bar.attributes["aria-valuenow"] === "100");
+  spinner.destroy();
+  assert.equal(target.children.includes(bar), false, "destroy removes it");
+});
+
+test("an indeterminate spinner's progressbar has a name but no value", () => {
+  const target = new FakeHTMLElement();
+  createSpinner(target, { type: "indeterminate", animation: fakeAnimation() });
+  const bar = target.children.find((child) => child.attributes.role === "progressbar");
+  runNextFrame();
+  assert.equal(bar.attributes["aria-label"], "Loading");
+  assert.equal("aria-valuenow" in bar.attributes, false);
+  assert.equal("aria-valuemax" in bar.attributes, false);
 });

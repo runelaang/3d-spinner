@@ -18,6 +18,8 @@ export interface ProgressSpinnerOptions {
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 /** A self-driving spinner: it loops a synthetic progress on a timer until stopped. */
@@ -29,6 +31,8 @@ export interface IndeterminateSpinnerOptions {
   loop?: "bounce" | "restart";
   /** Milliseconds for one 0->1 sweep. Must be finite and greater than zero. Default `2000`. */
   periodMs?: number;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export type SpinnerOptions = ProgressSpinnerOptions | IndeterminateSpinnerOptions;
@@ -60,6 +64,52 @@ function lerp(from: number, to: number, t: number): number {
 }
 
 const usedAnimations = new WeakSet<SpinnerAnimation>();
+
+// Visually hidden but read by assistive technology.
+const PROGRESSBAR_STYLE =
+  "position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
+
+/**
+ * True when the user has asked the system to reduce motion
+ * (`prefers-reduced-motion: reduce`). The spinner does not act on it by itself;
+ * use it to choose a calmer animation, a slower spin, or no spinner at all.
+ */
+export function prefersReducedMotion(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Add the spinner's accessible progress bar to `target`: an ARIA `progressbar`
+ * named `label`. The visual labels are hidden from assistive technology, so this
+ * is the one element that reports progress. An indeterminate spinner has no
+ * value. `update` writes the value only when the rounded percentage changes.
+ */
+function mountProgressbar(
+  target: HTMLElement,
+  label: string,
+  indeterminate: boolean,
+): { element: HTMLElement; update(progress: number): void } {
+  const element = document.createElement("div");
+  element.style.cssText = PROGRESSBAR_STYLE;
+  element.setAttribute("role", "progressbar");
+  element.setAttribute("aria-label", label);
+  if (!indeterminate) {
+    element.setAttribute("aria-valuemin", "0");
+    element.setAttribute("aria-valuemax", "100");
+  }
+  target.appendChild(element);
+  let shown = -1;
+  return {
+    element,
+    update(progress) {
+      if (indeterminate) return;
+      const percent = Math.round(progress * 100);
+      if (percent === shown) return;
+      shown = percent;
+      element.setAttribute("aria-valuenow", String(percent));
+    },
+  };
+}
 
 /**
  * Mount `options.animation` inside `target` and start its animation loop.
@@ -96,7 +146,9 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     );
   }
   usedAnimations.add(animation);
-  const ready = Promise.resolve(animation.mount(target)).catch((error: unknown) => {
+  const mounting = animation.mount(target);
+  const progressbar = mountProgressbar(target, options.ariaLabel ?? "Loading", indeterminate);
+  const ready = Promise.resolve(mounting).catch((error: unknown) => {
     halt();
     throw error;
   });
@@ -158,6 +210,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 
     const target = indeterminate ? progress : targetProgress;
     animation.render(now, { progress, targetProgress: target, indeterminate });
+    progressbar.update(progress);
 
     if (exiting && animation.isFinished()) {
       halt();
@@ -192,6 +245,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     destroyed = true;
     halt();
     animation.destroy();
+    progressbar.element.remove();
   }
 
   rafId = requestAnimationFrame(frame);
