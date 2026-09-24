@@ -15,8 +15,8 @@ export interface ObjOptions {
   /**
    * Use MTL material values for faces with matching `usemtl` statements: the
    * diffuse color (`Kd`) becomes the face color, and ambient (`Ka`), specular
-   * (`Ks`/`Ns`), and emissive (`Ke`) become the face {@link Material}. Default
-   * `false`.
+   * (`Ks`/`Ns`), emissive (`Ke`), and dissolve (`d`/`Tr`) become the face
+   * {@link Material}. Default `false`.
    */
   useMtlColors?: boolean;
 }
@@ -25,7 +25,7 @@ export interface ObjOptions {
 interface ParsedMaterial {
   /** Diffuse color (`Kd`) as a CSS hex string, if present. */
   color?: string;
-  /** Ambient, specular, shininess, and emissive gathered from `Ka`/`Ks`/`Ns`/`Ke`. */
+  /** Ambient, specular, shininess, emissive, and dissolve gathered from MTL. */
   material?: Material;
 }
 
@@ -34,6 +34,7 @@ interface SurfaceProps {
   specular?: [number, number, number];
   shininess?: number;
   emissive?: [number, number, number];
+  opacity?: number;
 }
 
 /** True when `Ka` is the engine identity (full scene ambient). */
@@ -61,10 +62,10 @@ function parseRgb(parts: string[]): [number, number, number] | undefined {
 }
 
 /**
- * Fold ambient/specular/shininess/emissive into a {@link Material}, or
- * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) is dropped so
- * a Kd-only material with a white `Ka` (common in exported MTLs) still leaves
- * `Face.material` undefined.
+ * Fold ambient/specular/shininess/emissive/opacity into a {@link Material}, or
+ * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) and opaque
+ * dissolve (`d 1` / `Tr 0`) are dropped so a Kd-only material with those
+ * defaults still leaves `Face.material` undefined.
  */
 function toMaterial(surface: SurfaceProps): Material | undefined {
   const material: Material = {};
@@ -74,13 +75,14 @@ function toMaterial(surface: SurfaceProps): Material | undefined {
   if (surface.specular) material.specular = surface.specular;
   if (surface.shininess !== undefined) material.shininess = surface.shininess;
   if (surface.emissive) material.emissive = surface.emissive;
+  if (surface.opacity != null && surface.opacity != 1) material.opacity = surface.opacity;
   return Object.keys(material).length > 0 ? material : undefined;
 }
 
 /**
  * Parse MTL text into a map of material name to its color and surface material.
  * Reads `Kd` (diffuse color), `Ka` (ambient), `Ks` (specular), `Ns` (shininess),
- * and `Ke` (emissive); other statements are ignored.
+ * `Ke` (emissive), and `d`/`Tr` (dissolve); other statements are ignored.
  */
 function parseMtl(text: string): Map<string, ParsedMaterial> {
   const materials = new Map<string, ParsedMaterial>();
@@ -119,6 +121,12 @@ function parseMtl(text: string): Map<string, ParsedMaterial> {
       if (Number.isFinite(ns)) surface.shininess = Math.max(0, ns);
     } else if (keyword === "Ke") {
       surface.emissive = parseRgb(parts);
+    } else if (keyword === "d") {
+      const d = Number.parseFloat(parts[1]);
+      if (Number.isFinite(d)) surface.opacity = clamp01(d);
+    } else if (keyword === "Tr") {
+      const tr = Number.parseFloat(parts[1]);
+      if (Number.isFinite(tr)) surface.opacity = clamp01(1 - tr);
     }
   }
 
@@ -140,8 +148,9 @@ function resolveIndex(token: string, vertexCount: number): number {
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
  * computes a flat normal per face. Material names can select the diffuse color
- * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`)
- * from supplied MTL text; groups and other statements are ignored. Face winding
+ * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`,
+ * dissolve `d`/`Tr`) from supplied MTL text; groups and other statements are
+ * ignored. Face winding
  * is preserved as-is; the engine expects CCW winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.

@@ -68,6 +68,24 @@ export async function resolveBackend(backend: Backend): Promise<ResolvedBackend>
   return chooseBackend(await supportProbe);
 }
 
+/**
+ * Every backend `"auto"` may try, best first. Canvas 2D is always last, so a
+ * GPU backend that passes the probe but fails to start still has a fallback.
+ */
+export function autoBackendCandidates(support: BackendSupport): ResolvedBackend[] {
+  const candidates: ResolvedBackend[] = [];
+  if (support.webgpu) candidates.push("webgpu");
+  if (support.webgl) candidates.push("webgl");
+  candidates.push("canvas2d");
+  return candidates;
+}
+
+/** {@link autoBackendCandidates} for this browser, using the cached probe. */
+export async function resolveAutoCandidates(): Promise<ResolvedBackend[]> {
+  supportProbe ??= detectBackendSupport();
+  return autoBackendCandidates(await supportProbe);
+}
+
 /** A mesh plus its world transform, ready to draw. */
 export interface RenderItem {
   mesh: Mesh;

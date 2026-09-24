@@ -178,3 +178,102 @@ test("invalid indeterminate periods fail before mounting", () => {
     assert.equal(frames.size, 0);
   }
 });
+
+test("until uses wall-clock time and the earlier of timeout and until wins", async (t) => {
+  await t.test("future until completes at its deadline, not before", () => {
+    const animation = fakeAnimation();
+    createSpinner(new FakeHTMLElement(), {
+      animation,
+      until: new Date(Date.now() + 200),
+    });
+    const firstFrame = frameTime;
+    runNextFrame();
+    assert.equal(animation.renders.at(-1).frame.targetProgress, 0);
+    runUntil(() => animation.renders.at(-1).frame.targetProgress === 1, 30);
+    assert.ok(animation.renders.at(-1).now >= firstFrame + 150, "deadline fired too early");
+  });
+
+  await t.test("past until completes on the first frame", () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    createSpinner(new FakeHTMLElement(), {
+      animation,
+      until: new Date(Date.now() - 1000),
+    });
+    runNextFrame();
+    assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
+  });
+
+  await t.test("earlier timeout beats later until", () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    createSpinner(new FakeHTMLElement(), {
+      animation,
+      timeout: 0,
+      until: new Date(Date.now() + 60_000),
+    });
+    runNextFrame();
+    assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
+  });
+
+  await t.test("earlier until beats later timeout", () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    createSpinner(new FakeHTMLElement(), {
+      animation,
+      timeout: 60_000,
+      until: new Date(Date.now() - 1000),
+    });
+    runNextFrame();
+    assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
+  });
+});
+
+test("an invalid until Date fails before mounting", () => {
+  const animation = fakeAnimation();
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { animation, until: new Date(NaN) }),
+    { name: "RangeError", message: /until/ },
+  );
+  assert.equal(animation.mounts.length, 0);
+  assert.equal(frames.size, 0);
+});
+
+/** Run frames at `stepMs` intervals for `durationMs` after the first frame and return the progress. */
+function progressAfter(stepMs, durationMs) {
+  resetFrameScheduler();
+  const animation = fakeAnimation();
+  const spinner = createSpinner(new FakeHTMLElement(), { animation, progress: 0.001 });
+  runNextFrame();
+  spinner.setProgress(1);
+  const end = frameTime - 16 + durationMs;
+  while (frameTime - 16 + stepMs <= end) {
+    frameTime = frameTime - 16 + stepMs;
+    runNextFrame();
+  }
+  return animation.renders.at(-1).frame.progress;
+}
+
+test("progress smoothing does not depend on the frame rate", () => {
+  const at60 = progressAfter(1000 / 60, 250);
+  for (const fps of [30, 144]) {
+    const value = progressAfter(1000 / fps, 250);
+    assert.ok(Math.abs(value - at60) < 0.03, `${fps} fps gave ${value}, 60 fps gave ${at60}`);
+  }
+  assert.ok(at60 > 0.8 && at60 < 1, `unexpected 60 fps progress ${at60}`);
+});
+
+test("progress smoothing stays finite across irregular frames and long gaps", () => {
+  const animation = fakeAnimation();
+  const spinner = createSpinner(new FakeHTMLElement(), { animation, progress: 0.001 });
+  runNextFrame();
+  spinner.setProgress(1);
+  for (const gap of [3, 40, 7, 5000, 0, 11]) {
+    frameTime = frameTime - 16 + gap;
+    if (frames.size) runNextFrame();
+    const { progress } = animation.renders.at(-1).frame;
+    assert.ok(Number.isFinite(progress) && progress >= 0 && progress <= 1);
+  }
+  assert.equal(animation.renders.at(-1).frame.progress, 1);
+  assert.equal(animation.exits.length, 1);
+});
