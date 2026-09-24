@@ -99,6 +99,7 @@ export class WebGPURenderer implements Renderer {
   private depthSize = "";
   protected destroyed = false;
   private readonly cache = new Map<Mesh, MeshBuffers>();
+  private readonly uniformScratch = new Float32Array(UNIFORM_STRIDE / 4);
   protected readonly clearValue: { r: number; g: number; b: number; a: number };
   private readonly alphaMode: string;
 
@@ -211,7 +212,7 @@ export class WebGPURenderer implements Renderer {
     this.depthSize = key;
   }
 
-  private buffers(mesh: Mesh): MeshBuffers {
+  private getOrCreateMeshBuffers(mesh: Mesh): MeshBuffers {
     const cached = this.cache.get(mesh);
     if (cached) return cached;
     const data = expandToTriangles(mesh);
@@ -289,7 +290,7 @@ export class WebGPURenderer implements Renderer {
     });
 
     draws.forEach((draw, i) => {
-      const data = new Float32Array(UNIFORM_STRIDE / 4);
+      const data = this.uniformScratch;
       data.set(viewProj, 0);
       data.set(draw.item.model, 16);
       data.set([frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z, 0], 32);
@@ -316,7 +317,7 @@ export class WebGPURenderer implements Renderer {
       },
     });
     draws.forEach((draw, i) => {
-      const mesh = this.buffers(draw.item.mesh);
+      const mesh = this.getOrCreateMeshBuffers(draw.item.mesh);
       pass.setPipeline(draw.pipeline);
       pass.setBindGroup(0, bindGroup, [i * UNIFORM_STRIDE]);
       pass.setVertexBuffer(0, mesh.position);
@@ -331,17 +332,22 @@ export class WebGPURenderer implements Renderer {
     this.device.queue.submit([encoder.finish()]);
   }
 
+  /** Destroy the vertex buffers cached for `mesh`. */
+  releaseMesh(mesh: Mesh): void {
+    const cached = this.cache.get(mesh);
+    if (!cached) return;
+    this.cache.delete(mesh);
+    cached.position.destroy?.();
+    cached.normal.destroy?.();
+    cached.color.destroy?.();
+    cached.ambient.destroy?.();
+    cached.emissive.destroy?.();
+    cached.specular.destroy?.();
+  }
+
   destroy(): void {
     this.destroyed = true;
-    for (const mesh of this.cache.values()) {
-      mesh.position.destroy?.();
-      mesh.normal.destroy?.();
-      mesh.color.destroy?.();
-      mesh.ambient.destroy?.();
-      mesh.emissive.destroy?.();
-      mesh.specular.destroy?.();
-    }
-    this.cache.clear();
+    for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
     this.uniformBuffer?.destroy?.();
     this.depthTexture?.destroy?.();
     this.device?.destroy?.();

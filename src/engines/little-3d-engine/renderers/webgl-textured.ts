@@ -112,6 +112,7 @@ export class WebGLTexturedRenderer implements Renderer {
   private readonly sources = new Map<Mesh, TextureSource>();
   private readonly textures = new Map<Mesh, WebGLTexture>();
   private readonly buffers = new Map<Mesh, TexturedBuffers>();
+  private readonly modelScratch = new Float32Array(16);
 
   constructor(options: RendererOptions = {}) {
     this.inner = new WebGLRenderer(options);
@@ -174,7 +175,7 @@ export class WebGLTexturedRenderer implements Renderer {
     return texture;
   }
 
-  private buffersFor(mesh: Mesh): TexturedBuffers {
+  private getOrCreateTexturedBuffers(mesh: Mesh): TexturedBuffers {
     const cached = this.buffers.get(mesh);
     if (cached) return cached;
     const gl = this.gl!;
@@ -221,9 +222,10 @@ export class WebGLTexturedRenderer implements Renderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
     for (const item of textured) {
-      const buffers = this.buffersFor(item.mesh);
+      const buffers = this.getOrCreateTexturedBuffers(item.mesh);
       gl.bindTexture(gl.TEXTURE_2D, this.textureFor(item.mesh));
-      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      this.modelScratch.set(item.model);
+      gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
       gl.uniform1f(loc.uOpacity, itemOpacity(item.transparency));
       gl.bindVertexArray(buffers.vao);
       gl.drawArrays(gl.TRIANGLES, 0, buffers.count);
@@ -233,18 +235,26 @@ export class WebGLTexturedRenderer implements Renderer {
     gl.bindVertexArray(null);
   }
 
+  /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+  releaseMesh(mesh: Mesh): void {
+    this.inner.releaseMesh(mesh);
+    const cached = this.buffers.get(mesh);
+    if (!cached) return;
+    this.buffers.delete(mesh);
+    const gl = this.gl;
+    if (!gl) return;
+    gl.deleteVertexArray(cached.vao);
+    for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+  }
+
   destroy(): void {
     const gl = this.gl;
     if (gl) {
       for (const texture of this.textures.values()) gl.deleteTexture(texture);
-      for (const cached of this.buffers.values()) {
-        gl.deleteVertexArray(cached.vao);
-        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
-      }
+      for (const mesh of [...this.buffers.keys()]) this.releaseMesh(mesh);
       if (this.program) gl.deleteProgram(this.program);
     }
     this.textures.clear();
-    this.buffers.clear();
     this.sources.clear();
     this.gl = undefined;
     this.program = undefined;

@@ -114,6 +114,7 @@ export class WebGLRenderer implements Renderer {
   private program?: WebGLProgram;
   private locations?: Locations;
   private readonly cache = new Map<Mesh, MeshBuffers>();
+  private readonly modelScratch = new Float32Array(16);
   private readonly clearColor: [number, number, number, number];
 
   constructor(options: RendererOptions = {}) {
@@ -158,7 +159,7 @@ export class WebGLRenderer implements Renderer {
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 
-  private buffers(mesh: Mesh): MeshBuffers {
+  private getOrCreateMeshBuffers(mesh: Mesh): MeshBuffers {
     const cached = this.cache.get(mesh);
     if (cached) return cached;
     const gl = this.gl!;
@@ -207,8 +208,9 @@ export class WebGLRenderer implements Renderer {
 
     for (const item of frame.items) {
       if (item.transparency) continue;
-      const mesh = this.buffers(item.mesh);
-      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      const mesh = this.getOrCreateMeshBuffers(item.mesh);
+      this.modelScratch.set(item.model);
+      gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
       gl.uniform1f(loc.uOpacity, 1);
       gl.bindVertexArray(mesh.vao);
       gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
@@ -220,8 +222,9 @@ export class WebGLRenderer implements Renderer {
     for (const item of frame.items) {
       const transparency = item.transparency;
       if (!transparency) continue;
-      const mesh = this.buffers(item.mesh);
-      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      const mesh = this.getOrCreateMeshBuffers(item.mesh);
+      this.modelScratch.set(item.model);
+      gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
       gl.bindVertexArray(mesh.vao);
       if (transparency.mode === "two-sided") {
         const resolved = resolveTwoSidedOpacity(transparency);
@@ -243,13 +246,21 @@ export class WebGLRenderer implements Renderer {
     gl.bindVertexArray(null);
   }
 
+  /** Delete the vertex array and buffers cached for `mesh`. */
+  releaseMesh(mesh: Mesh): void {
+    const cached = this.cache.get(mesh);
+    if (!cached) return;
+    this.cache.delete(mesh);
+    const gl = this.gl;
+    if (!gl) return;
+    gl.deleteVertexArray(cached.vao);
+    for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+  }
+
   destroy(): void {
     const gl = this.gl;
     if (gl) {
-      for (const mesh of this.cache.values()) {
-        gl.deleteVertexArray(mesh.vao);
-        for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
-      }
+      for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
       if (this.program) gl.deleteProgram(this.program);
       // Browsers cap how many WebGL contexts may be live at once and only reclaim a dropped one
       // on garbage collection, so a page that mounts and unmounts spinners can exhaust the cap

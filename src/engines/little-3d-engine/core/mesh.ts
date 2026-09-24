@@ -53,6 +53,10 @@ export interface Face {
 
 /** Geometry: a list of vertices and the colored faces that connect them. */
 export interface Mesh {
+  /**
+   * Vertex positions. A mesh is treated as immutable once drawn: GPU backends
+   * cache it per object, so build a new `Mesh` to change it.
+   */
   vertices: Vec3[];
   faces: Face[];
 }

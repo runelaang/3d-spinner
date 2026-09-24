@@ -101,6 +101,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
   private readonly retired: any[] = [];
   private readonly texturedBuffers = new Map<Mesh, TexturedBuffers>();
   private readonly bindGroups = new Map<Mesh, BindGroupEntry>();
+  private readonly texturedScratch = new Float32Array(UNIFORM_STRIDE / 4);
 
   /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
   setTexture(mesh: Mesh, source: TextureSource): void {
@@ -215,7 +216,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     return this.textures.get(mesh);
   }
 
-  private buffersFor(mesh: Mesh): TexturedBuffers {
+  private getOrCreateTexturedBuffers(mesh: Mesh): TexturedBuffers {
     const cached = this.texturedBuffers.get(mesh);
     if (cached) return cached;
     const data = expandToTriangles(mesh);
@@ -279,7 +280,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
 
     const viewProj = multiply(CLIP_Z_FIX, frame.viewProjection);
     textured.forEach((item, i) => {
-      const data = new Float32Array(UNIFORM_STRIDE / 4);
+      const data = this.texturedScratch;
       data.set(viewProj, 0);
       data.set(item.model, 16);
       data.set([itemOpacity(item.transparency), 0, 0, 0], 32);
@@ -308,7 +309,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     });
     pass.setPipeline(this.texturedPipeline);
     textured.forEach((item, i) => {
-      const mesh = this.buffersFor(item.mesh);
+      const mesh = this.getOrCreateTexturedBuffers(item.mesh);
       pass.setBindGroup(0, this.bindGroupFor(item.mesh), [i * UNIFORM_STRIDE]);
       pass.setVertexBuffer(0, mesh.position);
       pass.setVertexBuffer(1, mesh.uv);
@@ -319,16 +320,22 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     this.device.queue.submit([encoder.finish()]);
   }
 
+  /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+  override releaseMesh(mesh: Mesh): void {
+    super.releaseMesh(mesh);
+    const cached = this.texturedBuffers.get(mesh);
+    if (!cached) return;
+    this.texturedBuffers.delete(mesh);
+    cached.position.destroy?.();
+    cached.uv.destroy?.();
+    cached.color.destroy?.();
+  }
+
   destroy(): void {
     for (const texture of this.textures.values()) texture.destroy?.();
     for (const texture of this.retired.splice(0)) texture.destroy?.();
-    for (const buffers of this.texturedBuffers.values()) {
-      buffers.position.destroy?.();
-      buffers.uv.destroy?.();
-      buffers.color.destroy?.();
-    }
+    for (const mesh of [...this.texturedBuffers.keys()]) this.releaseMesh(mesh);
     this.textures.clear();
-    this.texturedBuffers.clear();
     this.bindGroups.clear();
     this.sources.clear();
     this.texturedUniforms?.destroy?.();

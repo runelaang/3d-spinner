@@ -177,3 +177,31 @@ test("a destroyed engine can be mounted again", async () => {
   assert.equal(liveObservers(), 1);
   engine.destroy();
 });
+
+test("removing the last instance of a mesh releases it from the renderer", async () => {
+  observers = [];
+  const released = [];
+  const renderer = {
+    init() {},
+    resize() {},
+    render() {},
+    destroy() {},
+    releaseMesh(mesh) {
+      released.push(mesh);
+    },
+  };
+  const engine = new Little3dEngine({ backend: () => renderer });
+  const shared = { vertices: [], faces: [] };
+  const other = { vertices: [], faces: [] };
+  const first = engine.add(shared);
+  const second = engine.add(shared);
+  const third = engine.add(other);
+  await engine.mount(new FakeTarget());
+  first.remove();
+  assert.deepEqual(released, [], "another instance still uses the mesh");
+  second.remove();
+  second.remove();
+  third.remove();
+  assert.deepEqual(released, [shared, other]);
+  engine.destroy();
+});

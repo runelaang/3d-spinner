@@ -36,13 +36,16 @@ export interface Little3dEngineOptions {
   background?: string;
 }
 
-/** A live mesh in the scene. Mutate `transform` to move or rotate it. */
+/**
+ * A live mesh in the scene. Mutate `transform` to move or rotate it. The mesh
+ * itself is treated as immutable once drawn; add a new one to change its shape.
+ */
 export interface MeshHandle {
   readonly mesh: Mesh;
   readonly transform: Transform;
   /** Optional per-instance transparency. Mutate or replace it between frames. */
   transparency?: Transparency;
-  /** Remove this mesh from the scene. */
+  /** Remove this instance; GPU buffers are freed with the mesh's last instance. */
   remove(): void;
 }
 
@@ -183,7 +186,9 @@ export class Little3dEngine {
       transparency: init?.transparency,
       remove: () => {
         const i = this.scene.indexOf(entry);
-        if (i >= 0) this.scene.splice(i, 1);
+        if (i < 0) return;
+        this.scene.splice(i, 1);
+        if (!this.scene.some((other) => other.mesh === mesh)) this.renderer?.releaseMesh?.(mesh);
       },
     };
     this.scene.push(entry);

@@ -171,11 +171,20 @@ export type RendererFactory = (options: RendererOptions) => Renderer | Promise<R
  * A pluggable drawing backend. The engine owns the canvas and sizing; a
  * renderer only initializes its context, reacts to resizes, and draws frames.
  * Renderer-specific features can produce intentional visual differences.
+ *
+ * A mesh is treated as immutable once drawn: GPU backends upload it once and
+ * cache the buffers per `Mesh` object. To change geometry or colors, add a new
+ * `Mesh` instead of editing one in place.
  */
 export interface Renderer {
   init(canvas: HTMLCanvasElement): void | Promise<void>;
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   render(frame: RenderFrame): void;
+  /**
+   * Free whatever is cached for `mesh`. Optional. The engine calls it when the
+   * last scene instance of that mesh is removed.
+   */
+  releaseMesh?(mesh: Mesh): void;
   destroy(): void;
 }
 
