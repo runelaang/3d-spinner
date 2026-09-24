@@ -98,7 +98,7 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string): WebG
 }
 
 function link(gl: WebGL2RenderingContext): WebGLProgram {
-  const program = gl.createProgram()!;
+  const program = gl.createProgram();
   gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX_SHADER));
   gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER));
   gl.linkProgram(program);
@@ -165,12 +165,12 @@ export class WebGLRenderer implements Renderer {
     const gl = this.gl!;
     const loc = this.locations!;
     const data = expandToTriangles(mesh);
-    const vao = gl.createVertexArray()!;
+    const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const buffers: WebGLBuffer[] = [];
     const attribute = (location: number, array: Float32Array, size = 3) => {
       if (location < 0) return;
-      const buffer = gl.createBuffer()!;
+      const buffer = gl.createBuffer();
       buffers.push(buffer);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);

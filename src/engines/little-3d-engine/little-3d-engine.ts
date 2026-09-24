@@ -144,7 +144,9 @@ export class Little3dEngine {
       } catch (error) {
         try {
           renderer?.destroy();
-        } catch {}
+        } catch {
+          // A half-initialized renderer may fail to clean up; the next candidate still gets its turn.
+        }
         this.dropCanvas(canvas);
         if (generation !== this.generation) return;
         if (candidates.length === 1) throw error;

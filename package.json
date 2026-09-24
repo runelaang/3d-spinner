@@ -224,7 +224,11 @@
     "url": "https://github.com/runelaang/3d-spinner/issues"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "esbuild": "^0.28.1",
-    "typescript": "^5.7.0"
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.70.1"
   }
 }

@@ -108,8 +108,8 @@ export class GhostTrainAnimation implements SpinnerAnimation {
   private label?: MountedAnimationLabel;
   private observer?: ResizeObserver;
   private readonly cars: MeshHandle[] = [];
-  private readonly appear: number[] = new Array(MAX_CARS).fill(0);
-  private readonly headings: Array<Vec3 | undefined> = new Array(MAX_CARS).fill(undefined);
+  private readonly appear: number[] = new Array<number>(MAX_CARS).fill(0);
+  private readonly headings: Array<Vec3 | undefined> = new Array<Vec3 | undefined>(MAX_CARS).fill(undefined);
   private readonly motion: MotionController;
   private readonly size: number;
   private readonly backend?: Backend;

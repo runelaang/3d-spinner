@@ -79,8 +79,8 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
   private engine?: Little3dEngine;
   private center?: MeshHandle;
   private readonly minis: MeshHandle[] = [];
-  private readonly blends: number[] = new Array(MINIS).fill(0);
-  private readonly offsets: number[] = new Array(MINIS).fill(0);
+  private readonly blends: number[] = new Array<number>(MINIS).fill(0);
+  private readonly offsets: number[] = new Array<number>(MINIS).fill(0);
   private readonly orbitPeriodMs: number;
   private readonly backend?: Backend;
 

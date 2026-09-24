@@ -6,7 +6,6 @@ import {
   opacity,
   resolveTwoSidedOpacity,
   type RenderFrame,
-  type RendererOptions,
   type RenderItem,
 } from "../renderer.js";
 import { planarUVs, type TextureSource } from "./textured-helpers.js";

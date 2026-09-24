@@ -19,13 +19,13 @@ export class CompositeAnimation implements SpinnerAnimation {
   /** Mount every layer in its own stacked element; resolves once all layers can draw. */
   mount(target: HTMLElement): Promise<void> {
     prepareHost(target);
-    const mounting: Array<void | Promise<void>> = [];
+    const mounting: Array<Promise<void>> = [];
     for (const [index, layer] of this.layers.entries()) {
       const element = document.createElement("div");
       element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
       target.appendChild(element);
       this.elements.push(element);
-      mounting.push(layer.animation.mount(element));
+      mounting.push(Promise.resolve(layer.animation.mount(element)));
     }
     return Promise.all(mounting).then(() => undefined);
   }

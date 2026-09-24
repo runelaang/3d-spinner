@@ -107,12 +107,12 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
   private label?: MountedAnimationLabel;
   private observer?: ResizeObserver;
   private readonly handles: MeshHandle[] = [];
-  private readonly blends: number[] = new Array(COUNT).fill(0);
-  private readonly dockedAt: number[] = new Array(COUNT).fill(Infinity);
+  private readonly blends: number[] = new Array<number>(COUNT).fill(0);
+  private readonly dockedAt: number[] = new Array<number>(COUNT).fill(Infinity);
   private readonly tumbleX: number[] = [];
   private readonly tumbleY: number[] = [];
   private readonly collapseDelay: number[] = [];
-  private readonly popStarted: boolean[] = new Array(COUNT).fill(false);
+  private readonly popStarted: boolean[] = new Array<boolean>(COUNT).fill(false);
   private maxCollapseDelay = 0;
   private readonly fades: OneSidedTransparency[] = [];
   private readonly slots: Vec3[] = [];

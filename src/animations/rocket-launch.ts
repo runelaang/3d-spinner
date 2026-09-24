@@ -125,13 +125,13 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
   private readonly smokeFades: OneSidedTransparency[] = [];
   private readonly fireFades: OneSidedTransparency[] = [];
 
-  private readonly blends: number[] = new Array(ROCKETS).fill(0);
-  private readonly groundedAt: number[] = new Array(ROCKETS).fill(Infinity);
+  private readonly blends: number[] = new Array<number>(ROCKETS).fill(0);
+  private readonly groundedAt: number[] = new Array<number>(ROCKETS).fill(Infinity);
   // Per-rocket veer parameters (turnS = Infinity for a rocket that climbs straight).
-  private readonly turnS: number[] = new Array(ROCKETS).fill(Infinity);
+  private readonly turnS: number[] = new Array<number>(ROCKETS).fill(Infinity);
   private readonly turnDir: Vec2[] = [];
-  private readonly turnRoll: number[] = new Array(ROCKETS).fill(0);
-  private readonly stagger: number[] = new Array(ROCKETS).fill(0);
+  private readonly turnRoll: number[] = new Array<number>(ROCKETS).fill(0);
+  private readonly stagger: number[] = new Array<number>(ROCKETS).fill(0);
 
   private aspect = 16 / 9;
   private enterAt = Infinity;
