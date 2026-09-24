@@ -1,8 +1,9 @@
 # Tests
 
-Unit tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
-external test framework. They use only the package's own build tooling (TypeScript for the
-consumer type check), never a runtime dependency.
+Tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
+external test framework. The unit tests need nothing beyond the package's own build tooling
+(TypeScript for the consumer type check); the browser tests drive headless Chromium through the
+`playwright` dev dependency. Neither adds a runtime dependency.
 
 They run against the compiled output in `dist/`, i.e. exactly what consumers get from npm.
 Tests are excluded from the published package by the `files` field in `package.json`, so they
@@ -11,8 +12,11 @@ add nothing to the npm tarball while staying visible in the repository.
 ## Run
 
 ```sh
-npm test          # rebuilds dist, then runs every *.test.mjs
+npm test               # rebuilds dist, then runs every tests/*.test.mjs
+npm run test:browser   # rebuilds dist, then runs tests/browser/*.test.mjs in headless Chromium
 ```
+
+The browser tests need Chromium once: `npx playwright install chromium`.
 
 `pretest` runs the build first, so the tests always check a fresh `dist/`. To run without
 rebuilding (dist must already exist):
@@ -55,6 +59,16 @@ Lifecycle, engine, and pure logic:
   `animation-label` - GPU triangle expansion, shading, the particle field, prefab story logic,
   layer composition, and label fading.
 
-Real DOM/canvas rendering (mounting the engine, drawing) is intentionally **not** covered here -
-it would require a DOM environment (jsdom or a browser runner) and thus an external dependency.
-Keeping this suite dependency-free is a deliberate constraint.
+Real rendering, in `tests/browser/spinner.test.mjs` (headless Chromium over a local file
+server):
+
+- Canvas 2D and WebGL draw visible pixels; WebGPU too when the browser has an adapter (skipped
+  otherwise, as are the WebGL checks on a machine without WebGL2).
+- `"auto"` falls back and still draws when WebGPU fails to create a device.
+- When no backend can start, `spinner.ready` rejects and the host's own content is untouched.
+- `destroy()` during renderer setup leaves only the host's content.
+- A host positioned by a CSS class (`position: fixed`) keeps its position and children; a static
+  host becomes `relative`.
+- 24 mount/destroy cycles on WebGL leave no canvases and no context-limit warnings.
+- The hidden progress bar reports the value once, with no live regions, for a prefab that stacks
+  two labels.
