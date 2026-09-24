@@ -52,9 +52,15 @@ export declare class Little3dEngine {
     /**
      * Create the canvas inside `target`, load the selected backend, and start
      * tracking size. Resolves once the renderer is ready; rejects if the backend
-     * is unavailable. Drawing is a no-op until it resolves.
+     * is unavailable. With `"auto"`, a backend that fails to load or initialize
+     * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
+     * rejects only when all of them fail. Drawing is a no-op until it resolves.
      */
     mount(target: HTMLElement): Promise<void>;
+    /** Append a fresh full-size canvas to `target` and track its size. */
+    private attachCanvas;
+    /** Remove `canvas` and its size observer, if it is still the current canvas. */
+    private dropCanvas;
     /** Add a mesh to the scene and return a handle for animating it. */
     add(mesh: Mesh, init?: MeshInstanceOptions): MeshHandle;
     private resize;
@@ -86,5 +92,5 @@ export { expandToTriangles } from "./core/geometry.js";
 export type { Mesh, Face, Material, Transform, Transparency, OneSidedTransparency, TwoSidedTransparency, } from "./core/mesh.js";
 export { transform, attachMaterial } from "./core/mesh.js";
 export type { Backend, BackendSupport, ResolvedBackend, Renderer, RendererFactory, RenderFrame, RenderItem, RendererOptions, } from "./renderer.js";
-export { orderRenderItems, chooseBackend, detectBackendSupport, resolveBackend, } from "./renderer.js";
+export { orderRenderItems, chooseBackend, autoBackendCandidates, detectBackendSupport, resolveBackend, } from "./renderer.js";
 export { type Vec3, vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";

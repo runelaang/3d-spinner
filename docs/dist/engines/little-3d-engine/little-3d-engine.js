@@ -2,7 +2,7 @@ import { Camera } from "./core/camera.js";
 import { Light } from "./core/light.js";
 import { multiply, rotationX, rotationY, rotationZ, scaleMatrix, translation, } from "./core/math.js";
 import { transform as makeTransform, } from "./core/mesh.js";
-import { createRenderer, orderRenderItems, } from "./renderer.js";
+import { createRenderer, orderRenderItems, resolveAutoCandidates, } from "./renderer.js";
 function modelMatrix(t) {
     const rotation = multiply(rotationZ(t.rotation.z), multiply(rotationY(t.rotation.y), rotationX(t.rotation.x)));
     return multiply(translation(t.position.x, t.position.y, t.position.z), multiply(rotation, scaleMatrix(t.scale)));
@@ -30,9 +30,51 @@ export class Little3dEngine {
     /**
      * Create the canvas inside `target`, load the selected backend, and start
      * tracking size. Resolves once the renderer is ready; rejects if the backend
-     * is unavailable. Drawing is a no-op until it resolves.
+     * is unavailable. With `"auto"`, a backend that fails to load or initialize
+     * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
+     * rejects only when all of them fail. Drawing is a no-op until it resolves.
      */
     async mount(target) {
+        const generation = this.generation;
+        const candidates = this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
+        if (generation !== this.generation)
+            return;
+        const failures = [];
+        for (const candidate of candidates) {
+            const canvas = this.attachCanvas(target);
+            let renderer;
+            try {
+                renderer = await createRenderer(candidate, { background: this.background });
+                if (generation === this.generation)
+                    await renderer.init(canvas);
+                if (generation !== this.generation) {
+                    renderer.destroy();
+                    this.dropCanvas(canvas);
+                    return;
+                }
+                this.renderer = renderer;
+                this.resize();
+                this.ready = true;
+                return;
+            }
+            catch (error) {
+                try {
+                    renderer?.destroy();
+                }
+                catch { }
+                this.dropCanvas(canvas);
+                if (generation !== this.generation)
+                    return;
+                if (candidates.length === 1)
+                    throw error;
+                const name = typeof candidate === "string" ? candidate : "custom";
+                failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+        throw new Error(`3d-spinner: no renderer could start (${failures.join("; ")})`);
+    }
+    /** Append a fresh full-size canvas to `target` and track its size. */
+    attachCanvas(target) {
         const canvas = document.createElement("canvas");
         canvas.style.display = "block";
         canvas.style.width = "100%";
@@ -42,36 +84,16 @@ export class Little3dEngine {
         this.observer = new ResizeObserver(() => this.resize());
         this.observer.observe(canvas);
         this.resize();
-        const generation = this.generation;
-        const dropCanvas = () => {
-            if (this.canvas !== canvas)
-                return;
-            this.observer?.disconnect();
-            this.observer = undefined;
-            canvas.remove();
-            this.canvas = undefined;
-        };
-        try {
-            const renderer = await createRenderer(this.backend, { background: this.background });
-            if (generation !== this.generation) {
-                renderer.destroy();
-                dropCanvas();
-                return;
-            }
-            await renderer.init(canvas);
-            if (generation !== this.generation) {
-                renderer.destroy();
-                dropCanvas();
-                return;
-            }
-            this.renderer = renderer;
-            this.resize();
-            this.ready = true;
-        }
-        catch (error) {
-            dropCanvas();
-            throw error;
-        }
+        return canvas;
+    }
+    /** Remove `canvas` and its size observer, if it is still the current canvas. */
+    dropCanvas(canvas) {
+        if (this.canvas !== canvas)
+            return;
+        this.observer?.disconnect();
+        this.observer = undefined;
+        canvas.remove();
+        this.canvas = undefined;
     }
     /** Add a mesh to the scene and return a handle for animating it. */
     add(mesh, init) {
@@ -172,5 +194,5 @@ export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
 export { expandToTriangles } from "./core/geometry.js";
 export { transform, attachMaterial } from "./core/mesh.js";
-export { orderRenderItems, chooseBackend, detectBackendSupport, resolveBackend, } from "./renderer.js";
+export { orderRenderItems, chooseBackend, autoBackendCandidates, detectBackendSupport, resolveBackend, } from "./renderer.js";
 export { vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";

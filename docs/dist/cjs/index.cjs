@@ -39,6 +39,9 @@ function createSpinner(target, options) {
   if (indeterminate && options.periodMs !== void 0 && (!Number.isFinite(options.periodMs) || options.periodMs <= 0)) {
     throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
   }
+  if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
+    throw new RangeError("3d-spinner: until must be a valid Date.");
+  }
   animation.mount(target);
   const start = performance.now();
   let rafId = 0;
@@ -49,6 +52,7 @@ function createSpinner(target, options) {
   let current = 0;
   let targetProgress = 0;
   let deadline = Infinity;
+  let lastFrame = start;
   if (!indeterminate) {
     const opts = options;
     if (typeof opts.progress === "number") {
@@ -56,12 +60,17 @@ function createSpinner(target, options) {
       targetProgress = current;
     }
     if (typeof opts.timeout === "number") deadline = Math.min(deadline, start + opts.timeout);
-    if (opts.until instanceof Date) deadline = Math.min(deadline, opts.until.getTime());
+    if (opts.until instanceof Date) {
+      deadline = Math.min(deadline, start + (opts.until.getTime() - Date.now()));
+    }
   }
   function computeProgress(now) {
     if (!indeterminate) {
       if (now >= deadline) targetProgress = 1;
-      current = lerp(current, targetProgress, 0.12);
+      const deltaMs = Math.max(0, now - lastFrame);
+      lastFrame = now;
+      const alpha = 1 - Math.pow(1 - 0.12, deltaMs / (1e3 / 60));
+      current = lerp(current, targetProgress, alpha);
       if (Math.abs(targetProgress - current) < 5e-4) current = targetProgress;
       return current;
     }

@@ -50,6 +50,24 @@ export async function resolveBackend(backend) {
     supportProbe ?? (supportProbe = detectBackendSupport());
     return chooseBackend(await supportProbe);
 }
+/**
+ * Every backend `"auto"` may try, best first. Canvas 2D is always last, so a
+ * GPU backend that passes the probe but fails to start still has a fallback.
+ */
+export function autoBackendCandidates(support) {
+    const candidates = [];
+    if (support.webgpu)
+        candidates.push("webgpu");
+    if (support.webgl)
+        candidates.push("webgl");
+    candidates.push("canvas2d");
+    return candidates;
+}
+/** {@link autoBackendCandidates} for this browser, using the cached probe. */
+export async function resolveAutoCandidates() {
+    supportProbe ?? (supportProbe = detectBackendSupport());
+    return autoBackendCandidates(await supportProbe);
+}
 export const DEFAULT_ONE_SIDED_OPACITY = 0.35;
 export const DEFAULT_BACK_OPACITY = 0.84;
 export const DEFAULT_FRONT_OPACITY = 0.56;

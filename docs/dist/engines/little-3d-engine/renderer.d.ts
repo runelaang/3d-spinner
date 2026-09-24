@@ -24,6 +24,13 @@ export declare function chooseBackend(support: BackendSupport): ResolvedBackend;
 export declare function detectBackendSupport(): Promise<BackendSupport>;
 /** Resolve `"auto"` once per page and reuse the answer for later mounts. */
 export declare function resolveBackend(backend: Backend): Promise<ResolvedBackend>;
+/**
+ * Every backend `"auto"` may try, best first. Canvas 2D is always last, so a
+ * GPU backend that passes the probe but fails to start still has a fallback.
+ */
+export declare function autoBackendCandidates(support: BackendSupport): ResolvedBackend[];
+/** {@link autoBackendCandidates} for this browser, using the cached probe. */
+export declare function resolveAutoCandidates(): Promise<ResolvedBackend[]>;
 /** A mesh plus its world transform, ready to draw. */
 export interface RenderItem {
     mesh: Mesh;

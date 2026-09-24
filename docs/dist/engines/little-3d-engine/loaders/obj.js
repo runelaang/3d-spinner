@@ -22,10 +22,10 @@ function parseRgb(parts) {
     return [clamp01(channels[0]), clamp01(channels[1]), clamp01(channels[2])];
 }
 /**
- * Fold ambient/specular/shininess/emissive into a {@link Material}, or
- * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) is dropped so
- * a Kd-only material with a white `Ka` (common in exported MTLs) still leaves
- * `Face.material` undefined.
+ * Fold ambient/specular/shininess/emissive/opacity into a {@link Material}, or
+ * `undefined` when nothing remains. Identity ambient (`Ka 1 1 1`) and opaque
+ * dissolve (`d 1` / `Tr 0`) are dropped so a Kd-only material with those
+ * defaults still leaves `Face.material` undefined.
  */
 function toMaterial(surface) {
     const material = {};
@@ -38,12 +38,14 @@ function toMaterial(surface) {
         material.shininess = surface.shininess;
     if (surface.emissive)
         material.emissive = surface.emissive;
+    if (surface.opacity != null && surface.opacity != 1)
+        material.opacity = surface.opacity;
     return Object.keys(material).length > 0 ? material : undefined;
 }
 /**
  * Parse MTL text into a map of material name to its color and surface material.
  * Reads `Kd` (diffuse color), `Ka` (ambient), `Ks` (specular), `Ns` (shininess),
- * and `Ke` (emissive); other statements are ignored.
+ * `Ke` (emissive), and `d`/`Tr` (dissolve); other statements are ignored.
  */
 function parseMtl(text) {
     const materials = new Map();
@@ -87,6 +89,16 @@ function parseMtl(text) {
         else if (keyword === "Ke") {
             surface.emissive = parseRgb(parts);
         }
+        else if (keyword === "d") {
+            const d = Number.parseFloat(parts[1]);
+            if (Number.isFinite(d))
+                surface.opacity = clamp01(d);
+        }
+        else if (keyword === "Tr") {
+            const tr = Number.parseFloat(parts[1]);
+            if (Number.isFinite(tr))
+                surface.opacity = clamp01(1 - tr);
+        }
     }
     for (const [key, surface] of surfaces) {
         materials.get(key).material = toMaterial(surface);
@@ -104,8 +116,9 @@ function resolveIndex(token, vertexCount) {
  * `v`, `v/vt`, `v/vt/vn`, or `v//vn` form, with 1-based or negative indices).
  * Normals (`vn`) and texture coordinates (`vt`) are ignored - the engine
  * computes a flat normal per face. Material names can select the diffuse color
- * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`)
- * from supplied MTL text; groups and other statements are ignored. Face winding
+ * (`Kd`) and surface material (ambient `Ka`, specular `Ks`/`Ns`, emissive `Ke`,
+ * dissolve `d`/`Tr`) from supplied MTL text; groups and other statements are
+ * ignored. Face winding
  * is preserved as-is; the engine expects CCW winding as seen from outside.
  *
  * @param text Contents of an `.obj` file.

@@ -47,6 +47,8 @@ export class Canvas2DRenderer {
                 else if (twoSidedOpacity) {
                     faceOpacity = frontFacing ? twoSidedOpacity.front : twoSidedOpacity.back;
                 }
+                if (face.material?.opacity != null)
+                    faceOpacity *= face.material.opacity;
                 const points = face.indices.map((i) => {
                     const ndc = transformPoint(frame.viewProjection, world[i]);
                     return {

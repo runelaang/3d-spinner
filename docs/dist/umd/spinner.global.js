@@ -894,6 +894,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
               } else if (twoSidedOpacity) {
                 faceOpacity = frontFacing ? twoSidedOpacity.front : twoSidedOpacity.back;
               }
+              if (face.material?.opacity != null) faceOpacity *= face.material.opacity;
               const points = face.indices.map((i) => {
                 const ndc = transformPoint(frame.viewProjection, world[i]);
                 return {
@@ -995,6 +996,17 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
     if (backend !== "auto") return backend;
     supportProbe ?? (supportProbe = detectBackendSupport());
     return chooseBackend(await supportProbe);
+  }
+  function autoBackendCandidates(support) {
+    const candidates = [];
+    if (support.webgpu) candidates.push("webgpu");
+    if (support.webgl) candidates.push("webgl");
+    candidates.push("canvas2d");
+    return candidates;
+  }
+  async function resolveAutoCandidates() {
+    supportProbe ?? (supportProbe = detectBackendSupport());
+    return autoBackendCandidates(await supportProbe);
   }
   function opacity(value, fallback) {
     return Math.max(0, Math.min(1, value ?? fallback));
@@ -1724,6 +1736,7 @@ void main() {
     WebGLTexturedRenderer: () => WebGLTexturedRenderer,
     WebGPUTexturedRenderer: () => WebGPUTexturedRenderer,
     attachMaterial: () => attachMaterial,
+    autoBackendCandidates: () => autoBackendCandidates,
     centerAndScaleMesh: () => centerAndScaleMesh,
     chargedOrb: () => chargedOrb,
     chooseBackend: () => chooseBackend,
@@ -1826,6 +1839,9 @@ void main() {
     if (indeterminate && options.periodMs !== void 0 && (!Number.isFinite(options.periodMs) || options.periodMs <= 0)) {
       throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
     }
+    if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
+      throw new RangeError("3d-spinner: until must be a valid Date.");
+    }
     animation.mount(target);
     const start = performance.now();
     let rafId = 0;
@@ -1836,6 +1852,7 @@ void main() {
     let current = 0;
     let targetProgress = 0;
     let deadline = Infinity;
+    let lastFrame = start;
     if (!indeterminate) {
       const opts = options;
       if (typeof opts.progress === "number") {
@@ -1843,12 +1860,17 @@ void main() {
         targetProgress = current;
       }
       if (typeof opts.timeout === "number") deadline = Math.min(deadline, start + opts.timeout);
-      if (opts.until instanceof Date) deadline = Math.min(deadline, opts.until.getTime());
+      if (opts.until instanceof Date) {
+        deadline = Math.min(deadline, start + (opts.until.getTime() - Date.now()));
+      }
     }
     function computeProgress(now) {
       if (!indeterminate) {
         if (now >= deadline) targetProgress = 1;
-        current = lerp(current, targetProgress, 0.12);
+        const deltaMs = Math.max(0, now - lastFrame);
+        lastFrame = now;
+        const alpha = 1 - Math.pow(1 - 0.12, deltaMs / (1e3 / 60));
+        current = lerp(current, targetProgress, alpha);
         if (Math.abs(targetProgress - current) < 5e-4) current = targetProgress;
         return current;
       }
@@ -2373,9 +2395,46 @@ void main() {
     /**
      * Create the canvas inside `target`, load the selected backend, and start
      * tracking size. Resolves once the renderer is ready; rejects if the backend
-     * is unavailable. Drawing is a no-op until it resolves.
+     * is unavailable. With `"auto"`, a backend that fails to load or initialize
+     * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
+     * rejects only when all of them fail. Drawing is a no-op until it resolves.
      */
     async mount(target) {
+      const generation = this.generation;
+      const candidates = this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
+      if (generation !== this.generation) return;
+      const failures = [];
+      for (const candidate of candidates) {
+        const canvas = this.attachCanvas(target);
+        let renderer;
+        try {
+          renderer = await createRenderer(candidate, { background: this.background });
+          if (generation === this.generation) await renderer.init(canvas);
+          if (generation !== this.generation) {
+            renderer.destroy();
+            this.dropCanvas(canvas);
+            return;
+          }
+          this.renderer = renderer;
+          this.resize();
+          this.ready = true;
+          return;
+        } catch (error) {
+          try {
+            renderer?.destroy();
+          } catch {
+          }
+          this.dropCanvas(canvas);
+          if (generation !== this.generation) return;
+          if (candidates.length === 1) throw error;
+          const name = typeof candidate === "string" ? candidate : "custom";
+          failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      throw new Error(`3d-spinner: no renderer could start (${failures.join("; ")})`);
+    }
+    /** Append a fresh full-size canvas to `target` and track its size. */
+    attachCanvas(target) {
       const canvas = document.createElement("canvas");
       canvas.style.display = "block";
       canvas.style.width = "100%";
@@ -2385,34 +2444,15 @@ void main() {
       this.observer = new ResizeObserver(() => this.resize());
       this.observer.observe(canvas);
       this.resize();
-      const generation = this.generation;
-      const dropCanvas = () => {
-        if (this.canvas !== canvas) return;
-        this.observer?.disconnect();
-        this.observer = void 0;
-        canvas.remove();
-        this.canvas = void 0;
-      };
-      try {
-        const renderer = await createRenderer(this.backend, { background: this.background });
-        if (generation !== this.generation) {
-          renderer.destroy();
-          dropCanvas();
-          return;
-        }
-        await renderer.init(canvas);
-        if (generation !== this.generation) {
-          renderer.destroy();
-          dropCanvas();
-          return;
-        }
-        this.renderer = renderer;
-        this.resize();
-        this.ready = true;
-      } catch (error) {
-        dropCanvas();
-        throw error;
-      }
+      return canvas;
+    }
+    /** Remove `canvas` and its size observer, if it is still the current canvas. */
+    dropCanvas(canvas) {
+      if (this.canvas !== canvas) return;
+      this.observer?.disconnect();
+      this.observer = void 0;
+      canvas.remove();
+      this.canvas = void 0;
     }
     /** Add a mesh to the scene and return a handle for animating it. */
     add(mesh, init) {
@@ -4918,6 +4958,7 @@ void main() {
     if (surface.specular) material.specular = surface.specular;
     if (surface.shininess !== void 0) material.shininess = surface.shininess;
     if (surface.emissive) material.emissive = surface.emissive;
+    if (surface.opacity != null && surface.opacity != 1) material.opacity = surface.opacity;
     return Object.keys(material).length > 0 ? material : void 0;
   }
   function parseMtl(text) {
@@ -4954,6 +4995,12 @@ void main() {
         if (Number.isFinite(ns)) surface.shininess = Math.max(0, ns);
       } else if (keyword === "Ke") {
         surface.emissive = parseRgb(parts);
+      } else if (keyword === "d") {
+        const d = Number.parseFloat(parts[1]);
+        if (Number.isFinite(d)) surface.opacity = clamp018(d);
+      } else if (keyword === "Tr") {
+        const tr = Number.parseFloat(parts[1]);
+        if (Number.isFinite(tr)) surface.opacity = clamp018(1 - tr);
       }
     }
     for (const [key, surface] of surfaces) {

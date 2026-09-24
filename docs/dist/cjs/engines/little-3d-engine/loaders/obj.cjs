@@ -48,6 +48,7 @@ function toMaterial(surface) {
   if (surface.specular) material.specular = surface.specular;
   if (surface.shininess !== void 0) material.shininess = surface.shininess;
   if (surface.emissive) material.emissive = surface.emissive;
+  if (surface.opacity != null && surface.opacity != 1) material.opacity = surface.opacity;
   return Object.keys(material).length > 0 ? material : void 0;
 }
 function parseMtl(text) {
@@ -84,6 +85,12 @@ function parseMtl(text) {
       if (Number.isFinite(ns)) surface.shininess = Math.max(0, ns);
     } else if (keyword === "Ke") {
       surface.emissive = parseRgb(parts);
+    } else if (keyword === "d") {
+      const d = Number.parseFloat(parts[1]);
+      if (Number.isFinite(d)) surface.opacity = clamp01(d);
+    } else if (keyword === "Tr") {
+      const tr = Number.parseFloat(parts[1]);
+      if (Number.isFinite(tr)) surface.opacity = clamp01(1 - tr);
     }
   }
   for (const [key, surface] of surfaces) {
