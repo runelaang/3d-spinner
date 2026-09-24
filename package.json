@@ -1,6 +1,6 @@
 {
   "name": "3d-spinner",
-  "version": "0.9.13",
+  "version": "0.9.14",
   "description": "Zero-dependency 3D spinners, loaders, and progress indicators for the browser — ready-made prefabs, GPU auto (WebGPU/WebGL) with Canvas 2D fallback.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
