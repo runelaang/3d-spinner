@@ -61,6 +61,13 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   ) {
     throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
   }
+  if (
+    !indeterminate &&
+    options.until instanceof Date &&
+    Number.isNaN(options.until.getTime())
+  ) {
+    throw new RangeError("3d-spinner: until must be a valid Date.");
+  }
   animation.mount(target);
 
   const start = performance.now();
@@ -74,6 +81,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   let current = 0;
   let targetProgress = 0;
   let deadline = Infinity;
+  let lastFrame = start;
   if (!indeterminate) {
     const opts = options as ProgressSpinnerOptions;
     if (typeof opts.progress === "number") {
@@ -81,13 +89,20 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
       targetProgress = current;
     }
     if (typeof opts.timeout === "number") deadline = Math.min(deadline, start + opts.timeout);
-    if (opts.until instanceof Date) deadline = Math.min(deadline, opts.until.getTime());
+    // `until` is wall-clock time; rAF timestamps share performance.now()'s origin.
+    if (opts.until instanceof Date) {
+      deadline = Math.min(deadline, start + (opts.until.getTime() - Date.now()));
+    }
   }
 
   function computeProgress(now: number): number {
     if (!indeterminate) {
       if (now >= deadline) targetProgress = 1;
-      current = lerp(current, targetProgress, 0.12);
+      const deltaMs = Math.max(0, now - lastFrame);
+      lastFrame = now;
+      // Frame-rate independent form of a 0.12 lerp per 60 fps frame.
+      const alpha = 1 - Math.pow(1 - 0.12, deltaMs / (1000 / 60));
+      current = lerp(current, targetProgress, alpha);
       if (Math.abs(targetProgress - current) < 0.0005) current = targetProgress;
       return current;
     }

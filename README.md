@@ -312,8 +312,8 @@ Before 0.9.9 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep th
 
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
-fetched. Pinning a backend the browser cannot run throws rather than falling back - `"auto"` is
-the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
+fetched. If the chosen backend still fails to start, `"auto"` moves on to the next one. Pinning a
+backend the browser cannot run throws rather than falling back - `"auto"` is the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
 exported from the engine.
 
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
