@@ -1,7 +1,8 @@
 # Tests
 
-Zero-dependency unit tests for the pure logic in this package, using Node's built-in test
-runner (`node:test`) and `assert` - no external test framework, no `devDependencies`.
+Unit tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
+external test framework. They use only the package's own build tooling (TypeScript for the
+consumer type check), never a runtime dependency.
 
 They run against the compiled output in `dist/`, i.e. exactly what consumers get from npm.
 Tests are excluded from the published package by the `files` field in `package.json`, so they
@@ -22,7 +23,7 @@ node --test tests/*.test.mjs
 
 ## What is covered
 
-Zero-dependency lifecycle and pure logic:
+Lifecycle, engine, and pure logic:
 
 - `motion.test.mjs` - the motion controllers (`figureEightMotion`, `circleMotion`,
   `squareMotion`, `wanderMotion`): loop seamlessness, the circle radius invariant, the square
@@ -40,8 +41,19 @@ Zero-dependency lifecycle and pure logic:
 - `progress-animation.test.mjs` - every observable progress-animation lifecycle stage, including
   done-label fading and immediate completion when the fade is disabled.
 - `spinner-lifecycle.test.mjs` - `createSpinner` mounting, reported and timed completion,
-  indeterminate stop, immediate/idempotent destroy, and invalid-period rejection using a fake
-  animation, element, and animation-frame scheduler.
+  indeterminate stop, immediate/idempotent destroy, and option validation (`periodMs`,
+  `until`, `timeout`) using a fake animation, element, and animation-frame scheduler.
+- `engine-fallback.test.mjs` - `Little3dEngine` mounting with fake canvases: `"auto"` falls
+  back when a backend fails, rejects with every backend's error when none starts, releases a
+  partially initialized WebGPU device, refuses a second mount, remounts after destroy, and frees
+  a mesh's GPU buffers with its last instance.
+- `obj-loader.test.mjs` / `mtl-material.test.mjs` - OBJ parsing (MTL colors and materials,
+  line-numbered errors for malformed vertices and faces).
+- `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
+  CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
+- `geometry`, `light`, `particles`, `grid-assembly`, `composite-animation`,
+  `animation-label` - GPU triangle expansion, shading, the particle field, prefab story logic,
+  layer composition, and label fading.
 
 Real DOM/canvas rendering (mounting the engine, drawing) is intentionally **not** covered here -
 it would require a DOM environment (jsdom or a browser runner) and thus an external dependency.
