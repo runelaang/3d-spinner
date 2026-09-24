@@ -239,6 +239,16 @@ test("an invalid until Date fails before mounting", () => {
   assert.equal(frames.size, 0);
 });
 
+test("a NaN timeout fails before mounting", () => {
+  const animation = fakeAnimation();
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { animation, timeout: NaN }),
+    { name: "RangeError", message: /timeout/ },
+  );
+  assert.equal(animation.mounts.length, 0);
+  assert.equal(frames.size, 0);
+});
+
 /** Run frames at `stepMs` intervals for `durationMs` after the first frame and return the progress. */
 function progressAfter(stepMs, durationMs) {
   resetFrameScheduler();

@@ -142,6 +142,10 @@ import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
 const mesh = parseObj(objText, { mtl: mtlText, useMtlColors: true });
 ```
 
+`parseObj` throws an error naming the line when the geometry is malformed: a vertex without three
+numeric coordinates, a face with fewer than three vertices, or a face index that points at a vertex
+not defined before it.
+
 Materials work on all three backends. Canvas 2D computes the highlight once per face, so it lands
 flat, while WebGL and WebGPU compute it per pixel and produce a gradient across the face. Per-face
 opacity is applied on Canvas 2D; WebGL and WebGPU still use instance `transparency` only. The
@@ -265,7 +269,7 @@ on the mode.
 | --- | --- | --- |
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `progress` | `number` | Initial progress `0..1`. A value above 0 plays the intro immediately. |
-| `timeout` | `number` | Auto-complete after this many milliseconds. |
+| `timeout` | `number` | Auto-complete after this many milliseconds. `NaN` throws a `RangeError`. |
 | `until` | `Date` | Auto-complete at this time. If both are set, the earlier wins. |
 
 **Indeterminate** (`type: "indeterminate"`):

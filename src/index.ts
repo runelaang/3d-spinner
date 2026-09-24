@@ -11,7 +11,10 @@ export interface ProgressSpinnerOptions {
    * to start idle until {@link Spinner.setProgress} is called.
    */
   progress?: number;
-  /** Auto-complete (drive progress to 1, playing the outro) after this many ms. */
+  /**
+   * Auto-complete (drive progress to 1, playing the outro) after this many ms.
+   * `NaN` throws a `RangeError`; zero or less completes on the first frame.
+   */
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
@@ -68,6 +71,9 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     Number.isNaN(options.until.getTime())
   ) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
+  }
+  if (!indeterminate && Number.isNaN(options.timeout)) {
+    throw new RangeError("3d-spinner: timeout must be a number of milliseconds, not NaN.");
   }
   animation.mount(target);
 
