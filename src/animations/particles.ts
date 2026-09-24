@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -231,8 +232,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.outroMs = Math.max(0, options.outroMs ?? 0);
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const meshes = this.colors.map((color) => quad(1, [color]));
     const texture = this.texture;
     const backend: Backend | RendererFactory | undefined = texture
@@ -265,12 +266,11 @@ export class ParticlesAnimation implements SpinnerAnimation {
       this.handles.push(engine.add(meshes[slot % meshes.length], { scale: 0, transparency: fade }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {

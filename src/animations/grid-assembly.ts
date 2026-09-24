@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -154,8 +155,8 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     this.maxCollapseDelay = Math.max(...this.collapseDelay);
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -165,9 +166,7 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
       this.handles.push(engine.add(this.meshes[i % this.meshes.length], { scale: 0 }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     const measure = () => {
       if (target.clientWidth > 0 && target.clientHeight > 0) {
@@ -180,6 +179,7 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {

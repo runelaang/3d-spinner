@@ -1,4 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "./animation.js";
+import { prepareHost } from "./mount-host.js";
 
 /** One animation layer in a {@link CompositeAnimation}. Later layers render above earlier ones. */
 export interface CompositeAnimationLayer {
@@ -15,15 +16,18 @@ export class CompositeAnimation implements SpinnerAnimation {
     this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
   }
 
-  mount(target: HTMLElement): void {
-    target.style.position = "relative";
+  /** Mount every layer in its own stacked element; resolves once all layers can draw. */
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
+    const mounting: Array<void | Promise<void>> = [];
     for (const [index, layer] of this.layers.entries()) {
       const element = document.createElement("div");
       element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
       target.appendChild(element);
       this.elements.push(element);
-      layer.animation.mount(element);
+      mounting.push(layer.animation.mount(element));
     }
+    return Promise.all(mounting).then(() => undefined);
   }
 
   enter(now: number): void {

@@ -45,7 +45,9 @@
   <div class="spinner-grid prefab-grid" id="prefab-showcase"></div>
 
   <script type="module">
-    import { createSpinner } from "/dist/index.js";
+    import { createSpinner as mountSpinner } from "/dist/index.js";
+    import { showSetupFailure } from "/examples/stage-error.js";
+    const createSpinner = (target, options) => showSetupFailure(mountSpinner(target, options), target);
     import {
       crystalComet,
       monochromeStreak,

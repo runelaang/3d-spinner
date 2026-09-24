@@ -287,3 +287,54 @@ test("progress smoothing stays finite across irregular frames and long gaps", ()
   assert.equal(animation.renders.at(-1).frame.progress, 1);
   assert.equal(animation.exits.length, 1);
 });
+
+test("ready resolves once the animation has mounted", async () => {
+  const animation = fakeAnimation();
+  let finishMount;
+  animation.mount = (target) => {
+    animation.mounts.push(target);
+    return new Promise((resolve) => {
+      finishMount = resolve;
+    });
+  };
+  const spinner = createSpinner(new FakeHTMLElement(), { animation });
+  let settled = false;
+  spinner.ready.then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false);
+  finishMount();
+  await spinner.ready;
+  assert.equal(settled, true);
+  assert.equal(frames.size, 1, "the loop keeps running");
+  spinner.destroy();
+});
+
+test("a failed mount rejects ready and stops the loop", async () => {
+  const animation = fakeAnimation();
+  animation.mount = () => Promise.reject(new Error("no renderer"));
+  const spinner = createSpinner(new FakeHTMLElement(), { animation });
+  assert.equal(frames.size, 1);
+  await assert.rejects(spinner.ready, /no renderer/);
+  assert.equal(frames.size, 0);
+  spinner.stop();
+  assert.equal(frames.size, 0);
+  spinner.destroy();
+  assert.equal(animation.destroyCalls, 1);
+});
+
+test("an animation instance cannot drive a second spinner", () => {
+  const animation = fakeAnimation();
+  const first = createSpinner(new FakeHTMLElement(), { animation });
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { animation }),
+    /already in use/,
+  );
+  first.destroy();
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { type: "indeterminate", animation }),
+    /already in use/,
+  );
+  assert.equal(animation.mounts.length, 1);
+});

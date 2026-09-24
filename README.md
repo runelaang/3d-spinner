@@ -282,11 +282,24 @@ on the mode.
 
 ### `Spinner`
 
-| Method | Description |
+| Member | Description |
 | --- | --- |
+| `ready` | Promise that resolves once the animation can draw, and rejects with the error when it cannot (for example a pinned backend the browser lacks). On rejection the spinner stops animating and leaves the page as it is. |
 | `setProgress(target)` | Advance progress toward `target` (`0..1`). No-op for an indeterminate spinner. |
 | `stop()` | Play the outro, then stop animating. Keeps the injected element. |
 | `destroy()` | Stop immediately and remove the injected element. Safe to call more than once. |
+
+The spinner renders straight into `target`, so its size and placement come from your own CSS. It
+adds a canvas and a label and never replaces what is already inside. A `static` target becomes
+`position: relative` so the overlays have a positioning context; any other position is kept.
+
+An animation instance drives one spinner: passing the same instance to a second `createSpinner`
+throws. Prefab functions return a fresh animation on every call.
+
+```js
+const spinner = createSpinner(target, gridAssembly({ backend: "webgpu" }));
+spinner.ready.catch((error) => showFallback(error.message));
+```
 
 ## Rendering backend
 
@@ -317,7 +330,8 @@ Before 0.9.9 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep th
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
 fetched. If the chosen backend still fails to start, `"auto"` moves on to the next one. Pinning a
-backend the browser cannot run throws rather than falling back - `"auto"` is the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
+backend the browser cannot run rejects `spinner.ready` rather than falling back - `"auto"` is the
+resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
 exported from the engine.
 
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In

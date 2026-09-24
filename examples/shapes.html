@@ -158,7 +158,9 @@
   </div>
 
   <script type="module">
-    import { createSpinner } from "/dist/index.js";
+    import { createSpinner as mountSpinner } from "/dist/index.js";
+    import { showSetupFailure } from "/examples/stage-error.js";
+    const createSpinner = (target, options) => showSetupFailure(mountSpinner(target, options), target);
     import { SpinAnimation } from "/dist/animations/spin.js";
     import {
       tetrahedron,

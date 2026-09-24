@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -134,8 +135,8 @@ export class GhostTrainAnimation implements SpinnerAnimation {
     this.fadeLabel = options.fadeLabel ?? true;
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -145,9 +146,7 @@ export class GhostTrainAnimation implements SpinnerAnimation {
       this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     const measure = () => {
       if (target.clientWidth > 0 && target.clientHeight > 0) {
@@ -160,6 +159,7 @@ export class GhostTrainAnimation implements SpinnerAnimation {
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {

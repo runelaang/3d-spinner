@@ -1,4 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   Little3dEngine,
   cube,
@@ -94,17 +95,15 @@ export class SpinAnimation implements SpinnerAnimation {
       : undefined;
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: 2.8 } },
     });
     this.handle = engine.add(this.mesh, { transparency: this.transparency });
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     if (this.progress) {
       const label = document.createElement("div");
@@ -114,6 +113,7 @@ export class SpinAnimation implements SpinnerAnimation {
       target.appendChild(label);
       this.label = label;
     }
+    return mounting;
   }
 
   enter(now: number): void {

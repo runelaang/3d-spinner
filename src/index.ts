@@ -34,6 +34,14 @@ export interface IndeterminateSpinnerOptions {
 export type SpinnerOptions = ProgressSpinnerOptions | IndeterminateSpinnerOptions;
 
 export interface Spinner {
+  /**
+   * Settles once the animation has set up: resolves when it can draw, rejects
+   * with the error when it cannot (for example a pinned backend the browser
+   * lacks). On rejection the spinner stops animating and leaves the page as it
+   * is; call {@link Spinner.destroy} to remove it. Built-in animations resolve it
+   * when the spinner is destroyed before setup finishes.
+   */
+  readonly ready: Promise<void>;
   /** Set the progress target (0..1). No-op for an indeterminate spinner. */
   setProgress(target: number): void;
   /** Play the outro, then stop animating (keeps the injected DOM in place). */
@@ -51,6 +59,13 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
+const usedAnimations = new WeakSet<SpinnerAnimation>();
+
+/**
+ * Mount `options.animation` inside `target` and start its animation loop.
+ * Throws before mounting anything on invalid options or a reused animation
+ * instance; setup failures after that are reported through {@link Spinner.ready}.
+ */
 export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spinner {
   if (!(target instanceof HTMLElement)) {
     throw new Error("3d-spinner: createSpinner requires a target HTMLElement.");
@@ -75,7 +90,16 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   if (!indeterminate && Number.isNaN(options.timeout)) {
     throw new RangeError("3d-spinner: timeout must be a number of milliseconds, not NaN.");
   }
-  animation.mount(target);
+  if (usedAnimations.has(animation)) {
+    throw new Error(
+      "3d-spinner: this animation instance is already in use. Animations are single-use; create a new one for each spinner.",
+    );
+  }
+  usedAnimations.add(animation);
+  const ready = Promise.resolve(animation.mount(target)).catch((error: unknown) => {
+    halt();
+    throw error;
+  });
 
   const start = performance.now();
   let rafId = 0;
@@ -171,7 +195,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   }
 
   rafId = requestAnimationFrame(frame);
-  return { setProgress, stop, destroy };
+  return { ready, setProgress, stop, destroy };
 }
 
 export type { SpinnerAnimation, AnimationFrame, AnimationLabel } from "./animation.js";
