@@ -1,6 +1,7 @@
 import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
 import type { Mesh, Transparency, TwoSidedTransparency } from "./core/mesh.js";
+import { webgpu } from "./core/webgpu-api.js";
 
 /**
  * Rendering backend. Each is loaded on demand; unused ones are never fetched.
@@ -35,7 +36,7 @@ export async function detectBackendSupport(): Promise<BackendSupport> {
 }
 
 async function hasWebGPU(): Promise<boolean> {
-  const gpu = (globalThis as any).navigator?.gpu;
+  const gpu = webgpu();
   if (!gpu) return false;
   try {
     return Boolean(await gpu.requestAdapter());
@@ -45,7 +46,7 @@ async function hasWebGPU(): Promise<boolean> {
 }
 
 function hasWebGL2(): boolean {
-  const doc = (globalThis as any).document;
+  const doc = (globalThis as { document?: Document }).document;
   if (!doc?.createElement) return false;
   try {
     const gl = doc.createElement("canvas").getContext("webgl2");

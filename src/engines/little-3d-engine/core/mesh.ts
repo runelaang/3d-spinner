@@ -40,7 +40,11 @@ export interface Material {
 
 /** A single flat polygon: indices into the mesh `vertices` plus a base color. */
 export interface Face {
-  /** Vertex indices, wound counter-clockwise when viewed from outside. */
+  /**
+   * Vertex indices (three or more), wound counter-clockwise when viewed from
+   * outside. Typed as a plain array so meshes built from computed arrays still
+   * type-check; the OBJ loader validates count and range at the input boundary.
+   */
   indices: number[];
   /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
   color: string;

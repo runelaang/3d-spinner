@@ -42,10 +42,15 @@ export function normalize(v: Vec3): Vec3 {
 }
 
 /**
- * A 4x4 matrix in column-major order (16 numbers), suitable for chaining
- * model, view, and projection transforms.
+ * A 4x4 matrix in column-major order (exactly 16 numbers), suitable for
+ * chaining model, view, and projection transforms.
  */
-export type Mat4 = number[];
+export type Mat4 = [
+  number, number, number, number,
+  number, number, number, number,
+  number, number, number, number,
+  number, number, number, number,
+];
 
 /** The 4x4 identity matrix. */
 export function identity(): Mat4 {
@@ -64,7 +69,7 @@ export function multiply(a: Mat4, b: Mat4): Mat4 {
       out[col * 4 + row] = sum;
     }
   }
-  return out;
+  return out as Mat4;
 }
 
 /** Translation matrix. */

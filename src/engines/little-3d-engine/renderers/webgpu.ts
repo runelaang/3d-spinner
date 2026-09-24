@@ -2,6 +2,16 @@ import { expandToTriangles, parseColor } from "../core/geometry.js";
 import { type Mat4, multiply } from "../core/math.js";
 import type { Mesh } from "../core/mesh.js";
 import {
+  gpuFlags,
+  webgpu,
+  webgpuContext,
+  type GpuBuffer,
+  type GpuCanvasContext,
+  type GpuDevice,
+  type GpuRenderPipeline,
+  type GpuTexture,
+} from "../core/webgpu-api.js";
+import {
   DEFAULT_ONE_SIDED_OPACITY,
   opacity,
   resolveTwoSidedOpacity,
@@ -70,32 +80,37 @@ const CLIP_Z_FIX: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 1];
 const UNIFORM_STRIDE = 256;
 
 interface MeshBuffers {
-  position: any;
-  normal: any;
-  color: any;
-  ambient: any;
-  emissive: any;
-  specular: any;
+  position: GpuBuffer;
+  normal: GpuBuffer;
+  color: GpuBuffer;
+  ambient: GpuBuffer;
+  emissive: GpuBuffer;
+  specular: GpuBuffer;
   count: number;
+}
+
+interface Pipelines {
+  opaque: GpuRenderPipeline;
+  transparentBack: GpuRenderPipeline;
+  transparentFront: GpuRenderPipeline;
 }
 
 interface Draw {
   item: RenderItem;
   opacity: number;
-  pipeline: any;
+  pipeline: GpuRenderPipeline;
 }
 
 /** Hardware renderer using WebGPU: GPU transforms with a real depth buffer. */
 export class WebGPURenderer implements Renderer {
   private canvas?: HTMLCanvasElement;
-  protected device: any;
-  protected context: any;
-  private pipeline: any;
-  private transparentBackPipeline: any;
-  private transparentFrontPipeline: any;
-  private uniformBuffer: any;
+  protected device?: GpuDevice;
+  protected context?: GpuCanvasContext;
+  protected format?: string;
+  private pipelines?: Pipelines;
+  private uniformBuffer?: GpuBuffer;
   private uniformCapacity = 0;
-  protected depthTexture: any;
+  protected depthTexture?: GpuTexture;
   private depthSize = "";
   protected destroyed = false;
   private readonly cache = new Map<Mesh, MeshBuffers>();
@@ -115,13 +130,13 @@ export class WebGPURenderer implements Renderer {
   }
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
-    const gpu = (navigator as any).gpu;
+    const gpu = webgpu();
     if (!gpu) throw new Error("3d-spinner: WebGPU is not supported in this browser.");
     const adapter = await gpu.requestAdapter();
     if (!adapter) throw new Error("3d-spinner: no WebGPU adapter is available.");
     const device = await adapter.requestDevice();
     if (this.destroyed) {
-      device.destroy?.();
+      device.destroy();
       return;
     }
     // Every acquired resource gets an owner before the next step can fail, so a
@@ -129,14 +144,15 @@ export class WebGPURenderer implements Renderer {
     this.device = device;
     this.canvas = canvas;
 
-    const context = canvas.getContext("webgpu") as any;
+    const context = webgpuContext(canvas);
     if (!context) throw new Error("3d-spinner: could not get a WebGPU canvas context.");
     this.context = context;
     const format = gpu.getPreferredCanvasFormat();
+    this.format = format;
     context.configure({ device, format, alphaMode: this.alphaMode });
 
     const module = device.createShaderModule({ code: WGSL });
-    const stage = (globalThis as any).GPUShaderStage;
+    const stage = gpuFlags().shaderStage;
     const layout = device.createBindGroupLayout({
       entries: [
         {
@@ -187,40 +203,45 @@ export class WebGPURenderer implements Renderer {
         depthCompare: "less",
       },
     });
-    this.pipeline = pipeline("back", false);
-    this.transparentBackPipeline = pipeline("front", true);
-    this.transparentFrontPipeline = pipeline("back", true);
+    this.pipelines = {
+      opaque: pipeline("back", false),
+      transparentBack: pipeline("front", true),
+      transparentFront: pipeline("back", true),
+    };
   }
 
   resize(): void {
     this.ensureDepth();
   }
 
-  protected ensureDepth(): void {
+  /** The depth texture for the current canvas size, recreated when the size changes. */
+  protected ensureDepth(): GpuTexture | undefined {
     const canvas = this.canvas;
-    if (!this.device || !canvas) return;
+    const device = this.device;
+    if (!device || !canvas) return undefined;
     const width = Math.max(1, canvas.width);
     const height = Math.max(1, canvas.height);
     const key = `${width}x${height}`;
-    if (key === this.depthSize && this.depthTexture) return;
-    this.depthTexture?.destroy?.();
-    this.depthTexture = this.device.createTexture({
+    if (key === this.depthSize && this.depthTexture) return this.depthTexture;
+    this.depthTexture?.destroy();
+    this.depthTexture = device.createTexture({
       size: { width, height },
       format: "depth24plus",
-      usage: (globalThis as any).GPUTextureUsage.RENDER_ATTACHMENT,
+      usage: gpuFlags().textureUsage.RENDER_ATTACHMENT,
     });
     this.depthSize = key;
+    return this.depthTexture;
   }
 
-  private getOrCreateMeshBuffers(mesh: Mesh): MeshBuffers {
+  private getOrCreateMeshBuffers(device: GpuDevice, mesh: Mesh): MeshBuffers {
     const cached = this.cache.get(mesh);
     if (cached) return cached;
     const data = expandToTriangles(mesh);
-    const usage =
-      (globalThis as any).GPUBufferUsage.VERTEX | (globalThis as any).GPUBufferUsage.COPY_DST;
+    const flags = gpuFlags().bufferUsage;
+    const usage = flags.VERTEX | flags.COPY_DST;
     const upload = (array: Float32Array) => {
-      const buffer = this.device.createBuffer({ size: array.byteLength, usage });
-      this.device.queue.writeBuffer(buffer, 0, array);
+      const buffer = device.createBuffer({ size: array.byteLength, usage });
+      device.queue.writeBuffer(buffer, 0, array);
       return buffer;
     };
     const result: MeshBuffers = {
@@ -236,24 +257,30 @@ export class WebGPURenderer implements Renderer {
     return result;
   }
 
-  private ensureUniformCapacity(draws: number): void {
-    if (draws <= this.uniformCapacity && this.uniformBuffer) return;
-    this.uniformBuffer?.destroy?.();
-    this.uniformBuffer = this.device.createBuffer({
+  /** The uniform buffer, grown to hold at least `draws` uniform blocks. */
+  private ensureUniformCapacity(device: GpuDevice, draws: number): GpuBuffer {
+    if (draws <= this.uniformCapacity && this.uniformBuffer) return this.uniformBuffer;
+    this.uniformBuffer?.destroy();
+    const flags = gpuFlags().bufferUsage;
+    this.uniformBuffer = device.createBuffer({
       size: Math.max(1, draws) * UNIFORM_STRIDE,
-      usage:
-        (globalThis as any).GPUBufferUsage.UNIFORM | (globalThis as any).GPUBufferUsage.COPY_DST,
+      usage: flags.UNIFORM | flags.COPY_DST,
     });
     this.uniformCapacity = draws;
+    return this.uniformBuffer;
   }
 
   render(frame: RenderFrame): void {
-    if (this.destroyed || !this.device || !this.context || !this.pipeline) return;
+    const device = this.device;
+    const context = this.context;
+    const pipelines = this.pipelines;
+    if (this.destroyed || !device || !context || !pipelines) return;
     if (frame.width === 0 || frame.height === 0 || frame.items.length === 0) return;
-    this.ensureDepth();
+    const depth = this.ensureDepth();
+    if (!depth) return;
     const draws: Draw[] = [];
     for (const item of frame.items) {
-      if (!item.transparency) draws.push({ item, opacity: 1, pipeline: this.pipeline });
+      if (!item.transparency) draws.push({ item, opacity: 1, pipeline: pipelines.opaque });
     }
     for (const item of frame.items) {
       const transparency = item.transparency;
@@ -263,29 +290,28 @@ export class WebGPURenderer implements Renderer {
         draws.push({
           item,
           opacity: resolved.back,
-          pipeline: this.transparentBackPipeline,
+          pipeline: pipelines.transparentBack,
         });
         draws.push({
           item,
           opacity: resolved.front,
-          pipeline: this.transparentFrontPipeline,
+          pipeline: pipelines.transparentFront,
         });
       } else {
         draws.push({
           item,
           opacity: opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY),
-          pipeline: this.transparentFrontPipeline,
+          pipeline: pipelines.transparentFront,
         });
       }
     }
-    this.ensureUniformCapacity(draws.length);
+    const uniforms = this.ensureUniformCapacity(device, draws.length);
 
     const viewProj = multiply(CLIP_Z_FIX, frame.viewProjection);
-    const layout = this.pipeline.getBindGroupLayout(0);
-    const bindGroup = this.device.createBindGroup({
-      layout,
+    const bindGroup = device.createBindGroup({
+      layout: pipelines.opaque.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 176 } },
+        { binding: 0, resource: { buffer: uniforms, offset: 0, size: 176 } },
       ],
     });
 
@@ -296,28 +322,28 @@ export class WebGPURenderer implements Renderer {
       data.set([frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z, 0], 32);
       data.set([frame.light.intensity, frame.light.ambient, draw.opacity, 0], 36);
       data.set([frame.eye.x, frame.eye.y, frame.eye.z, 0], 40);
-      this.device.queue.writeBuffer(this.uniformBuffer, i * UNIFORM_STRIDE, data);
+      device.queue.writeBuffer(uniforms, i * UNIFORM_STRIDE, data);
     });
 
-    const encoder = this.device.createCommandEncoder();
+    const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
       colorAttachments: [
         {
-          view: this.context.getCurrentTexture().createView(),
+          view: context.getCurrentTexture().createView(),
           clearValue: this.clearValue,
           loadOp: "clear",
           storeOp: "store",
         },
       ],
       depthStencilAttachment: {
-        view: this.depthTexture.createView(),
+        view: depth.createView(),
         depthClearValue: 1,
         depthLoadOp: "clear",
         depthStoreOp: "store",
       },
     });
     draws.forEach((draw, i) => {
-      const mesh = this.getOrCreateMeshBuffers(draw.item.mesh);
+      const mesh = this.getOrCreateMeshBuffers(device, draw.item.mesh);
       pass.setPipeline(draw.pipeline);
       pass.setBindGroup(0, bindGroup, [i * UNIFORM_STRIDE]);
       pass.setVertexBuffer(0, mesh.position);
@@ -329,7 +355,7 @@ export class WebGPURenderer implements Renderer {
       pass.draw(mesh.count);
     });
     pass.end();
-    this.device.queue.submit([encoder.finish()]);
+    device.queue.submit([encoder.finish()]);
   }
 
   /** Destroy the vertex buffers cached for `mesh`. */
@@ -337,25 +363,23 @@ export class WebGPURenderer implements Renderer {
     const cached = this.cache.get(mesh);
     if (!cached) return;
     this.cache.delete(mesh);
-    cached.position.destroy?.();
-    cached.normal.destroy?.();
-    cached.color.destroy?.();
-    cached.ambient.destroy?.();
-    cached.emissive.destroy?.();
-    cached.specular.destroy?.();
+    cached.position.destroy();
+    cached.normal.destroy();
+    cached.color.destroy();
+    cached.ambient.destroy();
+    cached.emissive.destroy();
+    cached.specular.destroy();
   }
 
   destroy(): void {
     this.destroyed = true;
     for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
-    this.uniformBuffer?.destroy?.();
-    this.depthTexture?.destroy?.();
-    this.device?.destroy?.();
+    this.uniformBuffer?.destroy();
+    this.depthTexture?.destroy();
+    this.device?.destroy();
     this.device = undefined;
     this.context = undefined;
-    this.pipeline = undefined;
-    this.transparentBackPipeline = undefined;
-    this.transparentFrontPipeline = undefined;
+    this.pipelines = undefined;
     this.uniformBuffer = undefined;
     this.depthTexture = undefined;
     this.canvas = undefined;
