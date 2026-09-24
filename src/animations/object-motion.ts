@@ -6,8 +6,10 @@ import {
   type MountedAnimationLabel,
 } from "../animation-label.js";
 import {
+  Camera,
   Little3dEngine,
   type Backend,
+  type CameraOptions,
   type Mesh,
   type MeshHandle,
   type Transparency,
@@ -106,6 +108,7 @@ const BANK_GAIN = 26;
 const BANK_LIMIT = 0.7;
 const BANK_SMOOTH = 0.12;
 const SAMPLE_MS = 8;
+const CAMERA: Partial<CameraOptions> = { position: { x: 0, y: 0, z: 3 } };
 
 // Rotation (proper, winding-preserving) that maps each `facing` axis onto +X.
 const FACE_FORWARD: Record<Facing, (v: Vec3) => Vec3> = {
@@ -251,7 +254,11 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private readonly rotationOffset: Vec3;
   private readonly rotationSpin: Vec3;
   private readonly hasExtraRotation: boolean;
+  private readonly camera = new Camera(CAMERA);
+  private readonly radius: number;
 
+  private target?: HTMLElement;
+  private aspect = 1;
   private started = false;
   private finished = false;
   private lastRenderAt?: number;
@@ -265,6 +272,10 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.size ?? 1);
     const facing = faceForward(centered, options.facing ?? "+x");
     this.mesh = applyColor(facing, options.color);
+    this.radius = this.mesh.vertices.reduce(
+      (max, v) => Math.max(max, Math.hypot(v.x, v.y, v.z)),
+      0,
+    );
     this.motion = options.motion;
     this.backend = options.backend;
     this.transparency = options.transparency;
@@ -293,10 +304,8 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
 
   mount(target: HTMLElement): Promise<void> {
     prepareHost(target);
-    const engine = new Little3dEngine({
-      backend: this.backend,
-      camera: { position: { x: 0, y: 0, z: 3 } },
-    });
+    this.target = target;
+    const engine = new Little3dEngine({ backend: this.backend, camera: CAMERA });
     for (let i = 0; i <= this.tailCount; i++) {
       this.handles.push(engine.add(this.mesh, { transparency: this.transparency }));
       this.banks.push(0);
@@ -314,14 +323,21 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     if (this.started) return;
     this.started = true;
     this.introStart = now;
+    this.measureAspect();
   }
 
+  /**
+   * Begin the fly-out. A stop during the fly-in lets the fly-in finish first,
+   * so the fly-out starts from where the object really is on its path.
+   */
   exit(now: number): void {
     if (!this.started || this.outroStart !== Infinity) return;
-    this.outroPosition = this.motion.positionAt(now);
-    this.outroVelocity = motionVectorAt(this.motion, now);
+    const start = Math.max(now, this.introStart + this.intro.durationMs);
+    this.measureAspect();
+    this.outroPosition = this.motion.positionAt(start);
+    this.outroVelocity = motionVectorAt(this.motion, start);
     this.outroDirection = resolveDirection(this.outroVelocity, this.headings[0]);
-    this.outroStart = now;
+    this.outroStart = start;
   }
 
   isFinished(): boolean {
@@ -464,6 +480,19 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     return this.applyTransitionOutput(input, output, phase, t);
   }
 
+  /** Take the viewport shape the fly transitions aim out of; unmeasured stays 1. */
+  private measureAspect(): void {
+    const width = this.target?.clientWidth ?? 0;
+    const height = this.target?.clientHeight ?? 0;
+    if (width > 0 && height > 0) this.aspect = width / height;
+  }
+
+  /** How far the object must travel from `from` along `direction` to be fully out of view. */
+  private leaveViewFrom(from: Vec3): (direction: Vec3) => number {
+    const aspect = this.aspect;
+    return (direction) => this.camera.distanceToLeaveView(from, direction, this.radius, aspect);
+  }
+
   private transitionInput(
     phase: ObjectMotionTransitionPhase,
     delta: number,
@@ -474,15 +503,17 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     if (phase === "intro") {
       const handoff = start + durationMs;
       const velocity = motionVectorAt(this.motion, handoff);
+      const position = this.motion.positionAt(handoff);
       return {
         delta,
-        position: this.motion.positionAt(handoff),
+        position,
         direction: resolveDirection(velocity, { x: 1, y: 0, z: 0 }),
         velocity,
         size: 1,
         durationMs,
         elapsedMs,
         phase,
+        distanceToLeaveView: this.leaveViewFrom(position),
       };
     }
     return {
@@ -494,6 +525,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       durationMs,
       elapsedMs,
       phase,
+      distanceToLeaveView: this.leaveViewFrom(this.outroPosition),
     };
   }
 
