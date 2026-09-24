@@ -40,3 +40,43 @@ test("rotationZ(90 degrees) maps +X onto +Y (engine Rz convention)", () => {
   approx(rotated.y, 1, 1e-12);
   approx(rotated.z, 0, 1e-12);
 });
+
+const eulerCases = [
+  [0.3, 0, 0],
+  [0, 0.3, 0],
+  [0, 0, 0.3],
+  [0.4, -0.7, 1.2],
+  [2.5, 0.1, -2.8],
+  [1, Math.PI / 2, 0.5],
+  [0.2, -Math.PI / 2, -0.9],
+];
+
+test("rotationFromEuler applies X, then Y, then Z (Rz * Ry * Rx)", async () => {
+  const { rotationFromEuler, rotationY } = await import(
+    "../dist/engines/little-3d-engine/core/math.js"
+  );
+  const expected = multiply(rotationZ(1.1), multiply(rotationY(-0.4), rotationX(0.7)));
+  const actual = rotationFromEuler(0.7, -0.4, 1.1);
+  expected.forEach((value, i) => approx(actual[i], value, 1e-12));
+});
+
+test("eulerFromRotation round-trips matrix -> euler -> matrix, including gimbal lock", async () => {
+  const { rotationFromEuler, eulerFromRotation } = await import(
+    "../dist/engines/little-3d-engine/core/math.js"
+  );
+  for (const [x, y, z] of eulerCases) {
+    const matrix = rotationFromEuler(x, y, z);
+    const euler = eulerFromRotation(matrix);
+    const rebuilt = rotationFromEuler(euler.x, euler.y, euler.z);
+    matrix.forEach((value, i) => approx(rebuilt[i], value, 1e-9, `case ${x},${y},${z} index ${i}`));
+  }
+});
+
+test("eulerFromRotation returns single-axis angles unchanged", async () => {
+  const { rotationFromEuler, eulerFromRotation } = await import(
+    "../dist/engines/little-3d-engine/core/math.js"
+  );
+  approx(eulerFromRotation(rotationFromEuler(0.3, 0, 0)).x, 0.3, 1e-12);
+  approx(eulerFromRotation(rotationFromEuler(0, 0.3, 0)).y, 0.3, 1e-12);
+  approx(eulerFromRotation(rotationFromEuler(0, 0, 0.3)).z, 0.3, 1e-12);
+});

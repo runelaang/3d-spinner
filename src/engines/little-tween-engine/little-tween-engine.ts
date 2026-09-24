@@ -67,3 +67,4 @@ export {
   easeInOutBounce,
 } from "./core/tweens.js";
 export type { EaseFunction, EaseType } from "./core/tweens.js";
+export { damp } from "./core/damp.js";

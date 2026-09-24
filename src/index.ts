@@ -1,4 +1,5 @@
 import type { SpinnerAnimation } from "./animation.js";
+import { damp } from "./engines/little-tween-engine/core/damp.js";
 
 /** A spinner driven by real progress the caller reports via {@link Spinner.setProgress}. */
 export interface ProgressSpinnerOptions {
@@ -98,11 +99,9 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   function computeProgress(now: number): number {
     if (!indeterminate) {
       if (now >= deadline) targetProgress = 1;
-      const deltaMs = Math.max(0, now - lastFrame);
+      const deltaMs = now - lastFrame;
       lastFrame = now;
-      // Frame-rate independent form of a 0.12 lerp per 60 fps frame.
-      const alpha = 1 - Math.pow(1 - 0.12, deltaMs / (1000 / 60));
-      current = lerp(current, targetProgress, alpha);
+      current = lerp(current, targetProgress, damp(0.12, deltaMs));
       if (Math.abs(targetProgress - current) < 0.0005) current = targetProgress;
       return current;
     }

@@ -17,12 +17,11 @@ import {
   subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import {
-  type Mat4,
+  eulerFromRotation,
   multiply,
-  rotationX,
-  rotationY,
-  rotationZ,
+  rotationFromEuler,
 } from "../engines/little-3d-engine/core/math.js";
+import { damp } from "../engines/little-tween-engine/core/damp.js";
 import type { MotionController } from "../motion/controller.js";
 import {
   enterFromObjectDirection,
@@ -189,32 +188,10 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   };
 }
 
-/** Engine rotation matrix from Euler angles (Rz * Ry * Rx). */
-function rotationMatrix(x: number, y: number, z: number): Mat4 {
-  return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
-}
-
-/** Inverse of {@link rotationMatrix} for the engine's Rz * Ry * Rx order. */
-function eulerFromRotationMatrix(matrix: Mat4): Vec3 {
-  const sy = Math.hypot(matrix[0], matrix[1]);
-  if (sy > 1e-6) {
-    return {
-      x: Math.atan2(matrix[9], matrix[10]),
-      y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-      z: Math.atan2(matrix[4], matrix[0]),
-    };
-  }
-  return {
-    x: Math.atan2(-matrix[6], matrix[5]),
-    y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-    z: 0,
-  };
-}
-
 /** Compose path orientation with a local-space offset/spin rotation. */
 function combineLocalRotation(path: Vec3, extra: Vec3): Vec3 {
-  return eulerFromRotationMatrix(
-    multiply(rotationMatrix(path.x, path.y, path.z), rotationMatrix(extra.x, extra.y, extra.z)),
+  return eulerFromRotation(
+    multiply(rotationFromEuler(path.x, path.y, path.z), rotationFromEuler(extra.x, extra.y, extra.z)),
   );
 }
 
@@ -270,6 +247,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
 
   private started = false;
   private finished = false;
+  private lastRenderAt?: number;
   private introStart = 0;
   private outroStart = Infinity;
   private outroPosition: Vec3 = { x: 0, y: 0, z: 0 };
@@ -365,6 +343,8 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     if (this.outroStart !== Infinity && now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap) {
       this.finished = true;
     }
+    const bankStep = damp(BANK_SMOOTH, now - (this.lastRenderAt ?? now - 1000 / 60));
+    this.lastRenderAt = now;
 
     for (let k = 0; k < this.handles.length; k++) {
       const transform = this.handles[k].transform;
@@ -386,7 +366,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
           -BANK_LIMIT,
           Math.min(BANK_LIMIT, cross(this.headings[k], ahead).y * BANK_GAIN),
         );
-        this.banks[k] += (targetBank - this.banks[k]) * BANK_SMOOTH;
+        this.banks[k] += (targetBank - this.banks[k]) * bankStep;
         euler = orientationFor(this.headings[k], this.banks[k]);
       }
       if (this.hasExtraRotation) {

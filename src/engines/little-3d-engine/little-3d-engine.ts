@@ -3,9 +3,7 @@ import { Light, type LightOptions } from "./core/light.js";
 import {
   type Mat4,
   multiply,
-  rotationX,
-  rotationY,
-  rotationZ,
+  rotationFromEuler,
   scaleMatrix,
   translation,
 } from "./core/math.js";
@@ -54,10 +52,7 @@ export interface MeshInstanceOptions extends Partial<Transform> {
 }
 
 function modelMatrix(t: Transform): Mat4 {
-  const rotation = multiply(
-    rotationZ(t.rotation.z),
-    multiply(rotationY(t.rotation.y), rotationX(t.rotation.x)),
-  );
+  const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
     translation(t.position.x, t.position.y, t.position.z),
     multiply(rotation, scaleMatrix(t.scale)),

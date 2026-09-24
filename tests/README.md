@@ -30,8 +30,9 @@ Zero-dependency lifecycle and pure logic:
 - `transitions.test.mjs` - the object-motion intro/outro transitions: `enterFromObjectDirection`
   lands on the handoff, matches the path velocity when fast, and falls back to `distance` when
   slow; `leaveInObjectDirection` starts at the handoff and flies off.
-- `math.test.mjs` - the engine math helpers: matrix identity/inverse, normalize, cross/dot, and
-  the `Rz` rotation convention.
+- `math.test.mjs` - the engine math helpers: matrix identity/inverse, normalize, cross/dot, the
+  `Rz` rotation convention, and the Euler round trip (matrix -> Euler -> matrix, gimbal lock
+  included).
 - `renderer.test.mjs` - opaque/transparent render ordering, opacity defaults/clamping, and the
   two-sided opacity shorthand.
 - `mesh.test.mjs` - `centerAndScaleMesh`: origin centering, uniform fit to `targetSize`, and
