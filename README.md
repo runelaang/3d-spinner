@@ -432,7 +432,7 @@ npm test        # build, then run the unit tests and the consumer type check
 npm run test:browser  # real rendering in headless Chromium (npx playwright install chromium first)
 npm run lint    # type-aware ESLint over src/
 npm run format  # Prettier (format:check is what CI runs)
-npm run dev     # serve this folder; open /examples/ or /examples/prefabs.html
+npm run dev     # serve this folder; open /examples/ or /examples/prefabs-progress.html
 ```
 
 ## License
