@@ -2,7 +2,7 @@
 
 [![tests](https://img.shields.io/github/actions/workflow/status/runelaang/3d-spinner/ci.yml?label=tests&logo=github)](https://github.com/runelaang/3d-spinner/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/3d-spinner?logo=npm)](https://www.npmjs.com/package/3d-spinner)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/3d-spinner)](https://bundlephobia.com/package/3d-spinner)
+[![bundle size](https://img.shields.io/bundlejs/size/3d-spinner)](https://bundlejs.com/?q=3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
 
 Real 3D spinners, loaders, and progress indicators for the browser - in one line, configuration
