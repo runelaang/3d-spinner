@@ -56,8 +56,9 @@ Lifecycle, engine, and pure logic:
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
   CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
 - `geometry`, `light`, `particles`, `grid-assembly`, `composite-animation`,
-  `animation-label` - GPU triangle expansion, shading, the particle field, prefab story logic,
-  layer composition, and label fading.
+  `animation-label`, `tween` - GPU triangle expansion, shading, the particle field, prefab story
+  logic, layer composition, label fading and accessibility, and the tween engine (including its
+  deprecated aliases).
 
 Real rendering, in `tests/browser/spinner.test.mjs` (headless Chromium over a local file
 server):

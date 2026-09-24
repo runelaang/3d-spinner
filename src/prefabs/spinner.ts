@@ -27,6 +27,7 @@ export function progressSpinner(
     type: "progress",
     animation,
     progress: options.progress ?? 0.001,
+    timeoutMs: options.timeoutMs,
     timeout: options.timeout,
     until: options.until,
     ariaLabel: options.ariaLabel,

@@ -391,3 +391,14 @@ test("an indeterminate spinner's progressbar has a name but no value", () => {
   assert.equal("aria-valuenow" in bar.attributes, false);
   assert.equal("aria-valuemax" in bar.attributes, false);
 });
+
+test("timeoutMs completes a progress spinner and wins over the deprecated timeout", () => {
+  const animation = fakeAnimation();
+  createSpinner(new FakeHTMLElement(), { animation, timeoutMs: 0, timeout: 60_000 });
+  runNextFrame();
+  assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { animation: fakeAnimation(), timeoutMs: NaN }),
+    { name: "RangeError", message: /timeoutMs/ },
+  );
+});

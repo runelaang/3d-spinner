@@ -15,6 +15,8 @@ export interface ProgressSpinnerOptions {
    * Auto-complete (drive progress to 1, playing the outro) after this many ms.
    * `NaN` throws a `RangeError`; zero or less completes on the first frame.
    */
+  timeoutMs?: number;
+  /** @deprecated Renamed to {@link ProgressSpinnerOptions.timeoutMs}; removed in 1.0.0. */
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
@@ -133,8 +135,9 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
   }
-  if (!indeterminate && Number.isNaN(options.timeout)) {
-    throw new RangeError("3d-spinner: timeout must be a number of milliseconds, not NaN.");
+  const timeoutMs = indeterminate ? undefined : (options.timeoutMs ?? options.timeout);
+  if (Number.isNaN(timeoutMs)) {
+    throw new RangeError("3d-spinner: timeoutMs must be a number of milliseconds, not NaN.");
   }
   if (usedAnimations.has(animation)) {
     throw new Error(
@@ -166,7 +169,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
       current = clamp01(options.progress);
       targetProgress = current;
     }
-    if (typeof options.timeout === "number") deadline = Math.min(deadline, start + options.timeout);
+    if (typeof timeoutMs === "number") deadline = Math.min(deadline, start + timeoutMs);
     // `until` is wall-clock time; rAF timestamps share performance.now()'s origin.
     if (options.until instanceof Date) {
       deadline = Math.min(deadline, start + (options.until.getTime() - Date.now()));

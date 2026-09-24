@@ -269,7 +269,7 @@ on the mode.
 | --- | --- | --- |
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `progress` | `number` | Initial progress `0..1`. A value above 0 plays the intro immediately. |
-| `timeout` | `number` | Auto-complete after this many milliseconds. `NaN` throws a `RangeError`. |
+| `timeoutMs` | `number` | Auto-complete after this many milliseconds. `NaN` throws a `RangeError`. (`timeout` is the deprecated older name.) |
 | `until` | `Date` | Auto-complete at this time. If both are set, the earlier wins. |
 | `ariaLabel` | `string` | Accessible name of the hidden progress bar. Default `"Loading"`. |
 

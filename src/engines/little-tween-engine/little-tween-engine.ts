@@ -2,9 +2,11 @@ import { ease, type EaseType } from "./core/tweens.js";
 
 /** Options for {@link LittleTweenEngine}. */
 export interface LittleTweenEngineOptions {
-  /** Ease curve used when one is not provided to {@link LittleTweenEngine.value}. */
+  /** Ease curve used when one is not provided to {@link LittleTweenEngine.evaluate}. */
   type?: EaseType;
   /** Allow input values outside 0..1. Default `false` clamps input to 0..1. */
+  allowExtrapolation?: boolean;
+  /** @deprecated Renamed to {@link LittleTweenEngineOptions.allowExtrapolation}; removed in 1.0.0. */
   overextend?: boolean;
 }
 
@@ -14,16 +16,21 @@ export interface LittleTweenEngineOptions {
  */
 export class LittleTweenEngine {
   private readonly type: EaseType;
-  private readonly overextend: boolean;
+  private readonly allowExtrapolation: boolean;
 
   constructor(options: LittleTweenEngineOptions = {}) {
     this.type = options.type ?? "linear";
-    this.overextend = options.overextend ?? false;
+    this.allowExtrapolation = options.allowExtrapolation ?? options.overextend ?? false;
   }
 
   /** Map `value` through the selected ease type. */
-  value(value: number, type = this.type, overextend = this.overextend): number {
-    return ease(type, value, overextend);
+  evaluate(value: number, type = this.type, allowExtrapolation = this.allowExtrapolation): number {
+    return ease(type, value, allowExtrapolation);
+  }
+
+  /** @deprecated Renamed to {@link LittleTweenEngine.evaluate}; removed in 1.0.0. */
+  value(value: number, type = this.type, allowExtrapolation = this.allowExtrapolation): number {
+    return this.evaluate(value, type, allowExtrapolation);
   }
 }
 
