@@ -28,12 +28,14 @@ export function animationLabelOpacity(
   outroDurationMs: number,
 ): number {
   if (enterAt === Infinity) return 0;
-  const intro = introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
-  const outro = exitAt === Infinity
-    ? 1
-    : outroDurationMs <= 0
-      ? 0
-      : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
+  const intro =
+    introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
+  const outro =
+    exitAt === Infinity
+      ? 1
+      : outroDurationMs <= 0
+        ? 0
+        : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
   return Math.min(intro, outro);
 }
 

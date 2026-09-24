@@ -179,8 +179,7 @@ export function particleField(options: ParticlesOptions = {}): ParticleField {
             dir.y * particleSpeed + (gravity?.y ?? 0) * seconds,
             dir.x * particleSpeed + (gravity?.x ?? 0) * seconds,
           )
-        : 2 * Math.PI * rand01(seed, index, 3)
-          + (2 * rand01(seed, index, 4) - 1) * spin * age;
+        : 2 * Math.PI * rand01(seed, index, 3) + (2 * rand01(seed, index, 4) - 1) * spin * age;
       return {
         position: {
           x: dir.x * travel + (gravity ? gravity.x * pull : 0),
@@ -248,9 +247,9 @@ export class ParticlesAnimation implements SpinnerAnimation {
                 ? new (
                     await import("../engines/little-3d-engine/renderers/webgl-textured.js")
                   ).WebGLTexturedRenderer(rendererOptions)
-              : new (
-                  await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
-                ).Canvas2DTexturedRenderer(rendererOptions);
+                : new (
+                    await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
+                  ).Canvas2DTexturedRenderer(rendererOptions);
           for (const mesh of meshes) renderer.setTexture(mesh, texture);
           return renderer;
         }
@@ -287,7 +286,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
 
   render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.label) return;
-    if (this.exitAt !== Infinity && now >= this.exitAt + this.outroMs + this.field.lifeMs) this.finished = true;
+    if (this.exitAt !== Infinity && now >= this.exitAt + this.outroMs + this.field.lifeMs)
+      this.finished = true;
 
     for (const handle of this.handles) handle.transform.scale = 0;
 
@@ -315,17 +315,23 @@ export class ParticlesAnimation implements SpinnerAnimation {
       }
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.enterAt,
-        this.field.lifeMs * FADE_IN_END,
-        this.exitAt,
-        this.field.lifeMs,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(
+          now,
+          this.enterAt,
+          this.field.lifeMs * FADE_IN_END,
+          this.exitAt,
+          this.field.lifeMs,
+        ),
+      );
     }
     this.engine.render();
   }

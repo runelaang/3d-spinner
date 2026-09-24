@@ -156,7 +156,10 @@ function resolveIndex(token: string, vertexCount: number, line: number): number 
   const n = Number(token);
   const index = n < 0 ? vertexCount + n : n - 1;
   if (!Number.isInteger(n) || n === 0 || index < 0 || index >= vertexCount) {
-    objError(line, `face refers to vertex "${token}", but ${vertexCount} vertices are defined so far.`);
+    objError(
+      line,
+      `face refers to vertex "${token}", but ${vertexCount} vertices are defined so far.`,
+    );
   }
   return index;
 }
@@ -182,9 +185,7 @@ function resolveIndex(token: string, vertexCount: number, line: number): number 
  */
 export function parseObj(text: string, options: ObjOptions = {}): Mesh {
   const colors = options.colors?.length ? options.colors : DEFAULT_COLORS;
-  const materials = options.useMtlColors && options.mtl
-    ? parseMtl(options.mtl)
-    : undefined;
+  const materials = options.useMtlColors && options.mtl ? parseMtl(options.mtl) : undefined;
   const vertices: Mesh["vertices"] = [];
   const faces: Face[] = [];
   let material: string | undefined;
@@ -210,8 +211,7 @@ export function parseObj(text: string, options: ObjOptions = {}): Mesh {
         indices.push(resolveIndex(vertexToken, vertices.length, line));
       }
       const entry = material ? materials?.get(material) : undefined;
-      const color = entry?.color
-        ?? (materials ? colors[0] : colors[faces.length % colors.length]);
+      const color = entry?.color ?? (materials ? colors[0] : colors[faces.length % colors.length]);
       const face: Face = { indices, color };
       if (entry?.material) face.material = entry.material;
       faces.push(face);

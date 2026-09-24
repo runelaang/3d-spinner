@@ -202,12 +202,16 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     for (let s = 0; s < SMOKE_POOL; s++) {
       const fade: OneSidedTransparency = { mode: "one-sided", opacity: 0 };
       this.smokeFades.push(fade);
-      this.smoke.push(engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }));
+      this.smoke.push(
+        engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }),
+      );
     }
     for (let f = 0; f < FIRE_POOL; f++) {
       const fade: OneSidedTransparency = { mode: "one-sided", opacity: 0 };
       this.fireFades.push(fade);
-      this.fire.push(engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }));
+      this.fire.push(
+        engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }),
+      );
     }
 
     this.engine = engine;
@@ -301,17 +305,17 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
       }
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.enterAt,
-        SLIDE_MS,
-        this.launchedAt,
-        LAUNCH_SPREAD_MS,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(now, this.enterAt, SLIDE_MS, this.launchedAt, LAUNCH_SPREAD_MS),
+      );
     }
 
     if (launched && now >= this.launchedAt + LAUNCH_SPREAD_MS + FINISH_PAD_MS) {
@@ -409,7 +413,8 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
       const baseY = pose.pos.y + back.y * SIZE * 0.5;
       const transform = this.fire[cursor].transform;
       transform.position.x = baseX + back.x * FIRE_TRAIL * seconds + perp.x * lat;
-      transform.position.y = baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
+      transform.position.y =
+        baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
       transform.position.z = PARTICLE_Z;
       transform.rotation.z = hash01(i * 97 + n, 2) * Math.PI * 2;
       transform.scale = FIRE_SIZE * (0.7 + 0.5 * hash01(i * 97 + n, 3)) * (1 - 0.55 * life);
@@ -420,7 +425,13 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     return cursor;
   }
 
-  private emitSmoke(i: number, homeX: number, now: number, launchAt: number, cursor: number): number {
+  private emitSmoke(
+    i: number,
+    homeX: number,
+    now: number,
+    launchAt: number,
+    cursor: number,
+  ): number {
     const start = this.groundedAt[i];
     const tr = now - start;
     const gap = SMOKE_GAP_MS;

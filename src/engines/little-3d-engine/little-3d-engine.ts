@@ -1,12 +1,6 @@
 import { Camera, type CameraOptions } from "./core/camera.js";
 import { Light, type LightOptions } from "./core/light.js";
-import {
-  type Mat4,
-  multiply,
-  rotationFromEuler,
-  scaleMatrix,
-  translation,
-} from "./core/math.js";
+import { type Mat4, multiply, rotationFromEuler, scaleMatrix, translation } from "./core/math.js";
 import {
   type Mesh,
   type Transform,
@@ -106,7 +100,9 @@ export class Little3dEngine {
    */
   async mount(target: HTMLElement): Promise<void> {
     if (this.state !== "idle") {
-      throw new Error("3d-spinner: this engine is already mounted. Call destroy() before mounting it again.");
+      throw new Error(
+        "3d-spinner: this engine is already mounted. Call destroy() before mounting it again.",
+      );
     }
     this.state = "mounting";
     const generation = this.generation;
@@ -310,12 +306,4 @@ export {
   detectBackendSupport,
   resolveBackend,
 } from "./renderer.js";
-export {
-  type Vec3,
-  vec3,
-  subtract,
-  cross,
-  dot,
-  scale,
-  normalize,
-} from "./core/math.js";
+export { type Vec3, vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";

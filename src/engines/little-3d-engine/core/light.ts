@@ -84,8 +84,7 @@ export function shade(
       z: light.toLight.z + viewDir.z,
     });
     const shininess = material?.shininess ?? 32;
-    const highlight =
-      Math.pow(Math.max(0, dot(normal, half)), shininess) * light.intensity * 255;
+    const highlight = Math.pow(Math.max(0, dot(normal, half)), shininess) * light.intensity * 255;
     r += highlight * specular[0];
     g += highlight * specular[1];
     b += highlight * specular[2];

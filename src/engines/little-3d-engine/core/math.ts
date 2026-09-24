@@ -46,10 +46,22 @@ export function normalize(v: Vec3): Vec3 {
  * chaining model, view, and projection transforms.
  */
 export type Mat4 = [
-  number, number, number, number,
-  number, number, number, number,
-  number, number, number, number,
-  number, number, number, number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
 ];
 
 /** The 4x4 identity matrix. */
@@ -141,10 +153,22 @@ export function perspective(fovY: number, aspect: number, near: number, far: num
   const f = 1 / Math.tan(fovY / 2);
   const nf = 1 / (near - far);
   return [
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * nf, -1,
-    0, 0, 2 * far * near * nf, 0,
+    f / aspect,
+    0,
+    0,
+    0,
+    0,
+    f,
+    0,
+    0,
+    0,
+    0,
+    (far + near) * nf,
+    -1,
+    0,
+    0,
+    2 * far * near * nf,
+    0,
   ];
 }
 

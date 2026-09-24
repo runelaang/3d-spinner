@@ -214,20 +214,23 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     if (now >= this.collapseAt) this.renderCollapse(now);
     else this.renderStory(now, dt);
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.enterAt,
-        LABEL_FADE_MS,
-        this.collapseAt,
-        COLLAPSE_MS,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(now, this.enterAt, LABEL_FADE_MS, this.collapseAt, COLLAPSE_MS),
+      );
     }
 
-    if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
+    if (
+      this.collapseAt !== Infinity &&
+      now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS
+    ) {
       this.finished = true;
     }
     this.engine.render();
@@ -251,7 +254,9 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
     const want = !ringComplete
       ? 0
-      : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+      : exiting
+        ? COUNT
+        : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
     const rate = (dt / this.dockMs) * (exiting ? EXIT_HURRY : 1);
 
     for (let i = 0; i < COUNT; i++) {

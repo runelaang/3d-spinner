@@ -9,7 +9,11 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
  * @param colors Four CSS colors, one per triangular face. Defaults to a built-in palette.
  * @param material Optional surface material applied to every face.
  */
-export function tetrahedron(size = 1, colors: string[] = DEFAULT_COLORS, material?: Material): Mesh {
+export function tetrahedron(
+  size = 1,
+  colors: string[] = DEFAULT_COLORS,
+  material?: Material,
+): Mesh {
   const s = size / 2;
   const vertices = [
     { x: s, y: s, z: s },

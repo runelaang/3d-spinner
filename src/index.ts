@@ -130,11 +130,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   ) {
     throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
   }
-  if (
-    !indeterminate &&
-    options.until instanceof Date &&
-    Number.isNaN(options.until.getTime())
-  ) {
+  if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
   }
   if (!indeterminate && Number.isNaN(options.timeout)) {

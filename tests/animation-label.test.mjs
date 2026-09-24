@@ -48,7 +48,11 @@ test("text labels are hidden from assistive technology and only rewritten on cha
 
     const custom = { style: {} };
     const markup = mountAnimationLabel(target, custom);
-    assert.equal(markup.container.attributes["aria-hidden"], undefined, "consumer markup keeps its semantics");
+    assert.equal(
+      markup.container.attributes["aria-hidden"],
+      undefined,
+      "consumer markup keeps its semantics",
+    );
     markup.setText("42%");
     assert.equal(markup.container.writes, 0);
   } finally {

@@ -52,18 +52,16 @@ const eulerCases = [
 ];
 
 test("rotationFromEuler applies X, then Y, then Z (Rz * Ry * Rx)", async () => {
-  const { rotationFromEuler, rotationY } = await import(
-    "../dist/engines/little-3d-engine/core/math.js"
-  );
+  const { rotationFromEuler, rotationY } =
+    await import("../dist/engines/little-3d-engine/core/math.js");
   const expected = multiply(rotationZ(1.1), multiply(rotationY(-0.4), rotationX(0.7)));
   const actual = rotationFromEuler(0.7, -0.4, 1.1);
   expected.forEach((value, i) => approx(actual[i], value, 1e-12));
 });
 
 test("eulerFromRotation round-trips matrix -> euler -> matrix, including gimbal lock", async () => {
-  const { rotationFromEuler, eulerFromRotation } = await import(
-    "../dist/engines/little-3d-engine/core/math.js"
-  );
+  const { rotationFromEuler, eulerFromRotation } =
+    await import("../dist/engines/little-3d-engine/core/math.js");
   for (const [x, y, z] of eulerCases) {
     const matrix = rotationFromEuler(x, y, z);
     const euler = eulerFromRotation(matrix);
@@ -73,9 +71,8 @@ test("eulerFromRotation round-trips matrix -> euler -> matrix, including gimbal 
 });
 
 test("eulerFromRotation returns single-axis angles unchanged", async () => {
-  const { rotationFromEuler, eulerFromRotation } = await import(
-    "../dist/engines/little-3d-engine/core/math.js"
-  );
+  const { rotationFromEuler, eulerFromRotation } =
+    await import("../dist/engines/little-3d-engine/core/math.js");
   approx(eulerFromRotation(rotationFromEuler(0.3, 0, 0)).x, 0.3, 1e-12);
   approx(eulerFromRotation(rotationFromEuler(0, 0.3, 0)).y, 0.3, 1e-12);
   approx(eulerFromRotation(rotationFromEuler(0, 0, 0.3)).z, 0.3, 1e-12);

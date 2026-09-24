@@ -8,12 +8,25 @@ function fakeAnimation() {
   return {
     calls,
     animation: {
-      mount() { calls.push("mount"); },
-      enter() { calls.push("enter"); },
-      exit() { calls.push("exit"); finished = true; },
-      render() { calls.push("render"); },
-      isFinished() { return finished; },
-      destroy() { calls.push("destroy"); },
+      mount() {
+        calls.push("mount");
+      },
+      enter() {
+        calls.push("enter");
+      },
+      exit() {
+        calls.push("exit");
+        finished = true;
+      },
+      render() {
+        calls.push("render");
+      },
+      isFinished() {
+        return finished;
+      },
+      destroy() {
+        calls.push("destroy");
+      },
     },
   };
 }
@@ -48,7 +61,14 @@ test("CompositeAnimation mount resolves after every layer and keeps a positioned
       isFinished: () => true,
       destroy() {},
     });
-    const host = (computedPosition) => ({ style: {}, computedPosition, children: [], appendChild(child) { this.children.push(child); } });
+    const host = (computedPosition) => ({
+      style: {},
+      computedPosition,
+      children: [],
+      appendChild(child) {
+        this.children.push(child);
+      },
+    });
 
     const fixed = host("fixed");
     let done = false;

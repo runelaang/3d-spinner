@@ -250,20 +250,20 @@ test("until uses wall-clock time and the earlier of timeout and until wins", asy
 
 test("an invalid until Date fails before mounting", () => {
   const animation = fakeAnimation();
-  assert.throws(
-    () => createSpinner(new FakeHTMLElement(), { animation, until: new Date(NaN) }),
-    { name: "RangeError", message: /until/ },
-  );
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, until: new Date(NaN) }), {
+    name: "RangeError",
+    message: /until/,
+  });
   assert.equal(animation.mounts.length, 0);
   assert.equal(frames.size, 0);
 });
 
 test("a NaN timeout fails before mounting", () => {
   const animation = fakeAnimation();
-  assert.throws(
-    () => createSpinner(new FakeHTMLElement(), { animation, timeout: NaN }),
-    { name: "RangeError", message: /timeout/ },
-  );
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, timeout: NaN }), {
+    name: "RangeError",
+    message: /timeout/,
+  });
   assert.equal(animation.mounts.length, 0);
   assert.equal(frames.size, 0);
 });
@@ -346,10 +346,7 @@ test("a failed mount rejects ready and stops the loop", async () => {
 test("an animation instance cannot drive a second spinner", () => {
   const animation = fakeAnimation();
   const first = createSpinner(new FakeHTMLElement(), { animation });
-  assert.throws(
-    () => createSpinner(new FakeHTMLElement(), { animation }),
-    /already in use/,
-  );
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation }), /already in use/);
   first.destroy();
   assert.throws(
     () => createSpinner(new FakeHTMLElement(), { type: "indeterminate", animation }),

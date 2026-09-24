@@ -1,7 +1,4 @@
-import {
-  GridAssemblyAnimation,
-  type GridAssemblyOptions,
-} from "../animations/grid-assembly.js";
+import { GridAssemblyAnimation, type GridAssemblyOptions } from "../animations/grid-assembly.js";
 import type { ProgressSpinnerOptions } from "../index.js";
 import { progressSpinner } from "./spinner.js";
 import type { ProgressPrefabOptions } from "./types.js";

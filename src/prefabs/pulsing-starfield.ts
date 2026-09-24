@@ -15,17 +15,20 @@ function pulsingLabel(): HTMLDivElement {
 /** High-shine particles drifting around a slowly pulsing HTML message. */
 export function pulsingStarfield(options: ParticlePrefabOptions = {}): IndeterminateSpinnerOptions {
   const particles = options.particles ?? {};
-  return spinner(new ParticlesAnimation({
-    rate: 48,
-    lifeMs: 4200,
-    size: 0.3,
-    speed: 0.34,
-    colors: ["#ffffff", "#dbeafe", "#93c5fd", "#c4b5fd"],
-    texture: particles.texture ?? shineTexture(),
-    seed: 71,
-    backend: options.backend,
-    ...particles,
-    label: options.label ?? particles.label ?? pulsingLabel(),
-    fadeLabel: options.fadeLabel ?? particles.fadeLabel,
-  }), options);
+  return spinner(
+    new ParticlesAnimation({
+      rate: 48,
+      lifeMs: 4200,
+      size: 0.3,
+      speed: 0.34,
+      colors: ["#ffffff", "#dbeafe", "#93c5fd", "#c4b5fd"],
+      texture: particles.texture ?? shineTexture(),
+      seed: 71,
+      backend: options.backend,
+      ...particles,
+      label: options.label ?? particles.label ?? pulsingLabel(),
+      fadeLabel: options.fadeLabel ?? particles.fadeLabel,
+    }),
+    options,
+  );
 }

@@ -85,7 +85,10 @@ export class SpinAnimation implements SpinnerAnimation {
   private exited = false;
 
   constructor(options: SpinAnimationOptions = {}) {
-    this.mesh = applyMaterial(applyColor(resolveMesh(options.shape), options.color), options.material);
+    this.mesh = applyMaterial(
+      applyColor(resolveMesh(options.shape), options.color),
+      options.material,
+    );
     this.spinX = options.spinX ?? 0.0007;
     this.spinY = options.spinY ?? 0.0011;
     this.backend = options.backend;

@@ -13,7 +13,7 @@ export class CompositeAnimation implements SpinnerAnimation {
   private readonly elements: HTMLElement[] = [];
 
   constructor(layers: ReadonlyArray<SpinnerAnimation | CompositeAnimationLayer>) {
-    this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
+    this.layers = layers.map((layer) => ("animation" in layer ? layer : { animation: layer }));
   }
 
   /** Mount every layer in its own stacked element; resolves once all layers can draw. */

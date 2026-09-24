@@ -20,7 +20,8 @@ await build({
 function declarationFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) return entry.name === "cjs" || entry.name === "umd" ? [] : declarationFiles(path);
+    if (entry.isDirectory())
+      return entry.name === "cjs" || entry.name === "umd" ? [] : declarationFiles(path);
     return entry.name.endsWith(".d.ts") ? [path] : [];
   });
 }
@@ -30,7 +31,10 @@ function declarationFiles(dir) {
 // .cjs bundles, pointing relative imports at .cjs so they resolve to the sibling .d.cts files.
 for (const file of declarationFiles("dist")) {
   const target = join("dist/cjs", relative("dist", file)).replace(/\.d\.ts$/, ".d.cts");
-  const source = readFileSync(file, "utf8").replace(/(["'])(\.{1,2}\/[^"']*?)\.js\1/g, "$1$2.cjs$1");
+  const source = readFileSync(file, "utf8").replace(
+    /(["'])(\.{1,2}\/[^"']*?)\.js\1/g,
+    "$1$2.cjs$1",
+  );
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, source);
 }

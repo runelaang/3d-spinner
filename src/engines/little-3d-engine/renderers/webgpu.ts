@@ -164,9 +164,7 @@ export class WebGPURenderer implements Renderer {
     });
     const vertexBuffer = (location: number, components = 3) => ({
       arrayStride: components * 4,
-      attributes: [
-        { shaderLocation: location, offset: 0, format: `float32x${components}` },
-      ],
+      attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }],
     });
     const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
     const blend = {
@@ -177,32 +175,33 @@ export class WebGPURenderer implements Renderer {
       },
       alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
     };
-    const pipeline = (cullMode: string, transparent: boolean) => device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex: {
-        module,
-        entryPoint: "vs",
-        buffers: [
-          vertexBuffer(0),
-          vertexBuffer(1),
-          vertexBuffer(2),
-          vertexBuffer(3),
-          vertexBuffer(4),
-          vertexBuffer(5, 4),
-        ],
-      },
-      fragment: {
-        module,
-        entryPoint: "fs",
-        targets: [{ format, ...(transparent ? { blend } : {}) }],
-      },
-      primitive: { topology: "triangle-list", cullMode, frontFace: "ccw" },
-      depthStencil: {
-        format: "depth24plus",
-        depthWriteEnabled: !transparent,
-        depthCompare: "less",
-      },
-    });
+    const pipeline = (cullMode: string, transparent: boolean) =>
+      device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex: {
+          module,
+          entryPoint: "vs",
+          buffers: [
+            vertexBuffer(0),
+            vertexBuffer(1),
+            vertexBuffer(2),
+            vertexBuffer(3),
+            vertexBuffer(4),
+            vertexBuffer(5, 4),
+          ],
+        },
+        fragment: {
+          module,
+          entryPoint: "fs",
+          targets: [{ format, ...(transparent ? { blend } : {}) }],
+        },
+        primitive: { topology: "triangle-list", cullMode, frontFace: "ccw" },
+        depthStencil: {
+          format: "depth24plus",
+          depthWriteEnabled: !transparent,
+          depthCompare: "less",
+        },
+      });
     this.pipelines = {
       opaque: pipeline("back", false),
       transparentBack: pipeline("front", true),
@@ -310,9 +309,7 @@ export class WebGPURenderer implements Renderer {
     const viewProj = multiply(CLIP_Z_FIX, frame.viewProjection);
     const bindGroup = device.createBindGroup({
       layout: pipelines.opaque.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: uniforms, offset: 0, size: 176 } },
-      ],
+      entries: [{ binding: 0, resource: { buffer: uniforms, offset: 0, size: 176 } }],
     });
 
     draws.forEach((draw, i) => {

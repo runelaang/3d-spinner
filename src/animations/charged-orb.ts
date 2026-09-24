@@ -272,9 +272,10 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
         return 0;
       }
       if (w > 0) {
-        return CENTER_SCALE * (w < 0.35
-          ? 1 + 0.18 * easeOutQuad(w / 0.35)
-          : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)));
+        return (
+          CENTER_SCALE *
+          (w < 0.35 ? 1 + 0.18 * easeOutQuad(w / 0.35) : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)))
+        );
       }
     }
     return CENTER_SCALE * easeOutBack(clamp01(t / CENTER_POP_MS));

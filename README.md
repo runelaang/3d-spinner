@@ -428,7 +428,9 @@ bundles the whole public API onto one `window.Spinner3D` object:
 ```sh
 npm install
 npm run build   # compile src/ to dist/ (ESM + type declarations, CJS, and a browser-global build)
-npm test        # build, then run the unit tests
+npm test        # build, then run the unit tests and the consumer type check
+npm run lint    # type-aware ESLint over src/
+npm run format  # Prettier (format:check is what CI runs)
 npm run dev     # serve this folder; open /examples/ or /examples/prefabs.html
 ```
 

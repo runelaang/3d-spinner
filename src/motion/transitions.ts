@@ -40,8 +40,7 @@ export interface ObjectMotionTransitionWithDuration {
 }
 
 export type ObjectMotionTransitionConfig =
-  | ObjectMotionTransition
-  | ObjectMotionTransitionWithDuration;
+  ObjectMotionTransition | ObjectMotionTransitionWithDuration;
 
 export interface DirectionTransitionOptions {
   /** Direction to travel in. Defaults to the path direction at the handoff point. */
@@ -100,7 +99,9 @@ function joinVelocity(
   return scaleVector(resolveDirection(input, options.direction), distance / durationMs);
 }
 
-export function enterFromObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
+export function enterFromObjectDirection(
+  options: DirectionTransitionOptions = {},
+): ObjectMotionTransition {
   return (input) => {
     const durationMs = Math.max(1, input.durationMs);
     const velocity = joinVelocity(input, options, durationMs);
@@ -109,7 +110,9 @@ export function enterFromObjectDirection(options: DirectionTransitionOptions = {
   };
 }
 
-export function leaveInObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
+export function leaveInObjectDirection(
+  options: DirectionTransitionOptions = {},
+): ObjectMotionTransition {
   return (input) => {
     const durationMs = Math.max(1, input.durationMs);
     const velocity = joinVelocity(input, options, durationMs);

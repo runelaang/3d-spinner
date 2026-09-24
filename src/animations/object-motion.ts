@@ -192,7 +192,10 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
 /** Compose path orientation with a local-space offset/spin rotation. */
 function combineLocalRotation(path: Vec3, extra: Vec3): Vec3 {
   return eulerFromRotation(
-    multiply(rotationFromEuler(path.x, path.y, path.z), rotationFromEuler(extra.x, extra.y, extra.z)),
+    multiply(
+      rotationFromEuler(path.x, path.y, path.z),
+      rotationFromEuler(extra.x, extra.y, extra.z),
+    ),
   );
 }
 
@@ -215,7 +218,10 @@ function resolveTransition(
 ): ResolvedObjectMotionTransition {
   if (!config) return { transition: fallback, durationMs };
   if (typeof config === "function") return { transition: config, durationMs };
-  return { transition: config.transition, durationMs: Math.max(0, config.durationMs ?? durationMs) };
+  return {
+    transition: config.transition,
+    durationMs: Math.max(0, config.durationMs ?? durationMs),
+  };
 }
 
 /**
@@ -340,7 +346,10 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.label) return;
 
-    if (this.outroStart !== Infinity && now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap) {
+    if (
+      this.outroStart !== Infinity &&
+      now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap
+    ) {
       this.finished = true;
     }
     const bankStep = damp(BANK_SMOOTH, now - (this.lastRenderAt ?? now - 1000 / 60));
@@ -357,7 +366,10 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       transform.scale = sample.size;
       let euler = sample.orientation;
       if (!euler) {
-        const heading = subtract(this.positionAt(t + SAMPLE_MS) ?? sample.position, sample.position);
+        const heading = subtract(
+          this.positionAt(t + SAMPLE_MS) ?? sample.position,
+          sample.position,
+        );
         if (Math.hypot(heading.x, heading.y, heading.z) > 1e-5) {
           this.headings[k] = normalize(heading);
         }
@@ -384,17 +396,23 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       transform.rotation.z = euler.z;
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.started ? this.introStart : Infinity,
-        this.intro.durationMs,
-        this.outroStart,
-        this.outro.durationMs,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(
+          now,
+          this.started ? this.introStart : Infinity,
+          this.intro.durationMs,
+          this.outroStart,
+          this.outro.durationMs,
+        ),
+      );
     }
     this.engine.render();
   }
@@ -427,7 +445,8 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     }
     if (this.outroStart !== Infinity) {
       if (t > this.outroStart + this.outro.durationMs) return undefined;
-      if (t >= this.outroStart) return this.transitionSample("outro", t, this.outro, this.outroStart);
+      if (t >= this.outroStart)
+        return this.transitionSample("outro", t, this.outro, this.outroStart);
     }
     return { position: this.motion.positionAt(t), size: 1 };
   }
@@ -485,8 +504,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     t: number,
   ): ObjectMotionSample {
     return {
-      position:
-        output.position ?? (phase === "intro" ? this.motion.positionAt(t) : input.position),
+      position: output.position ?? (phase === "intro" ? this.motion.positionAt(t) : input.position),
       size: output.size ?? input.size ?? 1,
       orientation: output.orientation,
     };

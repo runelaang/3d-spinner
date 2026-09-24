@@ -197,8 +197,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     this.textures.set(mesh, white);
 
     const upload = async (source: TexImageSource) => {
-      const image =
-        source instanceof HTMLImageElement ? await createImageBitmap(source) : source;
+      const image = source instanceof HTMLImageElement ? await createImageBitmap(source) : source;
       const current = this.device;
       if (this.destroyed || !current || this.textures.get(mesh) !== white) return;
       const size = image as { width?: number; height?: number };
@@ -209,11 +208,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         format: "rgba8unorm",
         usage: usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT,
       });
-      current.queue.copyExternalImageToTexture(
-        { source: image },
-        { texture },
-        { width, height },
-      );
+      current.queue.copyExternalImageToTexture({ source: image }, { texture }, { width, height });
       // The placeholder may still be referenced by an unsubmitted command
       // buffer, so it is retired here and destroyed with the renderer.
       this.retired.push(white);
@@ -339,7 +334,9 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     pass.setPipeline(textured.pipeline);
     texturedItems.forEach((item, i) => {
       const mesh = this.getOrCreateTexturedBuffers(device, item.mesh);
-      pass.setBindGroup(0, this.bindGroupFor(device, textured, uniforms, item.mesh), [i * UNIFORM_STRIDE]);
+      pass.setBindGroup(0, this.bindGroupFor(device, textured, uniforms, item.mesh), [
+        i * UNIFORM_STRIDE,
+      ]);
       pass.setVertexBuffer(0, mesh.position);
       pass.setVertexBuffer(1, mesh.uv);
       pass.setVertexBuffer(2, mesh.color);

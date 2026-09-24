@@ -78,7 +78,9 @@ export interface GpuDevice {
   createTexture(descriptor: { size: GpuExtent; format: string; usage: number }): GpuTexture;
   createSampler(descriptor: { magFilter: string; minFilter: string }): GpuSampler;
   createShaderModule(descriptor: { code: string }): GpuShaderModule;
-  createBindGroupLayout(descriptor: { entries: Array<Record<string, unknown>> }): GpuBindGroupLayout;
+  createBindGroupLayout(descriptor: {
+    entries: Array<Record<string, unknown>>;
+  }): GpuBindGroupLayout;
   createPipelineLayout(descriptor: { bindGroupLayouts: GpuBindGroupLayout[] }): GpuPipelineLayout;
   createRenderPipeline(descriptor: Record<string, unknown>): GpuRenderPipeline;
   createBindGroup(descriptor: {

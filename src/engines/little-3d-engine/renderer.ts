@@ -104,16 +104,12 @@ export function opacity(value: number | undefined, fallback: number): number {
 }
 
 /** Resolve two-sided defaults, shorthand, and explicit per-side overrides. */
-export function resolveTwoSidedOpacity(
-  transparency: TwoSidedTransparency,
-): { front: number; back: number } {
-  const front = opacity(
-    transparency.frontOpacity ?? transparency.opacity,
-    DEFAULT_FRONT_OPACITY,
-  );
-  const backFallback = transparency.opacity === undefined
-    ? DEFAULT_BACK_OPACITY
-    : front * (2 / 3);
+export function resolveTwoSidedOpacity(transparency: TwoSidedTransparency): {
+  front: number;
+  back: number;
+} {
+  const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
+  const backFallback = transparency.opacity === undefined ? DEFAULT_BACK_OPACITY : front * (2 / 3);
   return {
     front,
     back: opacity(transparency.backOpacity, backFallback),
@@ -121,10 +117,7 @@ export function resolveTwoSidedOpacity(
 }
 
 /** Draw opaque instances first, then transparent instances from farthest to nearest. */
-export function orderRenderItems(
-  items: ReadonlyArray<RenderItem>,
-  eye: Vec3,
-): RenderItem[] {
+export function orderRenderItems(items: ReadonlyArray<RenderItem>, eye: Vec3): RenderItem[] {
   const opaque: RenderItem[] = [];
   const transparent: RenderItem[] = [];
   for (const item of items) {

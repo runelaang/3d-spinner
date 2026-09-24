@@ -87,9 +87,7 @@ test("wanderMotion: a seed makes the path reproducible; different seeds differ",
     assert.deepEqual(a.positionAt(t), b.positionAt(t));
   }
   // A different seed produces a different path at some sampled time.
-  const differs = [0, 100, 1234, 5000].some(
-    (t) => dist(a.positionAt(t), c.positionAt(t)) > 1e-6,
-  );
+  const differs = [0, 100, 1234, 5000].some((t) => dist(a.positionAt(t), c.positionAt(t)) > 1e-6);
   assert.ok(differs, "different seeds should produce different paths");
 });
 
