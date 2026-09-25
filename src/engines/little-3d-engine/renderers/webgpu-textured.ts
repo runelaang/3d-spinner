@@ -8,7 +8,7 @@ import {
   type RenderFrame,
   type RenderItem,
 } from "../renderer.js";
-import { planarUVs, type TextureSource } from "./textured-helpers.js";
+import { loadImage, planarUVs, type TextureSource, warnTextureFailed } from "./textured-helpers.js";
 import { WebGPURenderer } from "./webgpu.js";
 import {
   gpuFlags,
@@ -219,10 +219,11 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     );
     this.textures.set(mesh, white);
 
+    const pending = () => !this.destroyed && this.textures.get(mesh) === white;
     const upload = async (source: TexImageSource) => {
       const image = source instanceof HTMLImageElement ? await createImageBitmap(source) : source;
       const current = this.device;
-      if (this.destroyed || !current || this.textures.get(mesh) !== white) return;
+      if (!pending() || !current) return;
       const size = image as { width?: number; height?: number };
       const width = size.width || 1;
       const height = size.height || 1;
@@ -239,12 +240,18 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
       this.bindGroups.delete(mesh);
     };
     const source = this.sources.get(mesh);
+    if (source === undefined) return white;
+    const fail = (error: unknown) => {
+      if (pending()) warnTextureFailed(source, error);
+    };
     if (typeof source === "string") {
-      const image = new Image();
-      image.onload = () => void upload(image);
-      image.src = source;
-    } else if (source) {
-      void upload(source);
+      loadImage(source, {
+        cors: true,
+        onLoad: (image) => void upload(image).catch(fail),
+        onError: fail,
+      });
+    } else {
+      upload(source).catch(fail);
     }
     // A canvas or bitmap source uploads synchronously above, so it may already be in place.
     return this.textures.get(mesh) ?? white;
