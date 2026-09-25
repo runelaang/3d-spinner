@@ -1,4 +1,4 @@
-import { GridAssemblyAnimation, } from "../animations/grid-assembly.js";
+import { GridAssemblyAnimation } from "../animations/grid-assembly.js";
 import { progressSpinner } from "./spinner.js";
 /**
  * A progress story: 25 shapes fly in and circle the view edge, dock one by one

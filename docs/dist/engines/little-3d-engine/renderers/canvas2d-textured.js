@@ -1,5 +1,5 @@
 import { transformAffine, transformPoint } from "../core/math.js";
-import { DEFAULT_ONE_SIDED_OPACITY, opacity } from "../renderer.js";
+import { DEFAULT_ONE_SIDED_OPACITY, opacity, } from "../renderer.js";
 import { Canvas2DRenderer } from "./canvas2d.js";
 function imageSize(source) {
     if (source instanceof HTMLImageElement) {
@@ -21,7 +21,9 @@ function imageSize(source) {
         return { width: source.displayWidth, height: source.displayHeight };
     }
     const sized = source;
-    return sized.width > 0 && sized.height > 0 ? { width: sized.width, height: sized.height } : undefined;
+    return sized.width > 0 && sized.height > 0
+        ? { width: sized.width, height: sized.height }
+        : undefined;
 }
 function drawMappedTriangle(ctx, image, source, target) {
     const [s0, s1, s2] = source;
@@ -31,10 +33,16 @@ function drawMappedTriangle(ctx, image, source, target) {
         return;
     const a = (d0.x * (s1.y - s2.y) + d1.x * (s2.y - s0.y) + d2.x * (s0.y - s1.y)) / determinant;
     const c = (d0.x * (s2.x - s1.x) + d1.x * (s0.x - s2.x) + d2.x * (s1.x - s0.x)) / determinant;
-    const e = (d0.x * (s1.x * s2.y - s2.x * s1.y) + d1.x * (s2.x * s0.y - s0.x * s2.y) + d2.x * (s0.x * s1.y - s1.x * s0.y)) / determinant;
+    const e = (d0.x * (s1.x * s2.y - s2.x * s1.y) +
+        d1.x * (s2.x * s0.y - s0.x * s2.y) +
+        d2.x * (s0.x * s1.y - s1.x * s0.y)) /
+        determinant;
     const b = (d0.y * (s1.y - s2.y) + d1.y * (s2.y - s0.y) + d2.y * (s0.y - s1.y)) / determinant;
     const d = (d0.y * (s2.x - s1.x) + d1.y * (s0.x - s2.x) + d2.y * (s1.x - s0.x)) / determinant;
-    const f = (d0.y * (s1.x * s2.y - s2.x * s1.y) + d1.y * (s2.x * s0.y - s0.x * s2.y) + d2.y * (s0.x * s1.y - s1.x * s0.y)) / determinant;
+    const f = (d0.y * (s1.x * s2.y - s2.x * s1.y) +
+        d1.y * (s2.x * s0.y - s0.x * s2.y) +
+        d2.y * (s0.x * s1.y - s1.x * s0.y)) /
+        determinant;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(d0.x, d0.y);
@@ -65,7 +73,8 @@ export class Canvas2DTexturedRenderer {
     }
     init(canvas) {
         this.inner.init(canvas);
-        this.ctx = canvas.getContext("2d") ?? undefined;
+        // The inner renderer already threw if there is no 2D context; this returns the same one.
+        this.ctx = canvas.getContext("2d");
     }
     resize(cssWidth, cssHeight, dpr) {
         this.dpr = dpr;
@@ -112,17 +121,29 @@ export class Canvas2DTexturedRenderer {
             const world = item.mesh.vertices.map((vertex) => transformAffine(item.model, vertex));
             const projected = world.map((vertex) => {
                 const ndc = transformPoint(frame.viewProjection, vertex);
-                return { x: (ndc.x * 0.5 + 0.5) * frame.width, y: (1 - (ndc.y * 0.5 + 0.5)) * frame.height };
+                return {
+                    x: (ndc.x * 0.5 + 0.5) * frame.width,
+                    y: (1 - (ndc.y * 0.5 + 0.5)) * frame.height,
+                };
             });
             const face = item.mesh.faces[0];
             if (!face || face.indices.length !== 4)
                 continue;
             const [a, b, c, d] = face.indices.map((index) => projected[index]);
-            ctx.globalAlpha = item.transparency?.mode === "one-sided"
-                ? opacity(item.transparency.opacity, DEFAULT_ONE_SIDED_OPACITY)
-                : 1;
-            drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: size.height }, { x: size.width, y: 0 }], [a, b, c]);
-            drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: 0 }, { x: 0, y: 0 }], [a, c, d]);
+            ctx.globalAlpha =
+                item.transparency?.mode === "one-sided"
+                    ? opacity(item.transparency.opacity, DEFAULT_ONE_SIDED_OPACITY)
+                    : 1;
+            drawMappedTriangle(ctx, image, [
+                { x: 0, y: size.height },
+                { x: size.width, y: size.height },
+                { x: size.width, y: 0 },
+            ], [a, b, c]);
+            drawMappedTriangle(ctx, image, [
+                { x: 0, y: size.height },
+                { x: size.width, y: 0 },
+                { x: 0, y: 0 },
+            ], [a, c, d]);
         }
         ctx.globalAlpha = 1;
     }

@@ -1,3 +1,4 @@
+import { prepareHost } from "../mount-host.js";
 import { Little3dEngine, icosphere, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { easeInCubic, easeInOutCubic, easeInQuad, easeOutBack, easeOutCubic, easeOutQuad, } from "../engines/little-tween-engine/core/tweens.js";
 const MINIS = 10;
@@ -54,8 +55,7 @@ export class ChargedOrbAnimation {
         this.backend = options.backend;
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const engine = new Little3dEngine({
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: CAMERA_Z } },
@@ -66,9 +66,7 @@ export class ChargedOrbAnimation {
             this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        return engine.mount(target);
     }
     enter(now) {
         if (this.enterAt === Infinity)
@@ -221,9 +219,8 @@ export class ChargedOrbAnimation {
                 return 0;
             }
             if (w > 0) {
-                return CENTER_SCALE * (w < 0.35
-                    ? 1 + 0.18 * easeOutQuad(w / 0.35)
-                    : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)));
+                return (CENTER_SCALE *
+                    (w < 0.35 ? 1 + 0.18 * easeOutQuad(w / 0.35) : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65))));
             }
         }
         return CENTER_SCALE * easeOutBack(clamp01(t / CENTER_POP_MS));

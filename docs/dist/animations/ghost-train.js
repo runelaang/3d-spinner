@@ -1,3 +1,4 @@
+import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
 import { Little3dEngine, cube, cross, dot, normalize, subtract, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { squareMotion } from "../motion/square.js";
@@ -88,8 +89,7 @@ export class GhostTrainAnimation {
         this.fadeLabel = options.fadeLabel ?? true;
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const engine = new Little3dEngine({
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -99,9 +99,7 @@ export class GhostTrainAnimation {
             this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         const measure = () => {
             if (target.clientWidth > 0 && target.clientHeight > 0) {
                 this.aspect = target.clientWidth / target.clientHeight;
@@ -113,6 +111,7 @@ export class GhostTrainAnimation {
         this.label = mountAnimationLabel(target, this.labelContent);
         if (this.fadeLabel)
             this.label.setOpacity(0);
+        return mounting;
     }
     enter(now) {
         if (this.enterAt === Infinity)
@@ -181,13 +180,14 @@ export class GhostTrainAnimation {
             }
             const p = now - this.enterAt - k * RUN_GAP_MS + warp;
             const position = this.pathPosition(p);
-            if (Math.abs(position.x) > halfWidth + this.size || Math.abs(position.y) > HALF_HEIGHT + this.size) {
+            if (Math.abs(position.x) > halfWidth + this.size ||
+                Math.abs(position.y) > HALF_HEIGHT + this.size) {
                 continue; // off-screen: leave it hidden
             }
             const ahead = subtract(this.pathPosition(p + SAMPLE_MS), position);
             const targetDir = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5
                 ? ahead
-                : this.headings[k] ?? { x: 1, y: 0, z: 0 };
+                : (this.headings[k] ?? { x: 1, y: 0, z: 0 });
             this.headings[k] = this.headings[k]
                 ? rotateToward(this.headings[k], targetDir, TURN_RATE * dt)
                 : normalize(targetDir);
@@ -203,12 +203,15 @@ export class GhostTrainAnimation {
             anyOnScreen = true;
         }
         this.label.setText(frame.indeterminate
-            ? (typeof this.labelContent === "string" ? this.labelContent : "")
+            ? typeof this.labelContent === "string"
+                ? this.labelContent
+                : ""
             : `${Math.round(frame.progress * 100)}%`);
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
         }
-        if (this.outroAt !== Infinity && now > this.outroAt + 300 &&
+        if (this.outroAt !== Infinity &&
+            now > this.outroAt + 300 &&
             (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
             this.finished = true;
         }

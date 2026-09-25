@@ -8,7 +8,10 @@ export class Canvas2DRenderer {
         this.dpr = 1;
     }
     init(canvas) {
-        this.ctx = canvas.getContext("2d") ?? undefined;
+        const ctx = canvas.getContext("2d");
+        if (!ctx)
+            throw new Error("3d-spinner: could not create a Canvas 2D rendering context.");
+        this.ctx = ctx;
     }
     resize(_cssWidth, _cssHeight, dpr) {
         this.dpr = dpr;

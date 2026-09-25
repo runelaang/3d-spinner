@@ -37,19 +37,46 @@ function joinVelocity(input, options, durationMs) {
     const distance = options.distance ?? DEFAULT_DISTANCE;
     return scaleVector(resolveDirection(input, options.direction), distance / durationMs);
 }
+/**
+ * Distance covered `elapsedMs` into a fly-in/out that starts at `speed` and
+ * speeds up evenly so it has covered `offscreen` when `durationMs` ends. There
+ * is no speed-up when `speed` already gets that far, so a fast path keeps its
+ * constant speed, and starting at exactly `speed` keeps the join smooth.
+ */
+function travelled(speed, elapsedMs, durationMs, offscreen = 0) {
+    const shortfall = offscreen - speed * durationMs;
+    const acceleration = shortfall > 0 ? (2 * shortfall) / (durationMs * durationMs) : 0;
+    return speed * elapsedMs + 0.5 * acceleration * elapsedMs * elapsedMs;
+}
+/**
+ * Fly in along the path direction and join the path at its own velocity. When
+ * the animation reports its view, the fly-in starts fully out of view and
+ * slows into the path, so the object never pops into existence on screen.
+ */
 export function enterFromObjectDirection(options = {}) {
     return (input) => {
         const durationMs = Math.max(1, input.durationMs);
         const velocity = joinVelocity(input, options, durationMs);
+        const back = scaleVector(normalizeVector(velocity), -1);
+        const offscreen = input.distanceToLeaveView?.(back);
         const remaining = durationMs - input.elapsedMs;
-        return { position: add(input.position, scaleVector(velocity, -remaining)) };
+        const distance = travelled(vectorLength(velocity), remaining, durationMs, offscreen);
+        return { position: add(input.position, scaleVector(back, distance)) };
     };
 }
+/**
+ * Fly out along the path direction, leaving at the path's own velocity. When
+ * the animation reports its view, the fly-out speeds up just enough to be
+ * fully out of view when it ends, so the object never vanishes on screen.
+ */
 export function leaveInObjectDirection(options = {}) {
     return (input) => {
         const durationMs = Math.max(1, input.durationMs);
         const velocity = joinVelocity(input, options, durationMs);
-        return { position: add(input.position, scaleVector(velocity, input.elapsedMs)) };
+        const direction = normalizeVector(velocity);
+        const offscreen = input.distanceToLeaveView?.(direction);
+        const distance = travelled(vectorLength(velocity), input.elapsedMs, durationMs, offscreen);
+        return { position: add(input.position, scaleVector(direction, distance)) };
     };
 }
 export function grow() {

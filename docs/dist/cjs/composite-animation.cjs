@@ -23,20 +23,34 @@ __export(composite_animation_exports, {
   CompositeAnimation: () => CompositeAnimation
 });
 module.exports = __toCommonJS(composite_animation_exports);
+
+// src/mount-host.ts
+function prepareHost(target) {
+  const position = getComputedStyle(target).position;
+  if (position === "static" || position === "") target.style.position = "relative";
+}
+async function mountAnimation(animation, target) {
+  await animation.mount(target);
+}
+
+// src/composite-animation.ts
 var CompositeAnimation = class {
   constructor(layers) {
     this.elements = [];
     this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
   }
+  /** Mount every layer in its own stacked element; resolves once all layers can draw. */
   mount(target) {
-    target.style.position = "relative";
+    prepareHost(target);
+    const mounting = [];
     for (const [index, layer] of this.layers.entries()) {
       const element = document.createElement("div");
       element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
       target.appendChild(element);
       this.elements.push(element);
-      layer.animation.mount(element);
+      mounting.push(mountAnimation(layer.animation, element));
     }
+    return Promise.all(mounting).then(() => void 0);
   }
   enter(now) {
     for (const layer of this.layers) layer.animation.enter(now);
@@ -50,9 +64,20 @@ var CompositeAnimation = class {
   isFinished() {
     return this.layers.every((layer) => layer.animation.isFinished());
   }
+  /** Destroy every layer even if one throws, then rethrow the first error. */
   destroy() {
-    for (const layer of this.layers) layer.animation.destroy();
+    let failed = false;
+    let firstError;
+    for (const layer of this.layers) {
+      try {
+        layer.animation.destroy();
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+      }
+    }
     for (const element of this.elements) element.remove();
     this.elements.length = 0;
+    if (failed) throw firstError;
   }
 };

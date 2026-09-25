@@ -28,7 +28,7 @@ export function crystalComet(options = {}) {
             colors: ["#ffffff", "#bae6fd", "#818cf8"],
             texture: particles.texture ?? shineTexture(),
             emitter: object.trailEmitter(),
-            outroMs: object.outroDurationMs,
+            outroMs: () => object.outroDelayMs + object.outroDurationMs,
             seed: 28,
             backend: options.backend,
             ...particles,

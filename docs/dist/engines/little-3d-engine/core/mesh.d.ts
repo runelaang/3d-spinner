@@ -8,7 +8,7 @@ export interface Material {
     /**
      * Ambient reflectivity (`Ka`) as linear `0..1` RGB. Scales the scene ambient
      * fill per channel before it multiplies the face color (`Kd`). Omit or
-     * `[1,1,1]` for the full scene ambient (the engine default — not Wavefront's
+     * `[1,1,1]` for the full scene ambient (the engine default - not Wavefront's
      * usual `0.2` fallback, which would darken every material that never sets
      * `Ka`). `[0,0,0]` kills the ambient fill so only the directional term remains.
      */
@@ -38,7 +38,11 @@ export interface Material {
 }
 /** A single flat polygon: indices into the mesh `vertices` plus a base color. */
 export interface Face {
-    /** Vertex indices, wound counter-clockwise when viewed from outside. */
+    /**
+     * Vertex indices (three or more), wound counter-clockwise when viewed from
+     * outside. Typed as a plain array so meshes built from computed arrays still
+     * type-check; the OBJ loader validates count and range at the input boundary.
+     */
     indices: number[];
     /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
     color: string;
@@ -50,6 +54,10 @@ export interface Face {
 }
 /** Geometry: a list of vertices and the colored faces that connect them. */
 export interface Mesh {
+    /**
+     * Vertex positions. A mesh is treated as immutable once drawn: GPU backends
+     * cache it per object, so build a new `Mesh` to change it.
+     */
     vertices: Vec3[];
     faces: Face[];
 }

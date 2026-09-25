@@ -18,6 +18,12 @@ export declare class Camera {
     toView(p: Vec3): Vec3;
     /** Combined view-projection matrix for the given viewport aspect ratio. */
     viewProjection(aspect: number): Mat4;
+    /**
+     * How far a sphere of `radius` centered at `point` has to travel along the
+     * unit vector `direction` until it is entirely out of view for a viewport of
+     * `aspect` (width / height). Returns 0 when it is already out of view.
+     */
+    distanceToLeaveView(point: Vec3, direction: Vec3, radius: number, aspect: number): number;
     /** Convert a normalized device coordinate (-1..1) to a pixel position. */
     toScreen(ndc: Vec3, width: number, height: number): {
         x: number;

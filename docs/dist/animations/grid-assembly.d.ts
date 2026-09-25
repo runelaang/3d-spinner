@@ -58,7 +58,7 @@ export declare class GridAssemblyAnimation implements SpinnerAnimation {
     private lastNow;
     private finished;
     constructor(options?: GridAssemblyOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

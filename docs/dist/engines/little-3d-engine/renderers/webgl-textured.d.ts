@@ -31,13 +31,21 @@ export declare class WebGLTexturedRenderer implements Renderer {
     private readonly sources;
     private readonly textures;
     private readonly buffers;
+    private readonly modelScratch;
     constructor(options?: RendererOptions);
-    /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+    /**
+     * Texture every instance of `mesh` with `source`. Call any time, also before
+     * init; a new source replaces the one already uploaded.
+     */
     setTexture(mesh: Mesh, source: TextureSource): void;
     init(canvas: HTMLCanvasElement): void;
     resize(): void;
     private textureFor;
-    private buffersFor;
+    private getOrCreateTexturedBuffers;
     render(frame: RenderFrame): void;
+    /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+    releaseMesh(mesh: Mesh): void;
+    /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+    onLost(listener: (reason: string) => void): void;
     destroy(): void;
 }

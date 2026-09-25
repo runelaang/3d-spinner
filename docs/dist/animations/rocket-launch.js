@@ -1,6 +1,8 @@
+import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, pyramid, quad, resolveBackend, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, pyramid, quad, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { canvasTexture } from "../engines/little-3d-engine/textures/dynamic/canvas-texture.js";
+import { createTexturedRenderer } from "../engines/little-3d-engine/textured-renderer.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 const ROCKETS = 20; // one per 5% of progress
 const CAMERA_Z = 3;
@@ -110,27 +112,18 @@ export class RocketLaunchAnimation {
         }
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const smokeMeshes = SMOKE_COLORS.map((color) => quad(1, [color]));
         const fireMeshes = FIRE_COLORS.map((color) => quad(1, [color]));
         const smokeTexture = puffTexture(0.85, 0.5);
         const fireTexture = puffTexture(1, 0.32);
-        const backend = async (rendererOptions) => {
-            const picked = await resolveBackend(this.backend ?? "auto");
-            const renderer = picked === "webgpu"
-                ? new (await import("../engines/little-3d-engine/renderers/webgpu-textured.js")).WebGPUTexturedRenderer(rendererOptions)
-                : picked === "webgl"
-                    ? new (await import("../engines/little-3d-engine/renderers/webgl-textured.js")).WebGLTexturedRenderer(rendererOptions)
-                    : new (await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")).Canvas2DTexturedRenderer(rendererOptions);
-            for (const mesh of smokeMeshes)
-                renderer.setTexture(mesh, smokeTexture);
-            for (const mesh of fireMeshes)
-                renderer.setTexture(mesh, fireTexture);
-            return renderer;
-        };
+        const textures = new Map([
+            ...smokeMeshes.map((mesh) => [mesh, smokeTexture]),
+            ...fireMeshes.map((mesh) => [mesh, fireTexture]),
+        ]);
         const engine = new Little3dEngine({
-            backend,
+            backend: this.backend,
+            rendererFor: (backend, options) => createTexturedRenderer(backend, options, textures),
             camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
         });
         // Untextured pyramids render lit through the inner renderer; the textured
@@ -149,9 +142,7 @@ export class RocketLaunchAnimation {
             this.fire.push(engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }));
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         const measure = () => {
             if (target.clientWidth > 0 && target.clientHeight > 0) {
                 this.aspect = target.clientWidth / target.clientHeight;
@@ -163,6 +154,7 @@ export class RocketLaunchAnimation {
         this.label = mountAnimationLabel(target, this.labelContent);
         if (this.fadeLabel)
             this.label.setOpacity(0);
+        return mounting;
     }
     enter(now) {
         if (this.enterAt === Infinity)
@@ -234,7 +226,9 @@ export class RocketLaunchAnimation {
             }
         }
         this.label.setText(frame.indeterminate
-            ? (typeof this.labelContent === "string" ? this.labelContent : "")
+            ? typeof this.labelContent === "string"
+                ? this.labelContent
+                : ""
             : `${Math.round(frame.progress * 100)}%`);
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.enterAt, SLIDE_MS, this.launchedAt, LAUNCH_SPREAD_MS));
@@ -334,7 +328,8 @@ export class RocketLaunchAnimation {
             const baseY = pose.pos.y + back.y * SIZE * 0.5;
             const transform = this.fire[cursor].transform;
             transform.position.x = baseX + back.x * FIRE_TRAIL * seconds + perp.x * lat;
-            transform.position.y = baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
+            transform.position.y =
+                baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
             transform.position.z = PARTICLE_Z;
             transform.rotation.z = hash01(i * 97 + n, 2) * Math.PI * 2;
             transform.scale = FIRE_SIZE * (0.7 + 0.5 * hash01(i * 97 + n, 3)) * (1 - 0.55 * life);

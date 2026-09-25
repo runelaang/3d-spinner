@@ -78,11 +78,22 @@ export class WebGLTexturedRenderer {
         this.sources = new Map();
         this.textures = new Map();
         this.buffers = new Map();
+        this.modelScratch = new Float32Array(16);
         this.inner = new WebGLRenderer(options);
     }
-    /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+    /**
+     * Texture every instance of `mesh` with `source`. Call any time, also before
+     * init; a new source replaces the one already uploaded.
+     */
     setTexture(mesh, source) {
+        if (this.sources.get(mesh) === source)
+            return;
         this.sources.set(mesh, source);
+        const texture = this.textures.get(mesh);
+        if (!texture)
+            return;
+        this.textures.delete(mesh);
+        this.gl?.deleteTexture(texture);
     }
     init(canvas) {
         this.inner.init(canvas);
@@ -132,7 +143,7 @@ export class WebGLTexturedRenderer {
         }
         return texture;
     }
-    buffersFor(mesh) {
+    getOrCreateTexturedBuffers(mesh) {
         const cached = this.buffers.get(mesh);
         if (cached)
             return cached;
@@ -178,12 +189,14 @@ export class WebGLTexturedRenderer {
         gl.uniform1i(loc.uTexture, 0);
         gl.activeTexture(gl.TEXTURE0);
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        // Same split as WebGLRenderer: source-alpha for RGB, ONE for alpha (premultiplied canvas).
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         for (const item of textured) {
-            const buffers = this.buffersFor(item.mesh);
+            const buffers = this.getOrCreateTexturedBuffers(item.mesh);
             gl.bindTexture(gl.TEXTURE_2D, this.textureFor(item.mesh));
-            gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+            this.modelScratch.set(item.model);
+            gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
             gl.uniform1f(loc.uOpacity, itemOpacity(item.transparency));
             gl.bindVertexArray(buffers.vao);
             gl.drawArrays(gl.TRIANGLES, 0, buffers.count);
@@ -192,21 +205,35 @@ export class WebGLTexturedRenderer {
         gl.disable(gl.BLEND);
         gl.bindVertexArray(null);
     }
+    /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+    releaseMesh(mesh) {
+        this.inner.releaseMesh(mesh);
+        const cached = this.buffers.get(mesh);
+        if (!cached)
+            return;
+        this.buffers.delete(mesh);
+        const gl = this.gl;
+        if (!gl)
+            return;
+        gl.deleteVertexArray(cached.vao);
+        for (const buffer of cached.buffers)
+            gl.deleteBuffer(buffer);
+    }
+    /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+    onLost(listener) {
+        this.inner.onLost(listener);
+    }
     destroy() {
         const gl = this.gl;
         if (gl) {
             for (const texture of this.textures.values())
                 gl.deleteTexture(texture);
-            for (const cached of this.buffers.values()) {
-                gl.deleteVertexArray(cached.vao);
-                for (const buffer of cached.buffers)
-                    gl.deleteBuffer(buffer);
-            }
+            for (const mesh of [...this.buffers.keys()])
+                this.releaseMesh(mesh);
             if (this.program)
                 gl.deleteProgram(this.program);
         }
         this.textures.clear();
-        this.buffers.clear();
         this.sources.clear();
         this.gl = undefined;
         this.program = undefined;

@@ -39,7 +39,7 @@ export declare class SpinAnimation implements SpinnerAnimation {
     private readonly progress?;
     private exited;
     constructor(options?: SpinAnimationOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

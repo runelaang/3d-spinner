@@ -17,10 +17,27 @@ export declare function scale(v: Vec3, s: number): Vec3;
 /** Return a unit-length copy of `v` (zero vector is returned unchanged). */
 export declare function normalize(v: Vec3): Vec3;
 /**
- * A 4x4 matrix in column-major order (16 numbers), suitable for chaining
- * model, view, and projection transforms.
+ * A 4x4 matrix in column-major order (exactly 16 numbers), suitable for
+ * chaining model, view, and projection transforms.
  */
-export type Mat4 = number[];
+export type Mat4 = [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number
+];
 /** The 4x4 identity matrix. */
 export declare function identity(): Mat4;
 /** Multiply two matrices (`a * b`); applies `b` first, then `a`. */
@@ -35,6 +52,16 @@ export declare function rotationX(rad: number): Mat4;
 export declare function rotationY(rad: number): Mat4;
 /** Rotation matrix about the Z axis (radians). */
 export declare function rotationZ(rad: number): Mat4;
+/**
+ * Rotation matrix for the engine's Euler convention: X first, then Y, then Z
+ * (`Rz * Ry * Rx`). This is how mesh transforms interpret `rotation`.
+ */
+export declare function rotationFromEuler(x: number, y: number, z: number): Mat4;
+/**
+ * Inverse of {@link rotationFromEuler}: the Euler angles of a rotation matrix.
+ * At gimbal lock (Y = +-90 degrees) X and Z are not separable, so Z is 0.
+ */
+export declare function eulerFromRotation(m: Mat4): Vec3;
 /**
  * Perspective projection matrix.
  *

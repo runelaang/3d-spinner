@@ -47,7 +47,7 @@ export declare class GhostTrainAnimation implements SpinnerAnimation {
     private lastNow;
     private finished;
     constructor(options?: GhostTrainOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

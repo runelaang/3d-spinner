@@ -3,8 +3,8 @@ import type { Mesh } from "../core/mesh.js";
 export interface ObjOptions {
     /**
      * CSS colors assigned to faces in order, cycling when there are more faces
-     * than colors. Defaults to a built-in palette. Pass a single-entry array for
-     * a uniform color.
+     * than colors. Defaults to a built-in palette, also when the array is empty.
+     * Pass a single-entry array for a uniform color.
      */
     colors?: string[];
     /** Contents of an `.mtl` file referenced by the OBJ. */
@@ -28,6 +28,10 @@ export interface ObjOptions {
  * dissolve `d`/`Tr`) from supplied MTL text; groups and other statements are
  * ignored. Face winding
  * is preserved as-is; the engine expects CCW winding as seen from outside.
+ *
+ * Malformed geometry throws an `Error` naming the line: a vertex without three
+ * finite coordinates, a face with fewer than three vertices, or a face index
+ * that is not an integer or refers to a vertex not defined before it.
  *
  * @param text Contents of an `.obj` file.
  * @param options Face palette and optional MTL materials.

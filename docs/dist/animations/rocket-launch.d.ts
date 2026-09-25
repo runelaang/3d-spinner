@@ -41,7 +41,7 @@ export declare class RocketLaunchAnimation implements SpinnerAnimation {
     private lastNow;
     private finished;
     constructor(options?: RocketLaunchOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

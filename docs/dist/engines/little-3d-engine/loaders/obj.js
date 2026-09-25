@@ -105,9 +105,28 @@ function parseMtl(text) {
     }
     return materials;
 }
-function resolveIndex(token, vertexCount) {
-    const n = parseInt(token, 10);
-    return n < 0 ? vertexCount + n : n - 1;
+/** Throw a parse error that names the offending OBJ line. */
+function objError(line, message) {
+    throw new Error(`3d-spinner: OBJ line ${line}: ${message}`);
+}
+/** Parse the `x y z` of a `v` statement; any extra values (w, vertex colors) are ignored. */
+function parseVertex(parts, line) {
+    if (parts.length < 4)
+        objError(line, "a vertex needs x, y and z.");
+    const [x, y, z] = parts.slice(1, 4).map(Number);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        objError(line, `invalid vertex coordinates "${parts.slice(1, 4).join(" ")}".`);
+    }
+    return { x, y, z };
+}
+/** Resolve a 1-based or negative (relative) OBJ vertex reference to a 0-based index. */
+function resolveIndex(token, vertexCount, line) {
+    const n = Number(token);
+    const index = n < 0 ? vertexCount + n : n - 1;
+    if (!Number.isInteger(n) || n === 0 || index < 0 || index >= vertexCount) {
+        objError(line, `face refers to vertex "${token}", but ${vertexCount} vertices are defined so far.`);
+    }
+    return index;
 }
 /**
  * Parse Wavefront OBJ text into a {@link Mesh}.
@@ -121,48 +140,47 @@ function resolveIndex(token, vertexCount) {
  * ignored. Face winding
  * is preserved as-is; the engine expects CCW winding as seen from outside.
  *
+ * Malformed geometry throws an `Error` naming the line: a vertex without three
+ * finite coordinates, a face with fewer than three vertices, or a face index
+ * that is not an integer or refers to a vertex not defined before it.
+ *
  * @param text Contents of an `.obj` file.
  * @param options Face palette and optional MTL materials.
  */
 export function parseObj(text, options = {}) {
-    const colors = options.colors ?? DEFAULT_COLORS;
-    const materials = options.useMtlColors && options.mtl
-        ? parseMtl(options.mtl)
-        : undefined;
+    const colors = options.colors?.length ? options.colors : DEFAULT_COLORS;
+    const materials = options.useMtlColors && options.mtl ? parseMtl(options.mtl) : undefined;
     const vertices = [];
     const faces = [];
     let material;
-    for (const line of text.split("\n")) {
-        const trimmed = line.trim();
+    const lines = text.split("\n");
+    for (let n = 0; n < lines.length; n++) {
+        const trimmed = lines[n].trim();
         if (trimmed === "" || trimmed.startsWith("#"))
             continue;
+        const line = n + 1;
         const parts = trimmed.split(/\s+/);
         const keyword = parts[0];
         if (keyword === "v") {
-            vertices.push({
-                x: parseFloat(parts[1]),
-                y: parseFloat(parts[2]),
-                z: parseFloat(parts[3]),
-            });
+            vertices.push(parseVertex(parts, line));
         }
         else if (keyword === "usemtl") {
             material = parts.slice(1).join(" ");
         }
         else if (keyword === "f") {
+            if (parts.length < 4)
+                objError(line, "a face needs at least three vertices.");
             const indices = [];
             for (let i = 1; i < parts.length; i++) {
                 const vertexToken = parts[i].split("/")[0];
-                indices.push(resolveIndex(vertexToken, vertices.length));
+                indices.push(resolveIndex(vertexToken, vertices.length, line));
             }
-            if (indices.length >= 3) {
-                const entry = material ? materials?.get(material) : undefined;
-                const color = entry?.color
-                    ?? (materials ? (colors[0] ?? "#888888") : colors[faces.length % colors.length]);
-                const face = { indices, color };
-                if (entry?.material)
-                    face.material = entry.material;
-                faces.push(face);
-            }
+            const entry = material ? materials?.get(material) : undefined;
+            const color = entry?.color ?? (materials ? colors[0] : colors[faces.length % colors.length]);
+            const face = { indices, color };
+            if (entry?.material)
+                face.material = entry.material;
+            faces.push(face);
         }
     }
     return { vertices, faces };

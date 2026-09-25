@@ -98,42 +98,57 @@ function parseMtl(text) {
   }
   return materials;
 }
-function resolveIndex(token, vertexCount) {
-  const n = parseInt(token, 10);
-  return n < 0 ? vertexCount + n : n - 1;
+function objError(line, message) {
+  throw new Error(`3d-spinner: OBJ line ${line}: ${message}`);
+}
+function parseVertex(parts, line) {
+  if (parts.length < 4) objError(line, "a vertex needs x, y and z.");
+  const [x, y, z] = parts.slice(1, 4).map(Number);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    objError(line, `invalid vertex coordinates "${parts.slice(1, 4).join(" ")}".`);
+  }
+  return { x, y, z };
+}
+function resolveIndex(token, vertexCount, line) {
+  const n = Number(token);
+  const index = n < 0 ? vertexCount + n : n - 1;
+  if (!Number.isInteger(n) || n === 0 || index < 0 || index >= vertexCount) {
+    objError(
+      line,
+      `face refers to vertex "${token}", but ${vertexCount} vertices are defined so far.`
+    );
+  }
+  return index;
 }
 function parseObj(text, options = {}) {
-  const colors = options.colors ?? DEFAULT_COLORS;
+  const colors = options.colors?.length ? options.colors : DEFAULT_COLORS;
   const materials = options.useMtlColors && options.mtl ? parseMtl(options.mtl) : void 0;
   const vertices = [];
   const faces = [];
   let material;
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
+  const lines = text.split("\n");
+  for (let n = 0; n < lines.length; n++) {
+    const trimmed = lines[n].trim();
     if (trimmed === "" || trimmed.startsWith("#")) continue;
+    const line = n + 1;
     const parts = trimmed.split(/\s+/);
     const keyword = parts[0];
     if (keyword === "v") {
-      vertices.push({
-        x: parseFloat(parts[1]),
-        y: parseFloat(parts[2]),
-        z: parseFloat(parts[3])
-      });
+      vertices.push(parseVertex(parts, line));
     } else if (keyword === "usemtl") {
       material = parts.slice(1).join(" ");
     } else if (keyword === "f") {
+      if (parts.length < 4) objError(line, "a face needs at least three vertices.");
       const indices = [];
       for (let i = 1; i < parts.length; i++) {
         const vertexToken = parts[i].split("/")[0];
-        indices.push(resolveIndex(vertexToken, vertices.length));
+        indices.push(resolveIndex(vertexToken, vertices.length, line));
       }
-      if (indices.length >= 3) {
-        const entry = material ? materials?.get(material) : void 0;
-        const color = entry?.color ?? (materials ? colors[0] ?? "#888888" : colors[faces.length % colors.length]);
-        const face = { indices, color };
-        if (entry?.material) face.material = entry.material;
-        faces.push(face);
-      }
+      const entry = material ? materials?.get(material) : void 0;
+      const color = entry?.color ?? (materials ? colors[0] : colors[faces.length % colors.length]);
+      const face = { indices, color };
+      if (entry?.material) face.material = entry.material;
+      faces.push(face);
     }
   }
   return { vertices, faces };

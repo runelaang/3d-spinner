@@ -1,3 +1,4 @@
+import { webgpu } from "./core/webgpu-api.js";
 /** Best supported backend, in descending order of capability. */
 export function chooseBackend(support) {
     if (support.webgpu)
@@ -15,7 +16,7 @@ export async function detectBackendSupport() {
     return { webgpu: await hasWebGPU(), webgl: hasWebGL2() };
 }
 async function hasWebGPU() {
-    const gpu = globalThis.navigator?.gpu;
+    const gpu = webgpu();
     if (!gpu)
         return false;
     try {
@@ -78,9 +79,7 @@ export function opacity(value, fallback) {
 /** Resolve two-sided defaults, shorthand, and explicit per-side overrides. */
 export function resolveTwoSidedOpacity(transparency) {
     const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
-    const backFallback = transparency.opacity === undefined
-        ? DEFAULT_BACK_OPACITY
-        : front * (2 / 3);
+    const backFallback = transparency.opacity === undefined ? DEFAULT_BACK_OPACITY : front * (2 / 3);
     return {
         front,
         back: opacity(transparency.backOpacity, backFallback),

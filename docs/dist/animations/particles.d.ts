@@ -34,9 +34,10 @@ export interface ParticlesOptions {
      * Milliseconds to keep emitting after {@link ParticlesAnimation.exit}. Default `0`
      * (emission stops at exit). Give it a moving `emitter`'s outro duration so fresh
      * particles keep trailing the emitter as it flies out, instead of freezing where
-     * the loop left off.
+     * the loop left off. A function is read after exit, for an emitter whose
+     * outro timing is only known then (see `ObjectMotionAnimation.outroDelayMs`).
      */
-    outroMs?: number;
+    outroMs?: number | (() => number);
     /**
      * Image applied to every particle (a URL or a drawable element), tinted by
      * the particle color; the image's alpha shapes the particle. Renders through
@@ -100,7 +101,7 @@ export declare class ParticlesAnimation implements SpinnerAnimation {
     private exitAt;
     private finished;
     constructor(options?: ParticlesOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

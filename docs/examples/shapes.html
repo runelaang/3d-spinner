@@ -11,8 +11,8 @@
 
 <body>
   <nav class="topbar">
-    <a href="/3d-spinner/examples/prefabs.html">Prefabs</a>
     <a href="/3d-spinner/examples/prefabs-progress.html">Progress prefabs</a>
+    <a href="/3d-spinner/examples/prefabs.html">Prefabs</a>
     <a href="/3d-spinner/examples/shapes.html" class="active">Shapes</a>
     <a href="/3d-spinner/examples/shading.html">Shading</a>
     <a href="/3d-spinner/examples/spinner-types.html">Spinner types</a>
@@ -158,7 +158,9 @@
   </div>
 
   <script type="module">
-    import { createSpinner } from "/3d-spinner/dist/index.js";
+    import { createSpinner as mountSpinner } from "/3d-spinner/dist/index.js";
+    import { showSetupFailure } from "/3d-spinner/examples/stage-error.js";
+    const createSpinner = (target, options) => showSetupFailure(mountSpinner(target, options), target);
     import { SpinAnimation } from "/3d-spinner/dist/animations/spin.js";
     import {
       tetrahedron,

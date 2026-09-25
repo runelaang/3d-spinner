@@ -2,7 +2,7 @@ import { easeOutCubic, easeOutExpo, easeOutQuad, easeInQuad, } from "./engines/l
 function resolveOptions(options = {}) {
     return {
         popDurationMs: options.popDurationMs ?? 500,
-        overextend: options.overextend ?? 0.2,
+        overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
         startSnapRatio: options.startSnapRatio ?? 0.2,
         loadingText: options.loadingText === undefined ? "loading" : options.loadingText,
         doneText: options.doneText ?? "done",
@@ -58,7 +58,7 @@ export class ProgressAnimation {
         return this.phase === "finished";
     }
     update(now, progress, targetProgress) {
-        const { popDurationMs, overextend, startSnapRatio, loadingText, doneText, doneFadeDurationMs, removeOnComplete, } = this.options;
+        const { popDurationMs, overshootRatio, startSnapRatio, loadingText, doneText, doneFadeDurationMs, removeOnComplete, } = this.options;
         const goal = targetProgress ?? progress;
         if (this.phase === "startPop" || this.phase === "active") {
             this.activeProgress = progress;
@@ -71,7 +71,7 @@ export class ProgressAnimation {
         let hidden = false;
         if (this.phase === "startPop") {
             const t = popPhaseT(now, this.phaseStart, popDurationMs);
-            const peak = this.popTarget * (1 + overextend);
+            const peak = this.popTarget * (1 + overshootRatio);
             if (t < startSnapRatio) {
                 const snapT = startSnapRatio > 0 ? t / startSnapRatio : 1;
                 scale = peak * easeOutExpo(snapT);
@@ -88,7 +88,7 @@ export class ProgressAnimation {
         }
         else if (this.phase === "endPop") {
             const t = popPhaseT(now, this.phaseStart, popDurationMs);
-            const peak = 1 + overextend;
+            const peak = 1 + overshootRatio;
             if (t < 0.5) {
                 scale = 1 + (peak - 1) * easeOutQuad(t * 2);
             }

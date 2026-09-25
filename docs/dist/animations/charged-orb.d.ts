@@ -31,7 +31,7 @@ export declare class ChargedOrbAnimation implements SpinnerAnimation {
     private lastNow;
     private finished;
     constructor(options?: ChargedOrbOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     isFinished(): boolean;

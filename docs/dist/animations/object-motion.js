@@ -1,6 +1,8 @@
+import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, cross, normalize, scale, subtract, } from "../engines/little-3d-engine/little-3d-engine.js";
-import { multiply, rotationX, rotationY, rotationZ, } from "../engines/little-3d-engine/core/math.js";
+import { Camera, Little3dEngine, cross, normalize, scale, subtract, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { eulerFromRotation, multiply, rotationFromEuler, } from "../engines/little-3d-engine/core/math.js";
+import { damp } from "../engines/little-tween-engine/core/damp.js";
 import { enterFromObjectDirection, leaveInObjectDirection, } from "../motion/transitions.js";
 const WORLD_UP = { x: 0, y: 1, z: 0 };
 const DEFAULT_INTRO_MS = 2100;
@@ -9,6 +11,7 @@ const BANK_GAIN = 26;
 const BANK_LIMIT = 0.7;
 const BANK_SMOOTH = 0.12;
 const SAMPLE_MS = 8;
+const CAMERA = { position: { x: 0, y: 0, z: 3 } };
 // Rotation (proper, winding-preserving) that maps each `facing` axis onto +X.
 const FACE_FORWARD = {
     "+x": (v) => v,
@@ -84,29 +87,9 @@ function orientationFor(forward, bank) {
         z: Math.atan2(fwd.y, fwd.x),
     };
 }
-/** Engine rotation matrix from Euler angles (Rz * Ry * Rx). */
-function rotationMatrix(x, y, z) {
-    return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
-}
-/** Inverse of {@link rotationMatrix} for the engine's Rz * Ry * Rx order. */
-function eulerFromRotationMatrix(matrix) {
-    const sy = Math.hypot(matrix[0], matrix[1]);
-    if (sy > 1e-6) {
-        return {
-            x: Math.atan2(matrix[9], matrix[10]),
-            y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-            z: Math.atan2(matrix[4], matrix[0]),
-        };
-    }
-    return {
-        x: Math.atan2(-matrix[6], matrix[5]),
-        y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-        z: 0,
-    };
-}
 /** Compose path orientation with a local-space offset/spin rotation. */
 function combineLocalRotation(path, extra) {
-    return eulerFromRotationMatrix(multiply(rotationMatrix(path.x, path.y, path.z), rotationMatrix(extra.x, extra.y, extra.z)));
+    return eulerFromRotation(multiply(rotationFromEuler(path.x, path.y, path.z), rotationFromEuler(extra.x, extra.y, extra.z)));
 }
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -122,7 +105,10 @@ function resolveTransition(config, fallback, durationMs) {
         return { transition: fallback, durationMs };
     if (typeof config === "function")
         return { transition: config, durationMs };
-    return { transition: config.transition, durationMs: Math.max(0, config.durationMs ?? durationMs) };
+    return {
+        transition: config.transition,
+        durationMs: Math.max(0, config.durationMs ?? durationMs),
+    };
 }
 /**
  * An object that moves along a {@link MotionController}'s path (a circle, a
@@ -137,22 +123,30 @@ export class ObjectMotionAnimation {
         this.handles = [];
         this.banks = [];
         this.headings = [];
+        this.camera = new Camera(CAMERA);
+        this.aspect = 1;
         this.started = false;
         this.finished = false;
         this.introStart = 0;
         this.outroStart = Infinity;
+        this.outroDelay = 0;
         this.outroPosition = { x: 0, y: 0, z: 0 };
         this.outroVelocity = { x: 0, y: 0, z: 0 };
         this.outroDirection = { x: 1, y: 0, z: 0 };
         const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.size ?? 1);
         const facing = faceForward(centered, options.facing ?? "+x");
         this.mesh = applyColor(facing, options.color);
+        this.radius = this.mesh.vertices.reduce((max, v) => Math.max(max, Math.hypot(v.x, v.y, v.z)), 0);
         this.motion = options.motion;
         this.backend = options.backend;
         this.transparency = options.transparency;
         this.labelContent = options.label;
         this.fadeLabel = options.fadeLabel ?? true;
-        this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
+        const tailCount = options.tail?.count ?? 0;
+        if (!Number.isFinite(tailCount)) {
+            throw new RangeError("3d-spinner: tail.count must be a finite number.");
+        }
+        this.tailCount = Math.max(0, Math.floor(tailCount));
         this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
         this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
         this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
@@ -172,38 +166,42 @@ export class ObjectMotionAnimation {
                 this.rotationSpin.z !== 0;
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
-        const engine = new Little3dEngine({
-            backend: this.backend,
-            camera: { position: { x: 0, y: 0, z: 3 } },
-        });
+        prepareHost(target);
+        this.target = target;
+        const engine = new Little3dEngine({ backend: this.backend, camera: CAMERA });
         for (let i = 0; i <= this.tailCount; i++) {
             this.handles.push(engine.add(this.mesh, { transparency: this.transparency }));
             this.banks.push(0);
             this.headings.push({ x: 1, y: 0, z: 0 });
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         this.label = mountAnimationLabel(target, this.labelContent);
         if (this.fadeLabel)
             this.label.setOpacity(0);
+        return mounting;
     }
     enter(now) {
         if (this.started)
             return;
         this.started = true;
         this.introStart = now;
+        this.measureAspect();
     }
+    /**
+     * Begin the fly-out. A stop during the fly-in lets the fly-in finish first,
+     * so the fly-out starts from where the object really is on its path.
+     */
     exit(now) {
         if (!this.started || this.outroStart !== Infinity)
             return;
-        this.outroPosition = this.motion.positionAt(now);
-        this.outroVelocity = motionVectorAt(this.motion, now);
+        const start = Math.max(now, this.introStart + this.intro.durationMs);
+        this.measureAspect();
+        this.outroPosition = this.motion.positionAt(start);
+        this.outroVelocity = motionVectorAt(this.motion, start);
         this.outroDirection = resolveDirection(this.outroVelocity, this.headings[0]);
-        this.outroStart = now;
+        this.outroStart = start;
+        this.outroDelay = start - now;
     }
     isFinished() {
         return this.finished;
@@ -211,6 +209,14 @@ export class ObjectMotionAnimation {
     /** Milliseconds the fly-out takes; used to align a following particle trail's outro. */
     get outroDurationMs() {
         return this.outro.durationMs;
+    }
+    /**
+     * Milliseconds between {@link exit} and the start of the fly-out: nonzero when
+     * stopped during the fly-in, which finishes first. Feed `outroDelayMs +
+     * outroDurationMs` to a trailing particle layer's `outroMs` as a function.
+     */
+    get outroDelayMs() {
+        return this.outroDelay;
     }
     /**
      * A {@link MotionController} that follows the object's *actual* position, including
@@ -224,9 +230,12 @@ export class ObjectMotionAnimation {
     render(now, frame) {
         if (!this.engine || !this.label)
             return;
-        if (this.outroStart !== Infinity && now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap) {
+        if (this.outroStart !== Infinity &&
+            now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap) {
             this.finished = true;
         }
+        const bankStep = damp(BANK_SMOOTH, now - (this.lastRenderAt ?? now - 1000 / 60));
+        this.lastRenderAt = now;
         for (let k = 0; k < this.handles.length; k++) {
             const transform = this.handles[k].transform;
             const t = now - k * this.tailGap;
@@ -244,7 +253,7 @@ export class ObjectMotionAnimation {
                 }
                 const ahead = this.aheadAt(t) ?? this.headings[k];
                 const targetBank = Math.max(-BANK_LIMIT, Math.min(BANK_LIMIT, cross(this.headings[k], ahead).y * BANK_GAIN));
-                this.banks[k] += (targetBank - this.banks[k]) * BANK_SMOOTH;
+                this.banks[k] += (targetBank - this.banks[k]) * bankStep;
                 euler = orientationFor(this.headings[k], this.banks[k]);
             }
             if (this.hasExtraRotation) {
@@ -262,7 +271,9 @@ export class ObjectMotionAnimation {
             transform.rotation.z = euler.z;
         }
         this.label.setText(frame.indeterminate
-            ? (typeof this.labelContent === "string" ? this.labelContent : "")
+            ? typeof this.labelContent === "string"
+                ? this.labelContent
+                : ""
             : `${Math.round(frame.progress * 100)}%`);
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.started ? this.introStart : Infinity, this.intro.durationMs, this.outroStart, this.outro.durationMs));
@@ -310,19 +321,33 @@ export class ObjectMotionAnimation {
         const output = transition.transition(input);
         return this.applyTransitionOutput(input, output, phase, t);
     }
+    /** Take the viewport shape the fly transitions aim out of; unmeasured stays 1. */
+    measureAspect() {
+        const width = this.target?.clientWidth ?? 0;
+        const height = this.target?.clientHeight ?? 0;
+        if (width > 0 && height > 0)
+            this.aspect = width / height;
+    }
+    /** How far the object must travel from `from` along `direction` to be fully out of view. */
+    leaveViewFrom(from) {
+        const aspect = this.aspect;
+        return (direction) => this.camera.distanceToLeaveView(from, direction, this.radius, aspect);
+    }
     transitionInput(phase, delta, elapsedMs, durationMs, start) {
         if (phase === "intro") {
             const handoff = start + durationMs;
             const velocity = motionVectorAt(this.motion, handoff);
+            const position = this.motion.positionAt(handoff);
             return {
                 delta,
-                position: this.motion.positionAt(handoff),
+                position,
                 direction: resolveDirection(velocity, { x: 1, y: 0, z: 0 }),
                 velocity,
                 size: 1,
                 durationMs,
                 elapsedMs,
                 phase,
+                distanceToLeaveView: this.leaveViewFrom(position),
             };
         }
         return {
@@ -334,6 +359,7 @@ export class ObjectMotionAnimation {
             durationMs,
             elapsedMs,
             phase,
+            distanceToLeaveView: this.leaveViewFrom(this.outroPosition),
         };
     }
     applyTransitionOutput(input, output, phase, t) {

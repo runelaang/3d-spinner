@@ -1,3 +1,4 @@
+import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
 import { Little3dEngine, cube, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { easeInCubic, easeInOutCubic, easeOutCubic, } from "../engines/little-tween-engine/core/tweens.js";
@@ -95,8 +96,7 @@ export class GridAssemblyAnimation {
         this.maxCollapseDelay = Math.max(...this.collapseDelay);
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const engine = new Little3dEngine({
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -106,9 +106,7 @@ export class GridAssemblyAnimation {
             this.handles.push(engine.add(this.meshes[i % this.meshes.length], { scale: 0 }));
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         const measure = () => {
             if (target.clientWidth > 0 && target.clientHeight > 0) {
                 this.aspect = target.clientWidth / target.clientHeight;
@@ -120,6 +118,7 @@ export class GridAssemblyAnimation {
         this.label = mountAnimationLabel(target, this.labelContent);
         if (this.fadeLabel)
             this.label.setOpacity(0);
+        return mounting;
     }
     enter(now) {
         if (this.enterAt === Infinity)
@@ -152,12 +151,15 @@ export class GridAssemblyAnimation {
         else
             this.renderStory(now, dt);
         this.label.setText(frame.indeterminate
-            ? (typeof this.labelContent === "string" ? this.labelContent : "")
+            ? typeof this.labelContent === "string"
+                ? this.labelContent
+                : ""
             : `${Math.round(frame.progress * 100)}%`);
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.enterAt, LABEL_FADE_MS, this.collapseAt, COLLAPSE_MS));
         }
-        if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
+        if (this.collapseAt !== Infinity &&
+            now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
             this.finished = true;
         }
         this.engine.render();
@@ -179,7 +181,9 @@ export class GridAssemblyAnimation {
         const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
         const want = !ringComplete
             ? 0
-            : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+            : exiting
+                ? COUNT
+                : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
         const rate = (dt / this.dockMs) * (exiting ? EXIT_HURRY : 1);
         for (let i = 0; i < COUNT; i++) {
             const target = i < want ? 1 : 0;

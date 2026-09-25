@@ -1,3 +1,4 @@
+import { prepareHost } from "../mount-host.js";
 import { Little3dEngine, cube, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { ProgressAnimation, } from "../progress-animation.js";
 const LABEL_STYLE = [
@@ -47,17 +48,14 @@ export class SpinAnimation {
             : undefined;
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const engine = new Little3dEngine({
             backend: this.backend,
             camera: { position: { x: 0, y: 0, z: 2.8 } },
         });
         this.handle = engine.add(this.mesh, { transparency: this.transparency });
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         if (this.progress) {
             const label = document.createElement("div");
             label.style.cssText = LABEL_STYLE;
@@ -66,6 +64,7 @@ export class SpinAnimation {
             target.appendChild(label);
             this.label = label;
         }
+        return mounting;
     }
     enter(now) {
         this.progress?.enter(now);

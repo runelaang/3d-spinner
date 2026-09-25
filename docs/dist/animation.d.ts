@@ -18,7 +18,16 @@ export type AnimationLabel = string | HTMLElement;
  * the spinner runner triggers {@link enter} and {@link exit}.
  */
 export interface SpinnerAnimation {
-    mount(target: HTMLElement): void;
+    /**
+     * Build the visual inside `target`. Return a promise when setup continues
+     * asynchronously (loading a renderer): it resolves once the visual can draw
+     * and rejects if it cannot. Never write error text into `target`; the spinner
+     * reports the rejection through `Spinner.ready`.
+     *
+     * An instance is single-use: it mounts into one spinner, once. Create a new
+     * one for each spinner (prefab functions already return a fresh one per call).
+     */
+    mount(target: HTMLElement): void | Promise<void>;
     /** Play the intro once. Calls after the first are ignored. */
     enter(now: number): void;
     /** Begin the outro. {@link isFinished} becomes true once it completes. */

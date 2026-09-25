@@ -1,7 +1,7 @@
 import { type CameraOptions } from "./core/camera.js";
 import { type LightOptions } from "./core/light.js";
 import { type Mesh, type Transform, type Transparency } from "./core/mesh.js";
-import { type Backend, type RendererFactory } from "./renderer.js";
+import { type Backend, type Renderer, type RendererFactory, type RendererOptions, type ResolvedBackend } from "./renderer.js";
 /** Options for {@link Little3dEngine}. */
 export interface Little3dEngineOptions {
     /**
@@ -9,18 +9,27 @@ export interface Little3dEngineOptions {
      * demand. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D.
      */
     backend?: Backend | RendererFactory;
+    /**
+     * Build the renderer for a named backend instead of the built-in one, for
+     * example a textured variant. With `"auto"`, it is called for each backend
+     * tried in turn, so fallback still applies. Unused when `backend` is a factory.
+     */
+    rendererFor?: (backend: ResolvedBackend, options: RendererOptions) => Renderer | Promise<Renderer>;
     camera?: Partial<CameraOptions>;
     light?: Partial<LightOptions>;
     /** Solid background color; omit for a transparent canvas (overlay use). */
     background?: string;
 }
-/** A live mesh in the scene. Mutate `transform` to move or rotate it. */
+/**
+ * A live mesh in the scene. Mutate `transform` to move or rotate it. The mesh
+ * itself is treated as immutable once drawn; add a new one to change its shape.
+ */
 export interface MeshHandle {
     readonly mesh: Mesh;
     readonly transform: Transform;
     /** Optional per-instance transparency. Mutate or replace it between frames. */
     transparency?: Transparency;
-    /** Remove this mesh from the scene. */
+    /** Remove this instance; GPU buffers are freed with the mesh's last instance. */
     remove(): void;
 }
 /** Initial state for one mesh instance. */
@@ -37,15 +46,18 @@ export declare class Little3dEngine {
     private readonly camera;
     private readonly light;
     private readonly backend;
+    private readonly rendererFor?;
     private readonly background?;
     private readonly scene;
-    private canvas?;
-    private observer?;
-    private renderer?;
-    private cssWidth;
-    private cssHeight;
-    private ready;
+    /** The mounted surface: its renderer is initialized and sized. */
+    private surface?;
+    /** The surface of the backend attempt in progress, if any. */
+    private attempt?;
+    /** The candidates after the mounted one, to switch to if its renderer is lost. */
+    private fallbacks;
+    private state;
     private generation;
+    private cancelMount?;
     private rafId;
     private running;
     constructor(options?: Little3dEngineOptions);
@@ -55,14 +67,39 @@ export declare class Little3dEngine {
      * is unavailable. With `"auto"`, a backend that fails to load or initialize
      * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
      * rejects only when all of them fail. Drawing is a no-op until it resolves.
+     * If the GPU device or WebGL context is lost later, `"auto"` switches to the
+     * next backend in the same order.
+     *
+     * An engine mounts into one element at a time: mounting again while mounting or
+     * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
+     * mounted again, for example into another element. Destroying while mounting
+     * resolves the pending mount at once, even if a backend is still starting.
      */
     mount(target: HTMLElement): Promise<void>;
-    /** Append a fresh full-size canvas to `target` and track its size. */
-    private attachCanvas;
-    /** Remove `canvas` and its size observer, if it is still the current canvas. */
-    private dropCanvas;
+    /** The backends to try, best first: every supported one for `"auto"`, else the chosen one. */
+    private candidates;
+    /** Mount the first candidate that starts, or reject with every candidate's error. */
+    private startRenderer;
+    /**
+     * Replace a mounted renderer that stopped working with the next backend
+     * `"auto"` would have tried. `mount()` has resolved by then, so there is no
+     * promise left to reject: when no backend is left or none starts, the canvas
+     * stays removed and a console warning says why.
+     */
+    private recover;
+    /**
+     * Start `candidate` on a fresh canvas and size it. Resolves with the started
+     * surface, or `undefined` when the engine was destroyed meanwhile. On failure
+     * or cancellation, everything the attempt created is released first.
+     */
+    private startSurface;
+    /** Construct the renderer for `candidate`, through `rendererFor` when it is set. */
+    private createRenderer;
+    /** Append a fresh full-size canvas to `target` and start tracking its size. */
+    private openSurface;
     /** Add a mesh to the scene and return a handle for animating it. */
     add(mesh: Mesh, init?: MeshInstanceOptions): MeshHandle;
+    /** Match the canvas's pixel size to its CSS size, and tell a started renderer. */
     private resize;
     /** Draw a single frame from the current scene state. */
     render(): void;
@@ -93,4 +130,4 @@ export type { Mesh, Face, Material, Transform, Transparency, OneSidedTransparenc
 export { transform, attachMaterial } from "./core/mesh.js";
 export type { Backend, BackendSupport, ResolvedBackend, Renderer, RendererFactory, RenderFrame, RenderItem, RendererOptions, } from "./renderer.js";
 export { orderRenderItems, chooseBackend, autoBackendCandidates, detectBackendSupport, resolveBackend, } from "./renderer.js";
-export { type Vec3, vec3, subtract, cross, dot, scale, normalize, } from "./core/math.js";
+export { type Vec3, vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";

@@ -9,10 +9,12 @@ export declare class CompositeAnimation implements SpinnerAnimation {
     private readonly layers;
     private readonly elements;
     constructor(layers: ReadonlyArray<SpinnerAnimation | CompositeAnimationLayer>);
-    mount(target: HTMLElement): void;
+    /** Mount every layer in its own stacked element; resolves once all layers can draw. */
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
     exit(now: number): void;
     render(now: number, frame: AnimationFrame): void;
     isFinished(): boolean;
+    /** Destroy every layer even if one throws, then rethrow the first error. */
     destroy(): void;
 }

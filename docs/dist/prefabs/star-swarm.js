@@ -5,11 +5,12 @@ import { spinner } from "./spinner.js";
 /** Bright star particles wandering around a centered loading message. */
 export function starSwarm(options = {}) {
     const particles = options.particles ?? {};
-    const emitter = particles.emitter ?? wanderMotion({
-        bounds: { x: 1.1, y: 0.72, z: 0.35 },
-        periodMs: 7200,
-        seed: 19,
-    });
+    const emitter = particles.emitter ??
+        wanderMotion({
+            bounds: { x: 1.1, y: 0.72, z: 0.35 },
+            periodMs: 7200,
+            seed: 19,
+        });
     return spinner(new ParticlesAnimation({
         rate: 38,
         lifeMs: 2600,

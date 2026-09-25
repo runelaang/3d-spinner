@@ -69,10 +69,7 @@ function opacity(value, fallback) {
   return Math.max(0, Math.min(1, value ?? fallback));
 }
 function resolveTwoSidedOpacity(transparency) {
-  const front = opacity(
-    transparency.frontOpacity ?? transparency.opacity,
-    DEFAULT_FRONT_OPACITY
-  );
+  const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
   const backFallback = transparency.opacity === void 0 ? DEFAULT_BACK_OPACITY : front * (2 / 3);
   return {
     front,
@@ -99,7 +96,6 @@ function parseColor(color) {
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
-    init_math();
   }
 });
 
@@ -169,7 +165,9 @@ var init_canvas2d = __esm({
         this.dpr = 1;
       }
       init(canvas) {
-        this.ctx = canvas.getContext("2d") ?? void 0;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("3d-spinner: could not create a Canvas 2D rendering context.");
+        this.ctx = ctx;
       }
       resize(_cssWidth, _cssHeight, dpr) {
         this.dpr = dpr;
@@ -337,7 +335,7 @@ var Canvas2DTexturedRenderer = class {
   }
   init(canvas) {
     this.inner.init(canvas);
-    this.ctx = canvas.getContext("2d") ?? void 0;
+    this.ctx = canvas.getContext("2d");
   }
   resize(cssWidth, cssHeight, dpr) {
     this.dpr = dpr;
@@ -379,14 +377,35 @@ var Canvas2DTexturedRenderer = class {
       const world = item.mesh.vertices.map((vertex) => transformAffine(item.model, vertex));
       const projected = world.map((vertex) => {
         const ndc = transformPoint(frame.viewProjection, vertex);
-        return { x: (ndc.x * 0.5 + 0.5) * frame.width, y: (1 - (ndc.y * 0.5 + 0.5)) * frame.height };
+        return {
+          x: (ndc.x * 0.5 + 0.5) * frame.width,
+          y: (1 - (ndc.y * 0.5 + 0.5)) * frame.height
+        };
       });
       const face = item.mesh.faces[0];
       if (!face || face.indices.length !== 4) continue;
       const [a, b, c, d] = face.indices.map((index) => projected[index]);
       ctx.globalAlpha = item.transparency?.mode === "one-sided" ? opacity(item.transparency.opacity, DEFAULT_ONE_SIDED_OPACITY) : 1;
-      drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: size.height }, { x: size.width, y: 0 }], [a, b, c]);
-      drawMappedTriangle(ctx, image, [{ x: 0, y: size.height }, { x: size.width, y: 0 }, { x: 0, y: 0 }], [a, c, d]);
+      drawMappedTriangle(
+        ctx,
+        image,
+        [
+          { x: 0, y: size.height },
+          { x: size.width, y: size.height },
+          { x: size.width, y: 0 }
+        ],
+        [a, b, c]
+      );
+      drawMappedTriangle(
+        ctx,
+        image,
+        [
+          { x: 0, y: size.height },
+          { x: size.width, y: 0 },
+          { x: 0, y: 0 }
+        ],
+        [a, c, d]
+      );
     }
     ctx.globalAlpha = 1;
   }

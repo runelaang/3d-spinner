@@ -137,10 +137,7 @@ function opacity(value, fallback) {
   return Math.max(0, Math.min(1, value ?? fallback));
 }
 function resolveTwoSidedOpacity(transparency) {
-  const front = opacity(
-    transparency.frontOpacity ?? transparency.opacity,
-    DEFAULT_FRONT_OPACITY
-  );
+  const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
   const backFallback = transparency.opacity === void 0 ? DEFAULT_BACK_OPACITY : front * (2 / 3);
   return {
     front,
@@ -239,7 +236,9 @@ void main() {
 }`;
     WebGLRenderer = class {
       constructor(options = {}) {
+        this.destroyed = false;
         this.cache = /* @__PURE__ */ new Map();
+        this.modelScratch = new Float32Array(16);
         if (options.background) {
           const [r, g, b] = parseColor(options.background);
           this.clearColor = [r / 255, g / 255, b / 255, 1];
@@ -251,6 +250,7 @@ void main() {
         const gl = canvas.getContext("webgl2");
         if (!gl) throw new Error("3d-spinner: WebGL2 is not supported in this browser.");
         this.gl = gl;
+        this.canvas = canvas;
         this.program = link(gl);
         this.locations = {
           aPos: gl.getAttribLocation(this.program, "aPos"),
@@ -278,7 +278,7 @@ void main() {
         const canvas = gl.canvas;
         gl.viewport(0, 0, canvas.width, canvas.height);
       }
-      buffers(mesh) {
+      getOrCreateMeshBuffers(mesh) {
         const cached = this.cache.get(mesh);
         if (cached) return cached;
         const gl = this.gl;
@@ -324,20 +324,22 @@ void main() {
         gl.cullFace(gl.BACK);
         for (const item of frame.items) {
           if (item.transparency) continue;
-          const mesh = this.buffers(item.mesh);
-          gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+          const mesh = this.getOrCreateMeshBuffers(item.mesh);
+          this.modelScratch.set(item.model);
+          gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
           gl.uniform1f(loc.uOpacity, 1);
           gl.bindVertexArray(mesh.vao);
           gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
         }
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         for (const item of frame.items) {
           const transparency = item.transparency;
           if (!transparency) continue;
-          const mesh = this.buffers(item.mesh);
-          gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+          const mesh = this.getOrCreateMeshBuffers(item.mesh);
+          this.modelScratch.set(item.model);
+          gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
           gl.bindVertexArray(mesh.vao);
           if (transparency.mode === "two-sided") {
             const resolved = resolveTwoSidedOpacity(transparency);
@@ -358,18 +360,37 @@ void main() {
         gl.cullFace(gl.BACK);
         gl.bindVertexArray(null);
       }
+      /** Delete the vertex array and buffers cached for `mesh`. */
+      releaseMesh(mesh) {
+        const cached = this.cache.get(mesh);
+        if (!cached) return;
+        this.cache.delete(mesh);
+        const gl = this.gl;
+        if (!gl) return;
+        gl.deleteVertexArray(cached.vao);
+        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+      }
+      /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+      onLost(listener) {
+        this.canvas?.addEventListener(
+          "webglcontextlost",
+          () => {
+            if (!this.destroyed) listener("WebGL context lost");
+          },
+          { once: true }
+        );
+      }
       destroy() {
+        this.destroyed = true;
         const gl = this.gl;
         if (gl) {
-          for (const mesh of this.cache.values()) {
-            gl.deleteVertexArray(mesh.vao);
-            for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
-          }
+          for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
           if (this.program) gl.deleteProgram(this.program);
           gl.getExtension("WEBGL_lose_context")?.loseContext();
         }
         this.cache.clear();
         this.gl = void 0;
+        this.canvas = void 0;
         this.program = void 0;
         this.locations = void 0;
       }
@@ -472,11 +493,20 @@ var WebGLTexturedRenderer = class {
     this.sources = /* @__PURE__ */ new Map();
     this.textures = /* @__PURE__ */ new Map();
     this.buffers = /* @__PURE__ */ new Map();
+    this.modelScratch = new Float32Array(16);
     this.inner = new WebGLRenderer(options);
   }
-  /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+  /**
+   * Texture every instance of `mesh` with `source`. Call any time, also before
+   * init; a new source replaces the one already uploaded.
+   */
   setTexture(mesh, source) {
+    if (this.sources.get(mesh) === source) return;
     this.sources.set(mesh, source);
+    const texture = this.textures.get(mesh);
+    if (!texture) return;
+    this.textures.delete(mesh);
+    this.gl?.deleteTexture(texture);
   }
   init(canvas) {
     this.inner.init(canvas);
@@ -521,7 +551,14 @@ var WebGLTexturedRenderer = class {
     const upload = (image) => {
       if (!this.gl || this.textures.get(mesh) !== texture) return;
       this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-      this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        image
+      );
     };
     const source = this.sources.get(mesh);
     if (typeof source === "string") {
@@ -533,7 +570,7 @@ var WebGLTexturedRenderer = class {
     }
     return texture;
   }
-  buffersFor(mesh) {
+  getOrCreateTexturedBuffers(mesh) {
     const cached = this.buffers.get(mesh);
     if (cached) return cached;
     const gl = this.gl;
@@ -575,12 +612,13 @@ var WebGLTexturedRenderer = class {
     gl.uniform1i(loc.uTexture, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
     for (const item of textured) {
-      const buffers = this.buffersFor(item.mesh);
+      const buffers = this.getOrCreateTexturedBuffers(item.mesh);
       gl.bindTexture(gl.TEXTURE_2D, this.textureFor(item.mesh));
-      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      this.modelScratch.set(item.model);
+      gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
       gl.uniform1f(loc.uOpacity, itemOpacity(item.transparency));
       gl.bindVertexArray(buffers.vao);
       gl.drawArrays(gl.TRIANGLES, 0, buffers.count);
@@ -589,18 +627,29 @@ var WebGLTexturedRenderer = class {
     gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
   }
+  /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+  releaseMesh(mesh) {
+    this.inner.releaseMesh(mesh);
+    const cached = this.buffers.get(mesh);
+    if (!cached) return;
+    this.buffers.delete(mesh);
+    const gl = this.gl;
+    if (!gl) return;
+    gl.deleteVertexArray(cached.vao);
+    for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+  }
+  /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+  onLost(listener) {
+    this.inner.onLost(listener);
+  }
   destroy() {
     const gl = this.gl;
     if (gl) {
       for (const texture of this.textures.values()) gl.deleteTexture(texture);
-      for (const cached of this.buffers.values()) {
-        gl.deleteVertexArray(cached.vao);
-        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
-      }
+      for (const mesh of [...this.buffers.keys()]) this.releaseMesh(mesh);
       if (this.program) gl.deleteProgram(this.program);
     }
     this.textures.clear();
-    this.buffers.clear();
     this.sources.clear();
     this.gl = void 0;
     this.program = void 0;

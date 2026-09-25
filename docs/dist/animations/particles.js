@@ -1,5 +1,7 @@
+import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, quad, resolveBackend, cross, normalize, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, quad, cross, normalize, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { createTexturedRenderer } from "../engines/little-3d-engine/textured-renderer.js";
 const DEFAULT_COLORS = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
 const FADE_IN_END = 0.15;
 const FADE_OUT_START = 0.6;
@@ -75,8 +77,7 @@ export function particleField(options = {}) {
             const life = age / lifeMs;
             const roll = alignToMotion
                 ? Math.atan2(dir.y * particleSpeed + (gravity?.y ?? 0) * seconds, dir.x * particleSpeed + (gravity?.x ?? 0) * seconds)
-                : 2 * Math.PI * rand01(seed, index, 3)
-                    + (2 * rand01(seed, index, 4) - 1) * spin * age;
+                : 2 * Math.PI * rand01(seed, index, 3) + (2 * rand01(seed, index, 4) - 1) * spin * age;
             return {
                 position: {
                     x: dir.x * travel + (gravity ? gravity.x * pull : 0),
@@ -111,28 +112,18 @@ export class ParticlesAnimation {
         this.labelContent = options.label;
         this.fadeLabel = options.fadeLabel ?? true;
         this.emitter = options.emitter;
-        this.outroMs = Math.max(0, options.outroMs ?? 0);
+        const outroMs = options.outroMs ?? 0;
+        this.outroMs = () => Math.max(0, typeof outroMs === "function" ? outroMs() : outroMs);
     }
     mount(target) {
-        if (!target.style.position)
-            target.style.position = "relative";
+        prepareHost(target);
         const meshes = this.colors.map((color) => quad(1, [color]));
         const texture = this.texture;
-        const backend = texture
-            ? async (rendererOptions) => {
-                const picked = await resolveBackend(this.backend ?? "auto");
-                const renderer = picked === "webgpu"
-                    ? new (await import("../engines/little-3d-engine/renderers/webgpu-textured.js")).WebGPUTexturedRenderer(rendererOptions)
-                    : picked === "webgl"
-                        ? new (await import("../engines/little-3d-engine/renderers/webgl-textured.js")).WebGLTexturedRenderer(rendererOptions)
-                        : new (await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")).Canvas2DTexturedRenderer(rendererOptions);
-                for (const mesh of meshes)
-                    renderer.setTexture(mesh, texture);
-                return renderer;
-            }
-            : this.backend;
         const engine = new Little3dEngine({
-            backend,
+            backend: this.backend,
+            rendererFor: texture
+                ? (backend, options) => createTexturedRenderer(backend, options, new Map(meshes.map((mesh) => [mesh, texture])))
+                : undefined,
             camera: { position: { x: 0, y: 0, z: 3 } },
             light: { intensity: 0, ambient: 1 },
         });
@@ -142,12 +133,11 @@ export class ParticlesAnimation {
             this.handles.push(engine.add(meshes[slot % meshes.length], { scale: 0, transparency: fade }));
         }
         this.engine = engine;
-        engine.mount(target).catch((error) => {
-            target.textContent = error instanceof Error ? error.message : String(error);
-        });
+        const mounting = engine.mount(target);
         this.label = mountAnimationLabel(target, this.labelContent);
         if (this.fadeLabel)
             this.label.setOpacity(0);
+        return mounting;
     }
     enter(now) {
         if (this.enterAt === Infinity)
@@ -163,7 +153,8 @@ export class ParticlesAnimation {
     render(now, frame) {
         if (!this.engine || !this.label)
             return;
-        if (this.exitAt !== Infinity && now >= this.exitAt + this.outroMs + this.field.lifeMs)
+        const emitEnd = this.exitAt === Infinity ? Infinity : this.exitAt + this.outroMs();
+        if (now >= emitEnd + this.field.lifeMs)
             this.finished = true;
         for (const handle of this.handles)
             handle.transform.scale = 0;
@@ -172,8 +163,8 @@ export class ParticlesAnimation {
             const gap = this.field.spawnGapMs;
             let first = Math.max(0, Math.ceil((t - this.field.lifeMs) / gap));
             let last = Math.floor(t / gap);
-            if (this.exitAt !== Infinity) {
-                last = Math.min(last, Math.floor((this.exitAt - this.enterAt + this.outroMs) / gap));
+            if (emitEnd !== Infinity) {
+                last = Math.min(last, Math.floor((emitEnd - this.enterAt) / gap));
             }
             first = Math.max(first, last - this.field.maxLive + 1);
             for (let index = first; index <= last; index++) {
@@ -192,7 +183,9 @@ export class ParticlesAnimation {
             }
         }
         this.label.setText(frame.indeterminate
-            ? (typeof this.labelContent === "string" ? this.labelContent : "")
+            ? typeof this.labelContent === "string"
+                ? this.labelContent
+                : ""
             : `${Math.round(frame.progress * 100)}%`);
         if (this.fadeLabel) {
             this.label.setOpacity(animationLabelOpacity(now, this.enterAt, this.field.lifeMs * FADE_IN_END, this.exitAt, this.field.lifeMs));

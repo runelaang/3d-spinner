@@ -52,7 +52,7 @@ export function expandToTriangles(mesh) {
         const sb = specular ? specular[2] : 0;
         // Ns only matters where Ks is non-zero; default the exponent to 1 (32 is
         // the flat-shading default when a specular is present but Ns is omitted).
-        const sn = specular ? face.material?.shininess ?? 32 : 1;
+        const sn = specular ? (face.material?.shininess ?? 32) : 1;
         for (let k = 1; k < face.indices.length - 1; k++) {
             const tri = [face.indices[0], face.indices[k], face.indices[k + 1]];
             for (const index of tri) {

@@ -6,7 +6,7 @@ import { type ObjectMotionTransitionConfig } from "../motion/transitions.js";
 export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 /** Trailing copies that chase the lead object in single file. */
 export interface ObjectMotionTail {
-    /** Number of trailing copies. */
+    /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
     count: number;
     /** Time each copy lags the one ahead of it, in milliseconds. */
     gapMs: number;
@@ -79,20 +79,36 @@ export declare class ObjectMotionAnimation implements SpinnerAnimation {
     private readonly rotationOffset;
     private readonly rotationSpin;
     private readonly hasExtraRotation;
+    private readonly camera;
+    private readonly radius;
+    private target?;
+    private aspect;
     private started;
     private finished;
+    private lastRenderAt?;
     private introStart;
     private outroStart;
+    private outroDelay;
     private outroPosition;
     private outroVelocity;
     private outroDirection;
     constructor(options: ObjectMotionOptions);
-    mount(target: HTMLElement): void;
+    mount(target: HTMLElement): Promise<void>;
     enter(now: number): void;
+    /**
+     * Begin the fly-out. A stop during the fly-in lets the fly-in finish first,
+     * so the fly-out starts from where the object really is on its path.
+     */
     exit(now: number): void;
     isFinished(): boolean;
     /** Milliseconds the fly-out takes; used to align a following particle trail's outro. */
     get outroDurationMs(): number;
+    /**
+     * Milliseconds between {@link exit} and the start of the fly-out: nonzero when
+     * stopped during the fly-in, which finishes first. Feed `outroDelayMs +
+     * outroDurationMs` to a trailing particle layer's `outroMs` as a function.
+     */
+    get outroDelayMs(): number;
     /**
      * A {@link MotionController} that follows the object's *actual* position, including
      * the intro fly-in and outro fly-out (it falls back to the raw motion path before
@@ -106,6 +122,10 @@ export declare class ObjectMotionAnimation implements SpinnerAnimation {
     private positionAt;
     private sampleAt;
     private transitionSample;
+    /** Take the viewport shape the fly transitions aim out of; unmeasured stays 1. */
+    private measureAspect;
+    /** How far the object must travel from `from` along `direction` to be fully out of view. */
+    private leaveViewFrom;
     private transitionInput;
     private applyTransitionOutput;
 }

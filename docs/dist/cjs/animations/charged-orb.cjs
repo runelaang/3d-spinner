@@ -81,6 +81,9 @@ function rotationZ(rad) {
   const s = Math.sin(rad);
   return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 }
+function rotationFromEuler(x, y, z) {
+  return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
+}
 function perspective(fovY, aspect, near, far) {
   const f = 1 / Math.tan(fovY / 2);
   const nf = 1 / (near - far);
@@ -305,6 +308,27 @@ var init_light = __esm({
   }
 });
 
+// src/engines/little-3d-engine/core/webgpu-api.ts
+function webgpu() {
+  return globalThis.navigator?.gpu;
+}
+function gpuFlags() {
+  const globals = globalThis;
+  return {
+    bufferUsage: globals.GPUBufferUsage,
+    textureUsage: globals.GPUTextureUsage,
+    shaderStage: globals.GPUShaderStage
+  };
+}
+function webgpuContext(canvas) {
+  return canvas.getContext.call(canvas, "webgpu");
+}
+var init_webgpu_api = __esm({
+  "src/engines/little-3d-engine/core/webgpu-api.ts"() {
+    "use strict";
+  }
+});
+
 // src/engines/little-3d-engine/renderers/webgl.ts
 var webgl_exports = {};
 __export(webgl_exports, {
@@ -391,7 +415,9 @@ void main() {
 }`;
     WebGLRenderer = class {
       constructor(options = {}) {
+        this.destroyed = false;
         this.cache = /* @__PURE__ */ new Map();
+        this.modelScratch = new Float32Array(16);
         if (options.background) {
           const [r, g, b] = parseColor(options.background);
           this.clearColor = [r / 255, g / 255, b / 255, 1];
@@ -403,6 +429,7 @@ void main() {
         const gl = canvas.getContext("webgl2");
         if (!gl) throw new Error("3d-spinner: WebGL2 is not supported in this browser.");
         this.gl = gl;
+        this.canvas = canvas;
         this.program = link(gl);
         this.locations = {
           aPos: gl.getAttribLocation(this.program, "aPos"),
@@ -430,7 +457,7 @@ void main() {
         const canvas = gl.canvas;
         gl.viewport(0, 0, canvas.width, canvas.height);
       }
-      buffers(mesh) {
+      getOrCreateMeshBuffers(mesh) {
         const cached = this.cache.get(mesh);
         if (cached) return cached;
         const gl = this.gl;
@@ -476,20 +503,22 @@ void main() {
         gl.cullFace(gl.BACK);
         for (const item of frame.items) {
           if (item.transparency) continue;
-          const mesh = this.buffers(item.mesh);
-          gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+          const mesh = this.getOrCreateMeshBuffers(item.mesh);
+          this.modelScratch.set(item.model);
+          gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
           gl.uniform1f(loc.uOpacity, 1);
           gl.bindVertexArray(mesh.vao);
           gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
         }
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         for (const item of frame.items) {
           const transparency = item.transparency;
           if (!transparency) continue;
-          const mesh = this.buffers(item.mesh);
-          gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+          const mesh = this.getOrCreateMeshBuffers(item.mesh);
+          this.modelScratch.set(item.model);
+          gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
           gl.bindVertexArray(mesh.vao);
           if (transparency.mode === "two-sided") {
             const resolved = resolveTwoSidedOpacity(transparency);
@@ -510,18 +539,37 @@ void main() {
         gl.cullFace(gl.BACK);
         gl.bindVertexArray(null);
       }
+      /** Delete the vertex array and buffers cached for `mesh`. */
+      releaseMesh(mesh) {
+        const cached = this.cache.get(mesh);
+        if (!cached) return;
+        this.cache.delete(mesh);
+        const gl = this.gl;
+        if (!gl) return;
+        gl.deleteVertexArray(cached.vao);
+        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+      }
+      /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+      onLost(listener) {
+        this.canvas?.addEventListener(
+          "webglcontextlost",
+          () => {
+            if (!this.destroyed) listener("WebGL context lost");
+          },
+          { once: true }
+        );
+      }
       destroy() {
+        this.destroyed = true;
         const gl = this.gl;
         if (gl) {
-          for (const mesh of this.cache.values()) {
-            gl.deleteVertexArray(mesh.vao);
-            for (const buffer of mesh.buffers) gl.deleteBuffer(buffer);
-          }
+          for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
           if (this.program) gl.deleteProgram(this.program);
           gl.getExtension("WEBGL_lose_context")?.loseContext();
         }
         this.cache.clear();
         this.gl = void 0;
+        this.canvas = void 0;
         this.program = void 0;
         this.locations = void 0;
       }
@@ -540,6 +588,7 @@ var init_webgpu = __esm({
     "use strict";
     init_geometry();
     init_math();
+    init_webgpu_api();
     init_renderer();
     WGSL = `
 struct Uniforms {
@@ -601,6 +650,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         this.depthSize = "";
         this.destroyed = false;
         this.cache = /* @__PURE__ */ new Map();
+        this.uniformScratch = new Float32Array(UNIFORM_STRIDE / 4);
         if (options.background) {
           const [r, g, b] = parseColor(options.background);
           this.clearValue = { r: r / 255, g: g / 255, b: b / 255, a: 1 };
@@ -611,21 +661,34 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         }
       }
       async init(canvas) {
-        const gpu = navigator.gpu;
+        const gpu = webgpu();
         if (!gpu) throw new Error("3d-spinner: WebGPU is not supported in this browser.");
         const adapter = await gpu.requestAdapter();
         if (!adapter) throw new Error("3d-spinner: no WebGPU adapter is available.");
         const device = await adapter.requestDevice();
         if (this.destroyed) {
-          device.destroy?.();
+          device.destroy();
           return;
         }
-        const context = canvas.getContext("webgpu");
+        this.device = device;
+        this.canvas = canvas;
+        const context = webgpuContext(canvas);
         if (!context) throw new Error("3d-spinner: could not get a WebGPU canvas context.");
+        this.context = context;
         const format = gpu.getPreferredCanvasFormat();
+        this.format = format;
+        const pipelines = await this.validated(
+          device,
+          () => this.createPipelines(device, context, format)
+        );
+        if (this.destroyed) return;
+        this.pipelines = pipelines;
+      }
+      /** Configure the canvas for `device` and build the opaque and transparent pipelines. */
+      async createPipelines(device, context, format) {
         context.configure({ device, format, alphaMode: this.alphaMode });
         const module2 = device.createShaderModule({ code: WGSL });
-        const stage = globalThis.GPUShaderStage;
+        const stage = gpuFlags().shaderStage;
         const layout = device.createBindGroupLayout({
           entries: [
             {
@@ -637,9 +700,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         });
         const vertexBuffer = (location, components = 3) => ({
           arrayStride: components * 4,
-          attributes: [
-            { shaderLocation: location, offset: 0, format: `float32x${components}` }
-          ]
+          attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }]
         });
         const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
         const blend = {
@@ -650,7 +711,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           },
           alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" }
         };
-        const pipeline = (cullMode, transparent) => device.createRenderPipeline({
+        const pipeline = (cullMode, transparent) => device.createRenderPipelineAsync({
           layout: pipelineLayout,
           vertex: {
             module: module2,
@@ -676,39 +737,55 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             depthCompare: "less"
           }
         });
-        this.pipeline = pipeline("back", false);
-        this.transparentBackPipeline = pipeline("front", true);
-        this.transparentFrontPipeline = pipeline("back", true);
-        this.canvas = canvas;
-        this.device = device;
-        this.context = context;
+        const [opaque, transparentBack, transparentFront] = await Promise.all([
+          pipeline("back", false),
+          pipeline("front", true),
+          pipeline("back", true)
+        ]);
+        return { opaque, transparentBack, transparentFront };
+      }
+      /**
+       * Run `setup` inside a WebGPU validation error scope and throw if it reported
+       * an error. Most WebGPU calls report mistakes that way instead of throwing, so
+       * without the scope a broken setup would look like success and `"auto"` would
+       * not fall back. `setup` must make its GPU calls before its first `await`.
+       */
+      async validated(device, setup) {
+        device.pushErrorScope("validation");
+        const [result, error] = await Promise.all([setup(), device.popErrorScope()]);
+        if (error) throw new Error(`3d-spinner: WebGPU setup failed: ${error.message}`);
+        return result;
       }
       resize() {
         this.ensureDepth();
       }
+      /** The depth texture for the current canvas size, recreated when the size changes. */
       ensureDepth() {
         const canvas = this.canvas;
-        if (!this.device || !canvas) return;
+        const device = this.device;
+        if (!device || !canvas) return void 0;
         const width = Math.max(1, canvas.width);
         const height = Math.max(1, canvas.height);
         const key = `${width}x${height}`;
-        if (key === this.depthSize && this.depthTexture) return;
-        this.depthTexture?.destroy?.();
-        this.depthTexture = this.device.createTexture({
+        if (key === this.depthSize && this.depthTexture) return this.depthTexture;
+        this.depthTexture?.destroy();
+        this.depthTexture = device.createTexture({
           size: { width, height },
           format: "depth24plus",
-          usage: globalThis.GPUTextureUsage.RENDER_ATTACHMENT
+          usage: gpuFlags().textureUsage.RENDER_ATTACHMENT
         });
         this.depthSize = key;
+        return this.depthTexture;
       }
-      buffers(mesh) {
+      getOrCreateMeshBuffers(device, mesh) {
         const cached = this.cache.get(mesh);
         if (cached) return cached;
         const data = expandToTriangles(mesh);
-        const usage = globalThis.GPUBufferUsage.VERTEX | globalThis.GPUBufferUsage.COPY_DST;
+        const flags = gpuFlags().bufferUsage;
+        const usage = flags.VERTEX | flags.COPY_DST;
         const upload = (array) => {
-          const buffer = this.device.createBuffer({ size: array.byteLength, usage });
-          this.device.queue.writeBuffer(buffer, 0, array);
+          const buffer = device.createBuffer({ size: array.byteLength, usage });
+          device.queue.writeBuffer(buffer, 0, array);
           return buffer;
         };
         const result = {
@@ -723,22 +800,29 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         this.cache.set(mesh, result);
         return result;
       }
-      ensureUniformCapacity(draws) {
-        if (draws <= this.uniformCapacity && this.uniformBuffer) return;
-        this.uniformBuffer?.destroy?.();
-        this.uniformBuffer = this.device.createBuffer({
+      /** The uniform buffer, grown to hold at least `draws` uniform blocks. */
+      ensureUniformCapacity(device, draws) {
+        if (draws <= this.uniformCapacity && this.uniformBuffer) return this.uniformBuffer;
+        this.uniformBuffer?.destroy();
+        const flags = gpuFlags().bufferUsage;
+        this.uniformBuffer = device.createBuffer({
           size: Math.max(1, draws) * UNIFORM_STRIDE,
-          usage: globalThis.GPUBufferUsage.UNIFORM | globalThis.GPUBufferUsage.COPY_DST
+          usage: flags.UNIFORM | flags.COPY_DST
         });
         this.uniformCapacity = draws;
+        return this.uniformBuffer;
       }
       render(frame) {
-        if (this.destroyed || !this.device || !this.context || !this.pipeline) return;
+        const device = this.device;
+        const context = this.context;
+        const pipelines = this.pipelines;
+        if (this.destroyed || !device || !context || !pipelines) return;
         if (frame.width === 0 || frame.height === 0 || frame.items.length === 0) return;
-        this.ensureDepth();
+        const depth = this.ensureDepth();
+        if (!depth) return;
         const draws = [];
         for (const item of frame.items) {
-          if (!item.transparency) draws.push({ item, opacity: 1, pipeline: this.pipeline });
+          if (!item.transparency) draws.push({ item, opacity: 1, pipeline: pipelines.opaque });
         }
         for (const item of frame.items) {
           const transparency = item.transparency;
@@ -748,58 +832,55 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             draws.push({
               item,
               opacity: resolved.back,
-              pipeline: this.transparentBackPipeline
+              pipeline: pipelines.transparentBack
             });
             draws.push({
               item,
               opacity: resolved.front,
-              pipeline: this.transparentFrontPipeline
+              pipeline: pipelines.transparentFront
             });
           } else {
             draws.push({
               item,
               opacity: opacity(transparency.opacity, DEFAULT_ONE_SIDED_OPACITY),
-              pipeline: this.transparentFrontPipeline
+              pipeline: pipelines.transparentFront
             });
           }
         }
-        this.ensureUniformCapacity(draws.length);
+        const uniforms = this.ensureUniformCapacity(device, draws.length);
         const viewProj = multiply(CLIP_Z_FIX, frame.viewProjection);
-        const layout = this.pipeline.getBindGroupLayout(0);
-        const bindGroup = this.device.createBindGroup({
-          layout,
-          entries: [
-            { binding: 0, resource: { buffer: this.uniformBuffer, offset: 0, size: 176 } }
-          ]
+        const bindGroup = device.createBindGroup({
+          layout: pipelines.opaque.getBindGroupLayout(0),
+          entries: [{ binding: 0, resource: { buffer: uniforms, offset: 0, size: 176 } }]
         });
         draws.forEach((draw, i) => {
-          const data = new Float32Array(UNIFORM_STRIDE / 4);
+          const data = this.uniformScratch;
           data.set(viewProj, 0);
           data.set(draw.item.model, 16);
           data.set([frame.light.toLight.x, frame.light.toLight.y, frame.light.toLight.z, 0], 32);
           data.set([frame.light.intensity, frame.light.ambient, draw.opacity, 0], 36);
           data.set([frame.eye.x, frame.eye.y, frame.eye.z, 0], 40);
-          this.device.queue.writeBuffer(this.uniformBuffer, i * UNIFORM_STRIDE, data);
+          device.queue.writeBuffer(uniforms, i * UNIFORM_STRIDE, data);
         });
-        const encoder = this.device.createCommandEncoder();
+        const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass({
           colorAttachments: [
             {
-              view: this.context.getCurrentTexture().createView(),
+              view: context.getCurrentTexture().createView(),
               clearValue: this.clearValue,
               loadOp: "clear",
               storeOp: "store"
             }
           ],
           depthStencilAttachment: {
-            view: this.depthTexture.createView(),
+            view: depth.createView(),
             depthClearValue: 1,
             depthLoadOp: "clear",
             depthStoreOp: "store"
           }
         });
         draws.forEach((draw, i) => {
-          const mesh = this.buffers(draw.item.mesh);
+          const mesh = this.getOrCreateMeshBuffers(device, draw.item.mesh);
           pass.setPipeline(draw.pipeline);
           pass.setBindGroup(0, bindGroup, [i * UNIFORM_STRIDE]);
           pass.setVertexBuffer(0, mesh.position);
@@ -811,27 +892,35 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           pass.draw(mesh.count);
         });
         pass.end();
-        this.device.queue.submit([encoder.finish()]);
+        device.queue.submit([encoder.finish()]);
+      }
+      /** Destroy the vertex buffers cached for `mesh`. */
+      releaseMesh(mesh) {
+        const cached = this.cache.get(mesh);
+        if (!cached) return;
+        this.cache.delete(mesh);
+        cached.position.destroy();
+        cached.normal.destroy();
+        cached.color.destroy();
+        cached.ambient.destroy();
+        cached.emissive.destroy();
+        cached.specular.destroy();
+      }
+      /** Tell `listener` when the GPU device is lost, unless this renderer destroyed it. */
+      onLost(listener) {
+        void this.device?.lost.then((info) => {
+          if (!this.destroyed) listener(info.message || `WebGPU device ${info.reason}`);
+        });
       }
       destroy() {
         this.destroyed = true;
-        for (const mesh of this.cache.values()) {
-          mesh.position.destroy?.();
-          mesh.normal.destroy?.();
-          mesh.color.destroy?.();
-          mesh.ambient.destroy?.();
-          mesh.emissive.destroy?.();
-          mesh.specular.destroy?.();
-        }
-        this.cache.clear();
-        this.uniformBuffer?.destroy?.();
-        this.depthTexture?.destroy?.();
-        this.device?.destroy?.();
+        for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
+        this.uniformBuffer?.destroy();
+        this.depthTexture?.destroy();
+        this.device?.destroy();
         this.device = void 0;
         this.context = void 0;
-        this.pipeline = void 0;
-        this.transparentBackPipeline = void 0;
-        this.transparentFrontPipeline = void 0;
+        this.pipelines = void 0;
         this.uniformBuffer = void 0;
         this.depthTexture = void 0;
         this.canvas = void 0;
@@ -858,7 +947,9 @@ var init_canvas2d = __esm({
         this.dpr = 1;
       }
       init(canvas) {
-        this.ctx = canvas.getContext("2d") ?? void 0;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("3d-spinner: could not create a Canvas 2D rendering context.");
+        this.ctx = ctx;
       }
       resize(_cssWidth, _cssHeight, dpr) {
         this.dpr = dpr;
@@ -969,7 +1060,7 @@ async function detectBackendSupport() {
   return { webgpu: await hasWebGPU(), webgl: hasWebGL2() };
 }
 async function hasWebGPU() {
-  const gpu = globalThis.navigator?.gpu;
+  const gpu = webgpu();
   if (!gpu) return false;
   try {
     return Boolean(await gpu.requestAdapter());
@@ -1009,10 +1100,7 @@ function opacity(value, fallback) {
   return Math.max(0, Math.min(1, value ?? fallback));
 }
 function resolveTwoSidedOpacity(transparency) {
-  const front = opacity(
-    transparency.frontOpacity ?? transparency.opacity,
-    DEFAULT_FRONT_OPACITY
-  );
+  const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
   const backFallback = transparency.opacity === void 0 ? DEFAULT_BACK_OPACITY : front * (2 / 3);
   return {
     front,
@@ -1052,6 +1140,7 @@ var supportProbe, DEFAULT_ONE_SIDED_OPACITY, DEFAULT_BACK_OPACITY, DEFAULT_FRONT
 var init_renderer = __esm({
   "src/engines/little-3d-engine/renderer.ts"() {
     "use strict";
+    init_webgpu_api();
     DEFAULT_ONE_SIDED_OPACITY = 0.35;
     DEFAULT_BACK_OPACITY = 0.84;
     DEFAULT_FRONT_OPACITY = 0.56;
@@ -1065,6 +1154,12 @@ __export(charged_orb_exports, {
 });
 module.exports = __toCommonJS(charged_orb_exports);
 
+// src/mount-host.ts
+function prepareHost(target) {
+  const position = getComputedStyle(target).position;
+  if (position === "static" || position === "") target.style.position = "relative";
+}
+
 // src/engines/little-3d-engine/core/camera.ts
 init_math();
 var DEFAULTS = {
@@ -1075,7 +1170,11 @@ var DEFAULTS = {
 };
 var Camera = class {
   constructor(options) {
-    this.options = { ...DEFAULTS, ...options };
+    this.options = {
+      ...DEFAULTS,
+      ...options,
+      position: { ...options?.position ?? DEFAULTS.position }
+    };
   }
   /** Transform a world-space point into view (camera) space. */
   toView(p) {
@@ -1088,6 +1187,35 @@ var Camera = class {
     const view = translation(-position.x, -position.y, -position.z);
     const projection = perspective(fov, aspect, near, far);
     return multiply(projection, view);
+  }
+  /**
+   * How far a sphere of `radius` centered at `point` has to travel along the
+   * unit vector `direction` until it is entirely out of view for a viewport of
+   * `aspect` (width / height). Returns 0 when it is already out of view.
+   */
+  distanceToLeaveView(point, direction, radius, aspect) {
+    const { position, fov, near, far } = this.options;
+    const q = { x: point.x - position.x, y: point.y - position.y, z: point.z - position.z };
+    const tanY = Math.tan(fov / 2);
+    const tanX = tanY * aspect;
+    const hx = Math.hypot(1, tanX);
+    const hy = Math.hypot(1, tanY);
+    const planes = [
+      [{ x: 1 / hx, y: 0, z: tanX / hx }, 0],
+      [{ x: -1 / hx, y: 0, z: tanX / hx }, 0],
+      [{ x: 0, y: 1 / hy, z: tanY / hy }, 0],
+      [{ x: 0, y: -1 / hy, z: tanY / hy }, 0],
+      [{ x: 0, y: 0, z: 1 }, near],
+      [{ x: 0, y: 0, z: -1 }, -far]
+    ];
+    let closest = Infinity;
+    for (const [normal, offset] of planes) {
+      const outside = normal.x * q.x + normal.y * q.y + normal.z * q.z + offset;
+      if (outside >= radius) return 0;
+      const rate = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
+      if (rate > 1e-12) closest = Math.min(closest, (radius - outside) / rate);
+    }
+    return Number.isFinite(closest) ? closest : 0;
   }
   /** Convert a normalized device coordinate (-1..1) to a pixel position. */
   toScreen(ndc, width, height) {
@@ -1119,7 +1247,6 @@ function transform(init) {
 
 // src/engines/little-3d-engine/little-3d-engine.ts
 init_renderer();
-init_light();
 
 // src/engines/little-3d-engine/shapes/primitives/spheres/icosphere.ts
 init_geometry();
@@ -1168,35 +1295,44 @@ function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
   );
 }
 
-// src/engines/little-3d-engine/shapes/primitives/spheres/octa-sphere.ts
-init_geometry();
-
 // src/engines/little-3d-engine/little-3d-engine.ts
-init_geometry();
-init_renderer();
-init_math();
 function modelMatrix(t) {
-  const rotation = multiply(
-    rotationZ(t.rotation.z),
-    multiply(rotationY(t.rotation.y), rotationX(t.rotation.x))
-  );
+  const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
     translation(t.position.x, t.position.y, t.position.z),
     multiply(rotation, scaleMatrix(t.scale))
   );
 }
+function detach(surface) {
+  surface.observer.disconnect();
+  surface.canvas.remove();
+}
+function release(surface) {
+  const renderer = surface.renderer;
+  surface.renderer = void 0;
+  try {
+    renderer?.destroy();
+  } finally {
+    detach(surface);
+  }
+}
+function failure(candidate, error) {
+  const name = typeof candidate === "string" ? candidate : "custom";
+  return `${name}: ${error instanceof Error ? error.message : String(error)}`;
+}
 var Little3dEngine = class {
   constructor(options = {}) {
     this.scene = [];
-    this.cssWidth = 0;
-    this.cssHeight = 0;
-    this.ready = false;
+    /** The candidates after the mounted one, to switch to if its renderer is lost. */
+    this.fallbacks = [];
+    this.state = "idle";
     this.generation = 0;
     this.rafId = 0;
     this.running = false;
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
+    this.rendererFor = options.rendererFor;
     this.background = options.background;
   }
   /**
@@ -1205,61 +1341,134 @@ var Little3dEngine = class {
    * is unavailable. With `"auto"`, a backend that fails to load or initialize
    * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
    * rejects only when all of them fail. Drawing is a no-op until it resolves.
+   * If the GPU device or WebGL context is lost later, `"auto"` switches to the
+   * next backend in the same order.
+   *
+   * An engine mounts into one element at a time: mounting again while mounting or
+   * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
+   * mounted again, for example into another element. Destroying while mounting
+   * resolves the pending mount at once, even if a backend is still starting.
    */
   async mount(target) {
+    if (this.state !== "idle") {
+      throw new Error(
+        "3d-spinner: this engine is already mounted. Call destroy() before mounting it again."
+      );
+    }
+    this.state = "mounting";
     const generation = this.generation;
-    const candidates = this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
-    if (generation !== this.generation) return;
+    const cancelled = new Promise((resolve) => {
+      this.cancelMount = resolve;
+    });
+    const starting = this.candidates().then(
+      (candidates) => this.startRenderer(target, generation, candidates)
+    );
+    try {
+      await Promise.race([starting, cancelled]);
+    } catch (error) {
+      if (generation === this.generation) this.state = "idle";
+      throw error;
+    } finally {
+      if (generation === this.generation) this.cancelMount = void 0;
+    }
+  }
+  /** The backends to try, best first: every supported one for `"auto"`, else the chosen one. */
+  async candidates() {
+    return this.backend === "auto" ? resolveAutoCandidates() : [this.backend];
+  }
+  /** Mount the first candidate that starts, or reject with every candidate's error. */
+  async startRenderer(target, generation, candidates) {
     const failures = [];
-    for (const candidate of candidates) {
-      const canvas = this.attachCanvas(target);
-      let renderer;
+    for (const [index, candidate] of candidates.entries()) {
+      if (generation !== this.generation) return;
       try {
-        renderer = await createRenderer(candidate, { background: this.background });
-        if (generation === this.generation) await renderer.init(canvas);
-        if (generation !== this.generation) {
-          renderer.destroy();
-          this.dropCanvas(canvas);
-          return;
-        }
-        this.renderer = renderer;
-        this.resize();
-        this.ready = true;
+        const surface = await this.startSurface(target, generation, candidate);
+        if (!surface) return;
+        this.surface = surface;
+        this.fallbacks = candidates.slice(index + 1);
+        this.state = "mounted";
+        surface.renderer?.onLost?.((reason) => this.recover(surface, target, reason));
         return;
       } catch (error) {
-        try {
-          renderer?.destroy();
-        } catch {
-        }
-        this.dropCanvas(canvas);
         if (generation !== this.generation) return;
         if (candidates.length === 1) throw error;
-        const name = typeof candidate === "string" ? candidate : "custom";
-        failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+        failures.push(failure(candidate, error));
       }
     }
     throw new Error(`3d-spinner: no renderer could start (${failures.join("; ")})`);
   }
-  /** Append a fresh full-size canvas to `target` and track its size. */
-  attachCanvas(target) {
+  /**
+   * Replace a mounted renderer that stopped working with the next backend
+   * `"auto"` would have tried. `mount()` has resolved by then, so there is no
+   * promise left to reject: when no backend is left or none starts, the canvas
+   * stays removed and a console warning says why.
+   */
+  recover(surface, target, reason) {
+    if (this.surface !== surface) return;
+    this.surface = void 0;
+    try {
+      release(surface);
+    } catch {
+    }
+    const warn = (detail) => console.warn(`3d-spinner: the renderer stopped working (${reason}); ${detail}`);
+    if (this.fallbacks.length === 0) {
+      warn("no other backend is left.");
+      return;
+    }
+    this.startRenderer(target, this.generation, this.fallbacks).catch((error) => {
+      warn(`switching failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+  /**
+   * Start `candidate` on a fresh canvas and size it. Resolves with the started
+   * surface, or `undefined` when the engine was destroyed meanwhile. On failure
+   * or cancellation, everything the attempt created is released first.
+   */
+  async startSurface(target, generation, candidate) {
+    const surface = this.openSurface(target);
+    this.attempt = surface;
+    try {
+      surface.renderer = await this.createRenderer(candidate);
+      if (generation === this.generation) {
+        await surface.renderer.init(surface.canvas);
+        surface.started = true;
+        this.resize(surface);
+      }
+    } catch (error) {
+      try {
+        release(surface);
+      } catch {
+      }
+      throw error;
+    } finally {
+      if (this.attempt === surface) this.attempt = void 0;
+    }
+    if (generation === this.generation) return surface;
+    release(surface);
+    return void 0;
+  }
+  /** Construct the renderer for `candidate`, through `rendererFor` when it is set. */
+  async createRenderer(candidate) {
+    const options = { background: this.background };
+    return typeof candidate === "string" && this.rendererFor ? this.rendererFor(candidate, options) : createRenderer(candidate, options);
+  }
+  /** Append a fresh full-size canvas to `target` and start tracking its size. */
+  openSurface(target) {
     const canvas = document.createElement("canvas");
     canvas.style.display = "block";
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     target.appendChild(canvas);
-    this.canvas = canvas;
-    this.observer = new ResizeObserver(() => this.resize());
-    this.observer.observe(canvas);
-    this.resize();
-    return canvas;
-  }
-  /** Remove `canvas` and its size observer, if it is still the current canvas. */
-  dropCanvas(canvas) {
-    if (this.canvas !== canvas) return;
-    this.observer?.disconnect();
-    this.observer = void 0;
-    canvas.remove();
-    this.canvas = void 0;
+    const surface = {
+      canvas,
+      observer: new ResizeObserver(() => this.resize(surface)),
+      cssWidth: 0,
+      cssHeight: 0,
+      started: false
+    };
+    surface.observer.observe(canvas);
+    this.resize(surface);
+    return surface;
   }
   /** Add a mesh to the scene and return a handle for animating it. */
   add(mesh, init) {
@@ -1269,27 +1478,33 @@ var Little3dEngine = class {
       transparency: init?.transparency,
       remove: () => {
         const i = this.scene.indexOf(entry);
-        if (i >= 0) this.scene.splice(i, 1);
+        if (i < 0) return;
+        this.scene.splice(i, 1);
+        if (!this.scene.some((other) => other.mesh === mesh)) {
+          this.surface?.renderer?.releaseMesh?.(mesh);
+        }
       }
     };
     this.scene.push(entry);
     return entry;
   }
-  resize() {
-    const canvas = this.canvas;
-    if (!canvas) return;
+  /** Match the canvas's pixel size to its CSS size, and tell a started renderer. */
+  resize(surface) {
+    const { canvas } = surface;
     const dpr = window.devicePixelRatio || 1;
-    this.cssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
-    this.cssHeight = canvas.clientHeight || canvas.parentElement?.clientHeight || 0;
-    canvas.width = Math.max(1, Math.round(this.cssWidth * dpr));
-    canvas.height = Math.max(1, Math.round(this.cssHeight * dpr));
-    this.renderer?.resize(this.cssWidth, this.cssHeight, dpr);
+    surface.cssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
+    surface.cssHeight = canvas.clientHeight || canvas.parentElement?.clientHeight || 0;
+    canvas.width = Math.max(1, Math.round(surface.cssWidth * dpr));
+    canvas.height = Math.max(1, Math.round(surface.cssHeight * dpr));
+    if (surface.started) surface.renderer?.resize(surface.cssWidth, surface.cssHeight, dpr);
   }
   /** Draw a single frame from the current scene state. */
   render() {
-    if (!this.ready || !this.renderer) return;
-    const width = this.cssWidth;
-    const height = this.cssHeight;
+    const surface = this.surface;
+    const renderer = surface?.renderer;
+    if (!surface || !renderer) return;
+    const width = surface.cssWidth;
+    const height = surface.cssHeight;
     if (width === 0 || height === 0) return;
     const items = this.scene.map((entry) => ({
       mesh: entry.mesh,
@@ -1297,7 +1512,7 @@ var Little3dEngine = class {
       transparency: entry.transparency
     }));
     const eye = this.camera.options.position;
-    this.renderer.render({
+    renderer.render({
       items: orderRenderItems(items, eye),
       viewProjection: this.camera.viewProjection(width / height),
       eye,
@@ -1326,45 +1541,47 @@ var Little3dEngine = class {
   /** Stop animating, release the renderer, and remove the canvas. */
   destroy() {
     this.generation++;
-    this.ready = false;
+    this.cancelMount?.();
+    this.cancelMount = void 0;
+    this.state = "idle";
     this.stop();
-    this.observer?.disconnect();
-    this.observer = void 0;
-    this.renderer?.destroy();
-    this.renderer = void 0;
-    this.canvas?.remove();
-    this.canvas = void 0;
+    const { surface, attempt } = this;
+    this.surface = void 0;
+    this.attempt = void 0;
+    this.fallbacks = [];
+    if (attempt) detach(attempt);
+    if (surface) release(surface);
   }
 };
 
 // src/engines/little-tween-engine/core/tweens.ts
-function input(value, overextend) {
+function input(value, allowExtrapolation) {
   if (Number.isNaN(value)) return 0;
-  if (overextend) return value;
+  if (allowExtrapolation) return value;
   return Math.min(1, Math.max(0, value));
 }
-function easeInQuad(value, overextend = false) {
-  const x = input(value, overextend);
+function easeInQuad(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   return x * x;
 }
-function easeOutQuad(value, overextend = false) {
-  const x = input(value, overextend);
+function easeOutQuad(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   return 1 - (1 - x) * (1 - x);
 }
-function easeInCubic(value, overextend = false) {
-  const x = input(value, overextend);
+function easeInCubic(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   return x * x * x;
 }
-function easeOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
+function easeOutCubic(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.pow(1 - x, 3);
 }
-function easeInOutCubic(value, overextend = false) {
-  const x = input(value, overextend);
+function easeInOutCubic(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
-function easeOutBack(value, overextend = false) {
-  const x = input(value, overextend);
+function easeOutBack(value, allowExtrapolation = false) {
+  const x = input(value, allowExtrapolation);
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
@@ -1414,7 +1631,7 @@ var ChargedOrbAnimation = class {
     this.backend = options.backend;
   }
   mount(target) {
-    if (!target.style.position) target.style.position = "relative";
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z } }
@@ -1425,9 +1642,7 @@ var ChargedOrbAnimation = class {
       this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    return engine.mount(target);
   }
   enter(now) {
     if (this.enterAt === Infinity) this.enterAt = now;

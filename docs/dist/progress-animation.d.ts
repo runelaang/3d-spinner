@@ -2,6 +2,8 @@ export interface ProgressAnimationOptions {
     /** Pop-in / pop-out duration in milliseconds. Default `500`. */
     popDurationMs?: number;
     /** Scale overshoot fraction during pop. Default `0.2` (20%). */
+    overshootRatio?: number;
+    /** @deprecated Renamed to {@link ProgressAnimationOptions.overshootRatio}; removed in 1.0.0. */
     overextend?: number;
     /** Share of pop duration used for the fast overshoot snap. Default `0.2`. */
     startSnapRatio?: number;

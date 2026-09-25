@@ -76,7 +76,9 @@ function link(gl) {
 /** Hardware renderer using WebGL2: GPU transforms with a real depth buffer. */
 export class WebGLRenderer {
     constructor(options = {}) {
+        this.destroyed = false;
         this.cache = new Map();
+        this.modelScratch = new Float32Array(16);
         if (options.background) {
             const [r, g, b] = parseColor(options.background);
             this.clearColor = [r / 255, g / 255, b / 255, 1];
@@ -90,6 +92,7 @@ export class WebGLRenderer {
         if (!gl)
             throw new Error("3d-spinner: WebGL2 is not supported in this browser.");
         this.gl = gl;
+        this.canvas = canvas;
         this.program = link(gl);
         this.locations = {
             aPos: gl.getAttribLocation(this.program, "aPos"),
@@ -118,7 +121,7 @@ export class WebGLRenderer {
         const canvas = gl.canvas;
         gl.viewport(0, 0, canvas.width, canvas.height);
     }
-    buffers(mesh) {
+    getOrCreateMeshBuffers(mesh) {
         const cached = this.cache.get(mesh);
         if (cached)
             return cached;
@@ -168,21 +171,25 @@ export class WebGLRenderer {
         for (const item of frame.items) {
             if (item.transparency)
                 continue;
-            const mesh = this.buffers(item.mesh);
-            gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+            const mesh = this.getOrCreateMeshBuffers(item.mesh);
+            this.modelScratch.set(item.model);
+            gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
             gl.uniform1f(loc.uOpacity, 1);
             gl.bindVertexArray(mesh.vao);
             gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
         }
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        // The canvas composites as premultiplied alpha: blend RGB by source alpha, but alpha itself
+        // with ONE so a 50% surface leaves alpha 0.5 (not 0.25), matching the WebGPU blend state.
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         for (const item of frame.items) {
             const transparency = item.transparency;
             if (!transparency)
                 continue;
-            const mesh = this.buffers(item.mesh);
-            gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+            const mesh = this.getOrCreateMeshBuffers(item.mesh);
+            this.modelScratch.set(item.model);
+            gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
             gl.bindVertexArray(mesh.vao);
             if (transparency.mode === "two-sided") {
                 const resolved = resolveTwoSidedOpacity(transparency);
@@ -204,14 +211,32 @@ export class WebGLRenderer {
         gl.cullFace(gl.BACK);
         gl.bindVertexArray(null);
     }
+    /** Delete the vertex array and buffers cached for `mesh`. */
+    releaseMesh(mesh) {
+        const cached = this.cache.get(mesh);
+        if (!cached)
+            return;
+        this.cache.delete(mesh);
+        const gl = this.gl;
+        if (!gl)
+            return;
+        gl.deleteVertexArray(cached.vao);
+        for (const buffer of cached.buffers)
+            gl.deleteBuffer(buffer);
+    }
+    /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+    onLost(listener) {
+        this.canvas?.addEventListener("webglcontextlost", () => {
+            if (!this.destroyed)
+                listener("WebGL context lost");
+        }, { once: true });
+    }
     destroy() {
+        this.destroyed = true;
         const gl = this.gl;
         if (gl) {
-            for (const mesh of this.cache.values()) {
-                gl.deleteVertexArray(mesh.vao);
-                for (const buffer of mesh.buffers)
-                    gl.deleteBuffer(buffer);
-            }
+            for (const mesh of [...this.cache.keys()])
+                this.releaseMesh(mesh);
             if (this.program)
                 gl.deleteProgram(this.program);
             // Browsers cap how many WebGL contexts may be live at once and only reclaim a dropped one
@@ -221,6 +246,7 @@ export class WebGLRenderer {
         }
         this.cache.clear();
         this.gl = undefined;
+        this.canvas = undefined;
         this.program = undefined;
         this.locations = undefined;
     }

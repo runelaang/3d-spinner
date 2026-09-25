@@ -74,6 +74,30 @@ export function rotationZ(rad) {
     return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 }
 /**
+ * Rotation matrix for the engine's Euler convention: X first, then Y, then Z
+ * (`Rz * Ry * Rx`). This is how mesh transforms interpret `rotation`.
+ */
+export function rotationFromEuler(x, y, z) {
+    return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
+}
+/**
+ * Inverse of {@link rotationFromEuler}: the Euler angles of a rotation matrix.
+ * At gimbal lock (Y = +-90 degrees) X and Z are not separable, so Z is 0.
+ */
+export function eulerFromRotation(m) {
+    // Column-major: m[col * 4 + row]. For Rz*Ry*Rx, row 2 of column 0 is -sin(y),
+    // column 0 carries cos(y)*(cos z, sin z) and row 2 of columns 1-2 carries cos(y)*(sin x, cos x).
+    const horizontal = Math.hypot(m[0], m[1]);
+    if (horizontal <= 1e-6) {
+        return { x: Math.atan2(-m[9], m[5]), y: Math.atan2(-m[2], horizontal), z: 0 };
+    }
+    return {
+        x: Math.atan2(m[6], m[10]),
+        y: Math.atan2(-m[2], horizontal),
+        z: Math.atan2(m[1], m[0]),
+    };
+}
+/**
  * Perspective projection matrix.
  *
  * @param fovY Vertical field of view in radians.
@@ -85,10 +109,22 @@ export function perspective(fovY, aspect, near, far) {
     const f = 1 / Math.tan(fovY / 2);
     const nf = 1 / (near - far);
     return [
-        f / aspect, 0, 0, 0,
-        0, f, 0, 0,
-        0, 0, (far + near) * nf, -1,
-        0, 0, 2 * far * near * nf, 0,
+        f / aspect,
+        0,
+        0,
+        0,
+        0,
+        f,
+        0,
+        0,
+        0,
+        0,
+        (far + near) * nf,
+        -1,
+        0,
+        0,
+        2 * far * near * nf,
+        0,
     ];
 }
 /** Transform a point by a matrix, applying the perspective divide. */
