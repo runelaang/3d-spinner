@@ -1,5 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "./animation.js";
-import { prepareHost } from "./mount-host.js";
+import { mountAnimation, prepareHost } from "./mount-host.js";
 
 /** One animation layer in a {@link CompositeAnimation}. Later layers render above earlier ones. */
 export interface CompositeAnimationLayer {
@@ -25,7 +25,7 @@ export class CompositeAnimation implements SpinnerAnimation {
       element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
       target.appendChild(element);
       this.elements.push(element);
-      mounting.push(Promise.resolve(layer.animation.mount(element)));
+      mounting.push(mountAnimation(layer.animation, element));
     }
     return Promise.all(mounting).then(() => undefined);
   }
@@ -46,9 +46,22 @@ export class CompositeAnimation implements SpinnerAnimation {
     return this.layers.every((layer) => layer.animation.isFinished());
   }
 
+  /** Destroy every layer even if one throws, then rethrow the first error. */
   destroy(): void {
-    for (const layer of this.layers) layer.animation.destroy();
+    // Deliberately not an AggregateError: only a faulty custom layer throws here, and the
+    // first error is enough to find it. What matters is that every other layer is cleaned up.
+    let failed = false;
+    let firstError: unknown;
+    for (const layer of this.layers) {
+      try {
+        layer.animation.destroy();
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+      }
+    }
     for (const element of this.elements) element.remove();
     this.elements.length = 0;
+    if (failed) throw firstError;
   }
 }

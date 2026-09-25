@@ -89,6 +89,7 @@ export class Little3dEngine {
   private ready = false;
   private state: "idle" | "mounting" | "mounted" = "idle";
   private generation = 0;
+  private cancelMount?: () => void;
   private rafId = 0;
   private running = false;
 
@@ -109,7 +110,8 @@ export class Little3dEngine {
    *
    * An engine mounts into one element at a time: mounting again while mounting or
    * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
-   * mounted again, for example into another element.
+   * mounted again, for example into another element. Destroying while mounting
+   * resolves the pending mount at once, even if a backend is still starting.
    */
   async mount(target: HTMLElement): Promise<void> {
     if (this.state !== "idle") {
@@ -119,11 +121,18 @@ export class Little3dEngine {
     }
     this.state = "mounting";
     const generation = this.generation;
+    const cancelled = new Promise<void>((resolve) => {
+      this.cancelMount = resolve;
+    });
     try {
-      await this.startRenderer(target, generation);
+      // A backend that never finishes starting must not keep the mount pending after destroy().
+      // A renderer that arrives late is still cleaned up by the generation checks.
+      await Promise.race([this.startRenderer(target, generation), cancelled]);
     } catch (error) {
       if (generation === this.generation) this.state = "idle";
       throw error;
+    } finally {
+      if (generation === this.generation) this.cancelMount = undefined;
     }
   }
 
@@ -268,15 +277,21 @@ export class Little3dEngine {
   /** Stop animating, release the renderer, and remove the canvas. */
   destroy(): void {
     this.generation++;
+    this.cancelMount?.();
+    this.cancelMount = undefined;
     this.ready = false;
     this.state = "idle";
     this.stop();
     this.observer?.disconnect();
     this.observer = undefined;
-    this.renderer?.destroy();
+    const { renderer, canvas } = this;
     this.renderer = undefined;
-    this.canvas?.remove();
     this.canvas = undefined;
+    try {
+      renderer?.destroy();
+    } finally {
+      canvas?.remove();
+    }
   }
 }
 

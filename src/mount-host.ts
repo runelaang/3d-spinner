@@ -1,3 +1,5 @@
+import type { SpinnerAnimation } from "./animation.js";
+
 /**
  * Make `target` the positioning context for the absolutely placed canvas, label,
  * and layers, without overriding a position the page already gives it.
@@ -11,4 +13,15 @@
 export function prepareHost(target: HTMLElement): void {
   const position = getComputedStyle(target).position;
   if (position === "static" || position === "") target.style.position = "relative";
+}
+
+/**
+ * Mount `animation` into `target`. Being async, it turns a synchronous throw into
+ * a rejected promise, so the caller keeps a handle that can still clean up.
+ */
+export async function mountAnimation(
+  animation: SpinnerAnimation,
+  target: HTMLElement,
+): Promise<void> {
+  await animation.mount(target);
 }

@@ -1,5 +1,6 @@
 import type { SpinnerAnimation } from "./animation.js";
 import { damp } from "./engines/little-tween-engine/core/damp.js";
+import { mountAnimation } from "./mount-host.js";
 
 /** A spinner driven by real progress the caller reports via {@link Spinner.setProgress}. */
 export interface ProgressSpinnerOptions {
@@ -145,7 +146,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     );
   }
   usedAnimations.add(animation);
-  const mounting = animation.mount(target);
+  const mounting = mountAnimation(animation, target);
   const progressbar = mountProgressbar(target, options.ariaLabel ?? "Loading", indeterminate);
   const ready = Promise.resolve(mounting).catch((error: unknown) => {
     halt();
@@ -241,8 +242,11 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     if (destroyed) return;
     destroyed = true;
     halt();
-    animation.destroy();
-    progressbar.element.remove();
+    try {
+      animation.destroy();
+    } finally {
+      progressbar.element.remove();
+    }
   }
 
   rafId = requestAnimationFrame(frame);
