@@ -9,7 +9,7 @@ export interface Material {
   /**
    * Ambient reflectivity (`Ka`) as linear `0..1` RGB. Scales the scene ambient
    * fill per channel before it multiplies the face color (`Kd`). Omit or
-   * `[1,1,1]` for the full scene ambient (the engine default — not Wavefront's
+   * `[1,1,1]` for the full scene ambient (the engine default - not Wavefront's
    * usual `0.2` fallback, which would darken every material that never sets
    * `Ka`). `[0,0,0]` kills the ambient fill so only the directional term remains.
    */
