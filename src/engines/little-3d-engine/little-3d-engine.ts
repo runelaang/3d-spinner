@@ -138,6 +138,7 @@ export class Little3dEngine {
         this.state = "mounted";
         return;
       } catch (error) {
+        if (this.renderer === renderer) this.renderer = undefined;
         try {
           renderer?.destroy();
         } catch {
