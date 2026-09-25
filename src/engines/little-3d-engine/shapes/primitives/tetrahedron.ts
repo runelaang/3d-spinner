@@ -6,7 +6,7 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
  * Build a regular tetrahedron mesh centered on the origin.
  *
  * @param size Approximate diameter. Defaults to `1`.
- * @param colors Four CSS colors, one per triangular face. Defaults to a built-in palette.
+ * @param colors Four hex colors, one per triangular face. Defaults to a built-in palette.
  * @param material Optional surface material applied to every face.
  */
 export function tetrahedron(
@@ -14,6 +14,7 @@ export function tetrahedron(
   colors: string[] = DEFAULT_COLORS,
   material?: Material,
 ): Mesh {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const s = size / 2;
   const vertices = [
     { x: s, y: s, z: s },

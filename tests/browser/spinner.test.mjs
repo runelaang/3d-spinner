@@ -509,3 +509,27 @@ test("a lost WebGL context switches to Canvas 2D and keeps drawing", async (t) =
   assert.equal(result.canvases, 1);
   assert.ok(result.lit > 500, `Canvas 2D drew ${result.lit} pixels`);
 });
+
+test("particles with an empty color list draw with the default palette", async () => {
+  const { page, messages } = await browser.open();
+  const result = await page.evaluate(async () => {
+    const { ParticlesAnimation } = await import("/dist/animations/particles.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const particles = new ParticlesAnimation({
+      colors: [],
+      backend: "canvas2d",
+      size: 0.4,
+      seed: 3,
+    });
+    await particles.mount(host);
+    particles.enter(0);
+    particles.render(1000, { progress: 0, targetProgress: 0, indeterminate: true });
+    const lit = litPixels(host.querySelector("canvas"));
+    particles.destroy();
+    return lit;
+  });
+  assert.ok(result > 200, `drew ${result} pixels`);
+  assert.deepEqual(messages, []);
+});

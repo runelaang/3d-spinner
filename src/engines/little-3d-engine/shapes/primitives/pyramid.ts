@@ -6,11 +6,12 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
  * Build a square pyramid mesh centered on the origin, base down.
  *
  * @param size Base edge length (also the height). Defaults to `1`.
- * @param colors Five CSS colors: the square base, then the four triangular sides.
+ * @param colors Five hex colors: the square base, then the four triangular sides.
  *   Defaults to a built-in palette.
  * @param material Optional surface material applied to every face.
  */
 export function pyramid(size = 1, colors: string[] = DEFAULT_COLORS, material?: Material): Mesh {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const h = size / 2;
   const vertices = [
     { x: -h, y: -h, z: h },

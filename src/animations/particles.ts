@@ -23,7 +23,10 @@ export interface ParticlesOptions {
   rate?: number;
   /** Lifetime of one particle in milliseconds. Default `1800`. */
   lifeMs?: number;
-  /** Particle colors, cycled across particles. Defaults to a built-in palette. */
+  /**
+   * Particle hex colors (`#rgb` or `#rrggbb`), cycled across particles. Defaults to a
+   * built-in palette, also when empty.
+   */
   colors?: string[];
   /** Base particle size in world units, varied per particle. Default `0.16`. */
   size?: number;
@@ -222,7 +225,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
 
   constructor(options: ParticlesOptions = {}) {
     this.field = particleField(options);
-    this.colors = options.colors ?? DEFAULT_COLORS;
+    this.colors = [...(options.colors?.length ? options.colors : DEFAULT_COLORS)];
     this.backend = options.backend;
     this.texture = options.texture;
     this.labelContent = options.label;

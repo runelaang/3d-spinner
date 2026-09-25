@@ -5,7 +5,7 @@ const DEFAULT_COLORS = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#f8fafc"];
 /**
  * Build a low-poly plane mesh pointing along the positive X axis.
  *
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export function planeMesh(colors: string[] = DEFAULT_COLORS, material?: Material): Mesh {
