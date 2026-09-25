@@ -41,7 +41,7 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 
 /** Trailing copies that chase the lead object in single file. */
 export interface ObjectMotionTail {
-  /** Number of trailing copies. */
+  /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
   count: number;
   /** Time each copy lags the one ahead of it, in milliseconds. */
   gapMs: number;
@@ -281,7 +281,11 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.transparency = options.transparency;
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
-    this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
+    const tailCount = options.tail?.count ?? 0;
+    if (!Number.isFinite(tailCount)) {
+      throw new RangeError("3d-spinner: tail.count must be a finite number.");
+    }
+    this.tailCount = Math.max(0, Math.floor(tailCount));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
     this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
     this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
