@@ -14,10 +14,12 @@ import {
   gpuFlags,
   type GpuBindGroup,
   type GpuBuffer,
+  type GpuCanvasFormat,
   type GpuDevice,
   type GpuRenderPipeline,
   type GpuSampler,
   type GpuTexture,
+  type GpuVertexBufferLayout,
 } from "../core/webgpu-api.js";
 
 export type { TextureSource } from "./textured-helpers.js";
@@ -145,7 +147,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
   /** Build the pipeline and sampler for textured meshes. */
   private async createTexturedPipeline(
     device: GpuDevice,
-    format: string,
+    format: GpuCanvasFormat,
   ): Promise<TexturedPipeline> {
     const module = device.createShaderModule({ code: WGSL });
     const stage = gpuFlags().shaderStage;
@@ -160,7 +162,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         { binding: 2, visibility: stage.FRAGMENT, sampler: {} },
       ],
     });
-    const vertexBuffer = (location: number, components: number) => ({
+    const vertexBuffer = (location: number, components: 2 | 3): GpuVertexBufferLayout => ({
       arrayStride: components * 4,
       attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }],
     });

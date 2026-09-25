@@ -2,7 +2,7 @@
 
 Tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
 external test framework. The unit tests need nothing beyond the package's own build tooling
-(TypeScript for the consumer type check); the browser tests drive headless Chromium through the
+(TypeScript and `@webgpu/types` for the type checks); the browser tests drive headless Chromium through the
 `playwright` dev dependency. Neither adds a runtime dependency.
 
 They run against the compiled output in `dist/`, i.e. exactly what consumers get from npm.
@@ -61,6 +61,9 @@ Lifecycle, engine, and pure logic:
   line-numbered errors for malformed vertices and faces).
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
   CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
+- `webgpu-types.test.mjs` - the engine's own WebGPU types match `@webgpu/types` (a dev
+  dependency only): every member exists, every descriptor the local types allow is valid for the
+  official method, and every value the official API returns fits the local type.
 - `camera.test.mjs` - cameras never share a position object with each other or the caller.
 - `object-motion.test.mjs` - a tail count that is not finite is rejected.
 - `composite-animation.test.mjs` - layer composition; a layer whose mount throws rejects the

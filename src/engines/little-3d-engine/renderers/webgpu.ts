@@ -5,11 +5,15 @@ import {
   gpuFlags,
   webgpu,
   webgpuContext,
+  type GpuBlendState,
   type GpuBuffer,
   type GpuCanvasContext,
+  type GpuCanvasFormat,
+  type GpuCullMode,
   type GpuDevice,
   type GpuRenderPipeline,
   type GpuTexture,
+  type GpuVertexBufferLayout,
 } from "../core/webgpu-api.js";
 import {
   DEFAULT_ONE_SIDED_OPACITY,
@@ -106,7 +110,7 @@ export class WebGPURenderer implements Renderer {
   private canvas?: HTMLCanvasElement;
   protected device?: GpuDevice;
   protected context?: GpuCanvasContext;
-  protected format?: string;
+  protected format?: GpuCanvasFormat;
   private pipelines?: Pipelines;
   private uniformBuffer?: GpuBuffer;
   private uniformCapacity = 0;
@@ -116,7 +120,7 @@ export class WebGPURenderer implements Renderer {
   private readonly cache = new Map<Mesh, MeshBuffers>();
   private readonly uniformScratch = new Float32Array(UNIFORM_STRIDE / 4);
   protected readonly clearValue: { r: number; g: number; b: number; a: number };
-  private readonly alphaMode: string;
+  private readonly alphaMode: "opaque" | "premultiplied";
 
   constructor(options: RendererOptions = {}) {
     if (options.background) {
@@ -160,7 +164,7 @@ export class WebGPURenderer implements Renderer {
   private async createPipelines(
     device: GpuDevice,
     context: GpuCanvasContext,
-    format: string,
+    format: GpuCanvasFormat,
   ): Promise<Pipelines> {
     context.configure({ device, format, alphaMode: this.alphaMode });
     const module = device.createShaderModule({ code: WGSL });
@@ -174,12 +178,12 @@ export class WebGPURenderer implements Renderer {
         },
       ],
     });
-    const vertexBuffer = (location: number, components = 3) => ({
+    const vertexBuffer = (location: number, components: 2 | 3 | 4 = 3): GpuVertexBufferLayout => ({
       arrayStride: components * 4,
       attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }],
     });
     const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
-    const blend = {
+    const blend: GpuBlendState = {
       color: {
         srcFactor: "src-alpha",
         dstFactor: "one-minus-src-alpha",
@@ -188,7 +192,7 @@ export class WebGPURenderer implements Renderer {
       alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
     };
     // The async variant rejects on an invalid pipeline, so "auto" can fall back.
-    const pipeline = (cullMode: string, transparent: boolean) =>
+    const pipeline = (cullMode: GpuCullMode, transparent: boolean) =>
       device.createRenderPipelineAsync({
         layout: pipelineLayout,
         vertex: {
