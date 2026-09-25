@@ -301,3 +301,165 @@ test("a textured particle layer falls back and still draws when WebGPU fails to 
   assert.ok(result.lit > 200, `fallback drew ${result.lit} pixels`);
   assert.deepEqual(messages, []);
 });
+
+test("ready settles when the spinner is destroyed during a setup that never finishes", async () => {
+  const { page } = await browser.open(hangingWebGPU);
+  const results = await page.evaluate(async () => {
+    const { createSpinner } = await import("/dist/index.js");
+    const { SpinAnimation } = await import("/dist/animations/spin.js");
+    const { planeStarTrail } = await import("/dist/prefabs/prefabs.js");
+    const out = {};
+    const cases = {
+      spin: () => ({ type: "indeterminate", animation: new SpinAnimation({ backend: "webgpu" }) }),
+      planeStarTrail: () => planeStarTrail({ backend: "webgpu" }),
+    };
+    for (const [name, options] of Object.entries(cases)) {
+      const host = document.createElement("div");
+      host.innerHTML = "<p id='keep'>Your content</p>";
+      document.body.appendChild(host);
+      const spinner = createSpinner(host, options());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      spinner.destroy();
+      const settled = await Promise.race([
+        spinner.ready.then(
+          () => "resolved",
+          () => "rejected",
+        ),
+        new Promise((resolve) => setTimeout(() => resolve("still pending"), 1000)),
+      ]);
+      out[name] = { settled, children: [...host.children].map((child) => child.id) };
+    }
+    return out;
+  });
+  for (const name of ["spin", "planeStarTrail"]) {
+    assert.deepEqual(results[name], { settled: "resolved", children: ["keep"] }, name);
+  }
+});
+
+test("WebGL keeps a half-transparent surface half transparent on a clear canvas", async (t) => {
+  const { page, messages } = await browser.open();
+  if (!(await hasWebGL2(page))) {
+    t.skip("no WebGL2 in this browser");
+    return;
+  }
+  const alpha = await page.evaluate(async () => {
+    const { Little3dEngine, quad } =
+      await import("/dist/engines/little-3d-engine/little-3d-engine.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const engine = new Little3dEngine({ backend: "webgl" });
+    engine.add(quad(2, ["#ffffff"]), { transparency: { mode: "one-sided", opacity: 0.5 } });
+    await engine.mount(host);
+    engine.render();
+    const canvas = host.querySelector("canvas");
+    const probe = document.createElement("canvas");
+    probe.width = canvas.width;
+    probe.height = canvas.height;
+    const context = probe.getContext("2d");
+    context.drawImage(canvas, 0, 0);
+    const [, , , a] = context.getImageData(probe.width / 2, probe.height / 2, 1, 1).data;
+    engine.destroy();
+    return a;
+  });
+  assert.ok(Math.abs(alpha - 128) <= 3, `alpha was ${alpha}, expected about 128`);
+  assert.deepEqual(messages, []);
+});
+
+test("setTexture replaces a texture that is already on screen", async (t) => {
+  const { page, messages } = await browser.open();
+  const results = await page.evaluate(async () => {
+    const { Little3dEngine, quad } =
+      await import("/dist/engines/little-3d-engine/little-3d-engine.js");
+    const backends = {};
+    if (document.createElement("canvas").getContext("webgl2")) {
+      const { WebGLTexturedRenderer } =
+        await import("/dist/engines/little-3d-engine/renderers/webgl-textured.js");
+      backends.webgl = WebGLTexturedRenderer;
+    }
+    if (await navigator.gpu?.requestAdapter()) {
+      const { WebGPUTexturedRenderer } =
+        await import("/dist/engines/little-3d-engine/renderers/webgpu-textured.js");
+      backends.webgpu = WebGPUTexturedRenderer;
+    }
+    const solid = (color) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 4;
+      const context = canvas.getContext("2d");
+      context.fillStyle = color;
+      context.fillRect(0, 0, 4, 4);
+      return canvas;
+    };
+    const centerColor = (canvas) => {
+      const probe = document.createElement("canvas");
+      probe.width = canvas.width;
+      probe.height = canvas.height;
+      const context = probe.getContext("2d");
+      context.drawImage(canvas, 0, 0);
+      const [r, g, b] = context.getImageData(probe.width / 2, probe.height / 2, 1, 1).data;
+      return r > 200 && g < 50 && b < 50 ? "red" : b > 200 && r < 50 && g < 50 ? "blue" : "other";
+    };
+    const out = {};
+    for (const [name, TexturedRenderer] of Object.entries(backends)) {
+      const host = document.createElement("div");
+      host.style.cssText = "width:160px;height:160px";
+      document.body.appendChild(host);
+      const mesh = quad(2, ["#ffffff"]);
+      let renderer;
+      const engine = new Little3dEngine({
+        backend: (options) => {
+          renderer = new TexturedRenderer(options);
+          renderer.setTexture(mesh, solid("#ff0000"));
+          return renderer;
+        },
+      });
+      engine.add(mesh);
+      await engine.mount(host);
+      const canvas = host.querySelector("canvas");
+      engine.render();
+      const before = centerColor(canvas);
+      renderer.setTexture(mesh, solid("#0000ff"));
+      engine.render();
+      out[name] = [before, centerColor(canvas)];
+      engine.destroy();
+      host.remove();
+    }
+    return out;
+  });
+  if (Object.keys(results).length === 0) {
+    t.skip("neither WebGL2 nor WebGPU in this browser");
+    return;
+  }
+  for (const [name, colors] of Object.entries(results)) {
+    assert.deepEqual(colors, ["red", "blue"], name);
+  }
+  assert.deepEqual(messages, []);
+});
+
+test("a plane stopped during its intro keeps its trail emitting until its fly-out ends", async () => {
+  const { page } = await browser.open();
+  const done = await page.evaluate(async () => {
+    const { planeStarTrail } = await import("/dist/prefabs/prefabs.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const { animation } = planeStarTrail();
+    // The prefab's layers: the particle trail first, then the plane.
+    const [trail, plane] = animation.layers.map((layer) => layer.animation);
+    await animation.mount(host);
+    animation.enter(0);
+    animation.exit(100);
+    const out = {};
+    for (let now = 0; now <= 12000 && !(out.trail && out.plane); now += 20) {
+      animation.render(now, { progress: 0, targetProgress: 0, indeterminate: true });
+      if (!out.plane && plane.isFinished()) out.plane = now;
+      if (!out.trail && trail.isFinished()) out.trail = now;
+    }
+    animation.destroy();
+    return out;
+  });
+  // The trail finishes one particle lifetime (1900 ms in this prefab) after its last emission,
+  // so the last emission lines up with the end of the plane's fly-out.
+  assert.ok(done.plane > 0 && done.trail > 0, JSON.stringify(done));
+  assert.ok(Math.abs(done.trail - done.plane - 1900) <= 20, JSON.stringify(done));
+});

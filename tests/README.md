@@ -46,19 +46,24 @@ Lifecycle, engine, and pure logic:
   done-label fading and immediate completion when the fade is disabled.
 - `spinner-lifecycle.test.mjs` - `createSpinner` mounting, reported and timed completion,
   indeterminate stop, immediate/idempotent destroy, and option validation (`periodMs`,
-  `until`, `timeout`) using a fake animation, element, and animation-frame scheduler.
+  `until`, `timeout`) using a fake animation, element, and animation-frame scheduler. A mount
+  that throws at once still returns a spinner and rejects `ready`; a throwing `destroy()` still
+  removes the progress bar.
 - `engine-fallback.test.mjs` - `Little3dEngine` mounting with fake canvases: `"auto"` falls
   back when a backend fails, rejects with every backend's error when none starts, releases a
-  partially initialized WebGPU device, refuses a second mount, remounts after destroy, and frees
-  a mesh's GPU buffers with its last instance.
+  partially initialized WebGPU device, refuses a second mount, remounts after destroy, frees
+  a mesh's GPU buffers with its last instance, and replaces a renderer whose first resize fails.
 - `obj-loader.test.mjs` / `mtl-material.test.mjs` - OBJ parsing (MTL colors and materials,
   line-numbered errors for malformed vertices and faces).
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
   CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
-- `geometry`, `light`, `particles`, `grid-assembly`, `composite-animation`,
-  `animation-label`, `tween` - GPU triangle expansion, shading, the particle field, prefab story
-  logic, layer composition, label fading and accessibility, and the tween engine (including its
-  deprecated aliases).
+- `camera.test.mjs` - cameras never share a position object with each other or the caller.
+- `object-motion.test.mjs` - a tail count that is not finite is rejected.
+- `composite-animation.test.mjs` - layer composition; a layer whose mount throws rejects the
+  composite's mount, and a layer whose `destroy()` throws does not stop the others.
+- `geometry`, `light`, `particles`, `grid-assembly`, `animation-label`, `tween` - GPU triangle
+  expansion, shading, the particle field, prefab story logic, label fading and accessibility,
+  and the tween engine (including its deprecated aliases).
 
 Real rendering, in `tests/browser/spinner.test.mjs` (headless Chromium over a local file
 server):
@@ -74,6 +79,12 @@ server):
 - 24 mount/destroy cycles on WebGL leave no canvases and no context-limit warnings.
 - The hidden progress bar reports the value once, with no live regions, for a prefab that stacks
   two labels.
+- `spinner.ready` resolves when the spinner is destroyed while WebGPU never finishes starting,
+  for a plain animation and for a composite prefab.
+- WebGL keeps a 50% transparent surface at alpha 128 on a clear canvas (checks the pixel value,
+  not just that something was drawn).
+- `setTexture` replaces a texture that is already on screen (WebGL, and WebGPU when available).
+- A plane stopped during its intro keeps its trail emitting until its fly-out ends.
 
 ## Not covered, on purpose
 

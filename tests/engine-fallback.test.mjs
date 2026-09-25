@@ -205,3 +205,39 @@ test("removing the last instance of a mesh releases it from the renderer", async
   assert.deepEqual(released, [shared, other]);
   engine.destroy();
 });
+
+test("a renderer that fails its first resize is replaced by the next backend", async () => {
+  observers = [];
+  const made = [];
+  const fakeRenderer = (backend) => {
+    const renderer = {
+      backend,
+      destroyed: false,
+      resized: 0,
+      init() {},
+      resize() {
+        this.resized++;
+        if (backend === "webgpu") throw new Error("resize failed");
+      },
+      render() {},
+      destroy() {
+        this.destroyed = true;
+      },
+    };
+    made.push(renderer);
+    return renderer;
+  };
+  const target = new FakeTarget();
+  const engine = new Little3dEngine({ rendererFor: fakeRenderer });
+  await engine.mount(target);
+  assert.deepEqual(
+    made.map((renderer) => renderer.backend),
+    ["webgpu", "canvas2d"],
+  );
+  assert.equal(made[0].destroyed, true);
+  assert.equal(made[1].destroyed, false);
+  assert.ok(made[1].resized > 0, "the next renderer was sized");
+  assert.equal(target.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
+});

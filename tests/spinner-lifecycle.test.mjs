@@ -402,3 +402,30 @@ test("timeoutMs completes a progress spinner and wins over the deprecated timeou
     { name: "RangeError", message: /timeoutMs/ },
   );
 });
+
+test("a mount that throws at once still returns a spinner and rejects ready", async () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  animation.mount = () => {
+    throw new Error("broken extension");
+  };
+  const spinner = createSpinner(target, { animation });
+  await assert.rejects(spinner.ready, /broken extension/);
+  assert.equal(frames.size, 0, "the loop stopped");
+  spinner.destroy();
+  assert.equal(animation.destroyCalls, 1);
+  assert.deepEqual(target.children, [], "the progress bar is gone");
+});
+
+test("destroy removes the progress bar even when the animation's destroy throws", () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  animation.destroy = () => {
+    throw new Error("broken destroy");
+  };
+  const spinner = createSpinner(target, { animation });
+  assert.throws(() => spinner.destroy(), /broken destroy/);
+  assert.deepEqual(target.children, []);
+  assert.equal(frames.size, 0);
+  assert.doesNotThrow(() => spinner.destroy(), "a second destroy is a no-op");
+});

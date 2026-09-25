@@ -94,3 +94,38 @@ test("CompositeAnimation mount resolves after every layer and keeps a positioned
     }
   }
 });
+
+test("CompositeAnimation rejects when a layer's mount throws at once, after mounting the others", async () => {
+  const saved = { document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
+  globalThis.document = { createElement: () => ({ style: {}, remove() {} }) };
+  globalThis.getComputedStyle = () => ({ position: "relative" });
+  try {
+    const first = fakeAnimation();
+    const broken = fakeAnimation();
+    broken.animation.mount = () => {
+      throw new Error("broken layer");
+    };
+    const host = { style: {}, children: [], appendChild: (child) => host.children.push(child) };
+    const mounting = new CompositeAnimation([first.animation, broken.animation]).mount(host);
+    await assert.rejects(mounting, /broken layer/);
+    assert.deepEqual(first.calls, ["mount"]);
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete globalThis[name];
+      else globalThis[name] = value;
+    }
+  }
+});
+
+test("CompositeAnimation destroys every layer when one throws, then rethrows", () => {
+  const broken = fakeAnimation();
+  broken.animation.destroy = () => {
+    throw new Error("broken destroy");
+  };
+  const second = fakeAnimation();
+  const third = fakeAnimation();
+  const composite = new CompositeAnimation([broken.animation, second.animation, third.animation]);
+  assert.throws(() => composite.destroy(), /broken destroy/);
+  assert.deepEqual(second.calls, ["destroy"]);
+  assert.deepEqual(third.calls, ["destroy"]);
+});
