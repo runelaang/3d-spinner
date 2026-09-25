@@ -63,6 +63,11 @@ Lifecycle, engine, and pure logic:
   line-numbered errors for malformed vertices and faces).
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
   CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
+- `packed.test.mjs` - the `npm pack` tarball installed into a new project in a temp folder: every
+  file `package.json` points to is there, every subpath imports as ESM and loads with `require()`,
+  and TypeScript resolves every subpath's types (`node16`, `nodenext`, `bundler`).
+- `colors.test.mjs` - shape builders fall back to their default palette for an empty color list;
+  the engine rejects face and background colors that are not hex.
 - `webgpu-types.test.mjs` - the engine's own WebGPU types match `@webgpu/types` (a dev
   dependency only): every member exists, every descriptor the local types allow is valid for the
   official method, and every value the official API returns fits the local type.
@@ -95,13 +100,20 @@ server):
 - `setTexture` replaces a texture that is already on screen (WebGL, and WebGPU when available).
 - A plane stopped during its intro keeps its trail emitting until its fly-out ends.
 - A lost WebGL context makes `"auto"` switch to Canvas 2D, which draws.
+- Particles with an empty color list draw with the default palette.
+
+Textures, in `tests/browser/textures.test.mjs`, on every textured renderer the browser supports:
+
+- A texture URL loads from the page's origin and from another origin that allows CORS (the local
+  server on `localhost` instead of `127.0.0.1`).
+- Canvas 2D draws an image from another origin that sends no CORS headers.
+- A missing image, a file that is not an image, and (on WebGL and WebGPU) another origin without
+  CORS each give one warning, and the mesh keeps its plain color.
+- WebGPU warns, instead of leaving an unhandled rejection, when an image cannot be decoded.
+- Destroying a renderer while its texture loads gives no warning or error.
+- WebGPU frees replaced textures once the frames that used them are done, including several
+  replacements between two frames.
 
 `webgpu-exercised.test.mjs` reports which WebGPU adapter the browser tests ran on. When there is
 none, the WebGPU checks above skip; with `REQUIRE_WEBGPU=1` (set in CI) it fails instead, so a
 run cannot pass without exercising WebGPU.
-
-## Not covered, on purpose
-
-- **An installed tarball.** The consumer type check resolves the package by self-reference, not
-  from an `npm pack` result installed into a clean project. `files` ships all of `dist/`, the
-  same files self-reference resolves, so a separate install test would mostly re-check npm.
