@@ -95,6 +95,9 @@ Shapes exported from `3d-spinner/engines/little-3d-engine` include `cube`, `tetr
 `octahedron`, `pyramid`, `quad`, and several spheres (`uvSphere`, `icosphere`, `octaSphere`,
 `cubeSphere`).
 
+Mesh and particle colors are hex strings (`#rgb` or `#rrggbb`). Any other value makes the spinner's
+`ready` promise reject with a `RangeError`.
+
 ## Surface materials
 
 Faces are flat-shaded from their color by default. A `Material` adds ambient scaling, a specular

@@ -64,7 +64,7 @@ export interface ObjectMotionOptions {
   mesh: Mesh | (() => Mesh);
   /** How the object moves: a circle, square, figure-8, wander, or any custom controller. */
   motion: MotionController;
-  /** Face color applied to every triangle. Omit to retain the mesh's face colors. */
+  /** Hex face color applied to every triangle. Omit to retain the mesh's face colors. */
   color?: string;
   /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;

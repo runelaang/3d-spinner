@@ -1,4 +1,5 @@
 import { Camera, type CameraOptions } from "./core/camera.js";
+import { assertHexColor } from "./core/geometry.js";
 import { Light, type LightOptions } from "./core/light.js";
 import { type Mat4, multiply, rotationFromEuler, scaleMatrix, translation } from "./core/math.js";
 import {
@@ -37,7 +38,7 @@ export interface Little3dEngineOptions {
   ) => Renderer | Promise<Renderer>;
   camera?: Partial<CameraOptions>;
   light?: Partial<LightOptions>;
-  /** Solid background color; omit for a transparent canvas (overlay use). */
+  /** Solid background hex color (`#rgb` or `#rrggbb`); omit for a transparent canvas (overlay use). */
   background?: string;
 }
 
@@ -121,6 +122,7 @@ export class Little3dEngine {
   private readonly rendererFor?: Little3dEngineOptions["rendererFor"];
   private readonly background?: string;
   private readonly scene: MeshHandle[] = [];
+  private readonly checkedMeshes = new WeakSet<Mesh>();
 
   /** The mounted surface: its renderer is initialized and sized. */
   private surface?: Surface;
@@ -134,7 +136,9 @@ export class Little3dEngine {
   private rafId = 0;
   private running = false;
 
+  /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
   constructor(options: Little3dEngineOptions = {}) {
+    if (options.background !== undefined) assertHexColor(options.background, "background");
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
@@ -299,8 +303,15 @@ export class Little3dEngine {
     return surface;
   }
 
-  /** Add a mesh to the scene and return a handle for animating it. */
+  /**
+   * Add a mesh to the scene and return a handle for animating it. Throws a
+   * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+   */
   add(mesh: Mesh, init?: MeshInstanceOptions): MeshHandle {
+    if (!this.checkedMeshes.has(mesh)) {
+      for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+      this.checkedMeshes.add(mesh);
+    }
     const entry: MeshHandle = {
       mesh,
       transform: makeTransform(init),
