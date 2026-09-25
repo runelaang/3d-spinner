@@ -1,5 +1,6 @@
 import type { Vec3 } from "../engines/little-3d-engine/little-3d-engine.js";
 import type { MotionController } from "./controller.js";
+import { finiteNonZero } from "../validate.js";
 
 /** Half-extents of the box the wander stays within, in scene units. */
 export interface WanderBounds {
@@ -12,7 +13,7 @@ export interface WanderBounds {
 export interface WanderMotionOptions {
   /** Half-extents of the box the object stays within. Default `{ x: 1.4, y: 1.0, z: 0.6 }`. */
   bounds?: WanderBounds;
-  /** Base drift period in ms; larger is slower. Default `9000`. */
+  /** Base drift period in ms; larger is slower. Default `9000`. Must be finite and not zero. */
   periodMs?: number;
   /** Seed for the random direction pattern. Omit for a different wander each time. */
   seed?: number;
@@ -56,7 +57,7 @@ export function wanderMotion(options: WanderMotionOptions = {}): MotionControlle
   const boundX = options.bounds?.x ?? 1.4;
   const boundY = options.bounds?.y ?? 1.0;
   const boundZ = options.bounds?.z ?? 0.6;
-  const periodMs = options.periodMs ?? 9000;
+  const periodMs = finiteNonZero(options.periodMs ?? 9000, "periodMs");
   const seed = options.seed ?? (Math.random() * 1e9) | 0;
 
   const rnd = mulberry32(seed);

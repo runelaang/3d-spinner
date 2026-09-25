@@ -539,3 +539,29 @@ test("particles with an empty color list draw with the default palette", async (
   assert.ok(result > 200, `drew ${result} pixels`);
   assert.deepEqual(messages, []);
 });
+
+test("particles finish when their outroMs function returns a value that is not finite", async () => {
+  const { page, messages } = await browser.open();
+  const finished = await page.evaluate(async () => {
+    const { ParticlesAnimation } = await import("/dist/animations/particles.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const particles = new ParticlesAnimation({
+      backend: "canvas2d",
+      lifeMs: 500,
+      outroMs: () => NaN,
+    });
+    await particles.mount(host);
+    const frame = { progress: 0, targetProgress: 0, indeterminate: true };
+    particles.enter(0);
+    particles.render(100, frame);
+    particles.exit(100);
+    particles.render(700, frame);
+    const done = particles.isFinished();
+    particles.destroy();
+    return done;
+  });
+  assert.equal(finished, true);
+  assert.deepEqual(messages, []);
+});

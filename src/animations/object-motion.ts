@@ -1,5 +1,6 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { prepareHost } from "../mount-host.js";
+import { finite } from "../validate.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -43,7 +44,7 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export interface ObjectMotionTail {
   /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
   count: number;
-  /** Time each copy lags the one ahead of it, in milliseconds. */
+  /** Time each copy lags the one ahead of it, in milliseconds. Must be finite (`RangeError` otherwise). */
   gapMs: number;
 }
 
@@ -214,16 +215,18 @@ function resolveDirection(velocity: Vec3, fallback: Vec3): Vec3 {
   return Math.hypot(velocity.x, velocity.y, velocity.z) > 1e-6 ? normalize(velocity) : fallback;
 }
 
+/** The transition and duration for an intro or outro; `name` labels a non-finite duration's error. */
 function resolveTransition(
   config: ObjectMotionTransitionConfig | undefined,
   fallback: ObjectMotionTransition,
   durationMs: number,
+  name: string,
 ): ResolvedObjectMotionTransition {
   if (!config) return { transition: fallback, durationMs };
   if (typeof config === "function") return { transition: config, durationMs };
   return {
     transition: config.transition,
-    durationMs: Math.max(0, config.durationMs ?? durationMs),
+    durationMs: Math.max(0, finite(config.durationMs ?? durationMs, name)),
   };
 }
 
@@ -287,9 +290,19 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       throw new RangeError("3d-spinner: tail.count must be a finite number.");
     }
     this.tailCount = Math.max(0, Math.floor(tailCount));
-    this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
-    this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
-    this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
+    this.tailGap = Math.max(0, finite(options.tail?.gapMs ?? 0, "tail.gapMs"));
+    this.intro = resolveTransition(
+      options.intro,
+      enterFromObjectDirection(),
+      DEFAULT_INTRO_MS,
+      "intro.durationMs",
+    );
+    this.outro = resolveTransition(
+      options.outro,
+      leaveInObjectDirection(),
+      DEFAULT_OUTRO_MS,
+      "outro.durationMs",
+    );
 
     const rotation = options.rotation;
     this.rotationOffset = { x: rotation?.x ?? 0, y: rotation?.y ?? 0, z: rotation?.z ?? 0 };

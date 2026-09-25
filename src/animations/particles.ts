@@ -1,5 +1,6 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { prepareHost } from "../mount-host.js";
+import { finite, positiveFinite } from "../validate.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -56,6 +57,8 @@ export interface ParticlesOptions {
    * particles keep trailing the emitter as it flies out, instead of freezing where
    * the loop left off. A function is read after exit, for an emitter whose
    * outro timing is only known then (see `ObjectMotionAnimation.outroDelayMs`).
+   * A number must be finite (`RangeError` otherwise); a function result that is
+   * not finite counts as `0`.
    */
   outroMs?: number | (() => number);
   /**
@@ -113,13 +116,6 @@ function rand01(seed: number, index: number, salt: number): number {
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const x = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
   return x * x * (3 - 2 * x);
-}
-
-function positiveFinite(value: number, name: string): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`3d-spinner: ${name} must be a finite number greater than zero.`);
-  }
-  return value;
 }
 
 function emitBasis(direction: Vec3): { d: Vec3; right: Vec3; up: Vec3 } {
@@ -232,7 +228,11 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.fadeLabel = options.fadeLabel ?? true;
     this.emitter = options.emitter;
     const outroMs = options.outroMs ?? 0;
-    this.outroMs = () => Math.max(0, typeof outroMs === "function" ? outroMs() : outroMs);
+    if (typeof outroMs === "number") finite(outroMs, "outroMs");
+    this.outroMs = () => {
+      const value = typeof outroMs === "function" ? outroMs() : outroMs;
+      return Number.isFinite(value) ? Math.max(0, value) : 0;
+    };
   }
 
   mount(target: HTMLElement): Promise<void> {

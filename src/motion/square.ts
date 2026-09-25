@@ -1,11 +1,12 @@
 import type { Vec3 } from "../engines/little-3d-engine/little-3d-engine.js";
 import type { MotionController } from "./controller.js";
+import { finiteNonZero } from "../validate.js";
 
 /** Options for {@link squareMotion}. */
 export interface SquareMotionOptions {
   /** Side length of the square in scene units. Default `2.4`. */
   size?: number;
-  /** Milliseconds for one full lap of the perimeter. Default `4000`. */
+  /** Milliseconds for one full lap of the perimeter. Default `4000`. Must be finite and not zero. */
   periodMs?: number;
   /** Tilt of the square's plane about the X axis, radians. `0` faces the camera. Default `0.45`. */
   tilt?: number;
@@ -19,7 +20,7 @@ export interface SquareMotionOptions {
  */
 export function squareMotion(options: SquareMotionOptions = {}): MotionController {
   const half = (options.size ?? 2.4) / 2;
-  const periodMs = options.periodMs ?? 4000;
+  const periodMs = finiteNonZero(options.periodMs ?? 4000, "periodMs");
   const tilt = options.tilt ?? 0.45;
   const direction = options.direction ?? 1;
   const cosTilt = Math.cos(tilt);

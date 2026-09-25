@@ -4,9 +4,10 @@ import {
   easeOutQuad,
   easeInQuad,
 } from "./engines/little-tween-engine/core/tweens.js";
+import { finite } from "./validate.js";
 
 export interface ProgressAnimationOptions {
-  /** Pop-in / pop-out duration in milliseconds. Default `500`. */
+  /** Pop-in / pop-out duration in milliseconds. Default `500`. Must be finite. */
   popDurationMs?: number;
   /** Scale overshoot fraction during pop. Default `0.2` (20%). */
   overshootRatio?: number;
@@ -18,7 +19,7 @@ export interface ProgressAnimationOptions {
   loadingText?: string | false;
   /** Label when complete. Default `"done"`. */
   doneText?: string;
-  /** Fade-out duration for the done label in milliseconds. Default `2000`. */
+  /** Fade-out duration for the done label in milliseconds. Default `2000`. Must be finite. */
   doneFadeDurationMs?: number;
   /** Remove all overlay content after the done fade finishes. Default `false`. */
   removeOnComplete?: boolean;
@@ -49,12 +50,12 @@ interface ResolvedOptions {
 
 function resolveOptions(options: ProgressAnimationOptions = {}): ResolvedOptions {
   return {
-    popDurationMs: options.popDurationMs ?? 500,
+    popDurationMs: finite(options.popDurationMs ?? 500, "popDurationMs"),
     overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
     startSnapRatio: options.startSnapRatio ?? 0.2,
     loadingText: options.loadingText === undefined ? "loading" : options.loadingText,
     doneText: options.doneText ?? "done",
-    doneFadeDurationMs: options.doneFadeDurationMs ?? 2000,
+    doneFadeDurationMs: finite(options.doneFadeDurationMs ?? 2000, "doneFadeDurationMs"),
     removeOnComplete: options.removeOnComplete ?? false,
   };
 }

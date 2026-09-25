@@ -1,11 +1,12 @@
 import type { Vec3 } from "../engines/little-3d-engine/little-3d-engine.js";
 import type { MotionController } from "./controller.js";
+import { finiteNonZero } from "../validate.js";
 
 /** Options for {@link figureEightMotion}. */
 export interface FigureEightMotionOptions {
   /** Overall scale of the figure-8 in scene units. Default `1`. */
   size?: number;
-  /** Milliseconds for one full lap. Default `3600`. */
+  /** Milliseconds for one full lap. Default `3600`. Must be finite and not zero. */
   periodMs?: number;
 }
 
@@ -21,7 +22,7 @@ const LOOP_Z = 1.05;
  */
 export function figureEightMotion(options: FigureEightMotionOptions = {}): MotionController {
   const size = options.size ?? 1;
-  const periodMs = options.periodMs ?? 3600;
+  const periodMs = finiteNonZero(options.periodMs ?? 3600, "periodMs");
 
   return {
     positionAt(t: number): Vec3 {

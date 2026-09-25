@@ -73,6 +73,10 @@ Lifecycle, engine, and pure logic:
   and TypeScript resolves every subpath's types (`node16`, `nodenext`, `bundler`).
 - `colors.test.mjs` - shape builders fall back to their default palette for an empty color list;
   the engine rejects face and background colors that are not hex.
+- `options.test.mjs` - time options that are `NaN` or infinite throw a `RangeError`: motion path
+  and orbit periods (zero too; a negative period still runs backwards), object-motion tail gaps and
+  transition durations, docking time, progress-animation durations, and a numeric particle
+  `outroMs`.
 - `webgpu-types.test.mjs` - the engine's own WebGPU types match `@webgpu/types` (a dev
   dependency only): every member exists, every descriptor the local types allow is valid for the
   official method, and every value the official API returns fits the local type.
@@ -106,6 +110,7 @@ server):
 - A plane stopped during its intro keeps its trail emitting until its fly-out ends.
 - A lost WebGL context makes `"auto"` switch to Canvas 2D, which draws.
 - Particles with an empty color list draw with the default palette.
+- Particles whose `outroMs` function returns `NaN` still finish.
 
 Textures, in `tests/browser/textures.test.mjs`, on every textured renderer the browser supports:
 

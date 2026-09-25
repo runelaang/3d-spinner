@@ -1,5 +1,6 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { prepareHost } from "../mount-host.js";
+import { finiteNonZero, positiveFinite } from "../validate.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -27,9 +28,12 @@ export interface GridAssemblyOptions {
   size?: number;
   /** Gap between neighboring grid cells in scene units. Default `0.12`. */
   gap?: number;
-  /** Milliseconds for one full orbit revolution. Default `9000`. */
+  /** Milliseconds for one full orbit revolution. Default `9000`. Must be finite and not zero. */
   orbitPeriodMs?: number;
-  /** Milliseconds one shape takes to travel between the orbit and its grid cell. Default `800`. */
+  /**
+   * Milliseconds one shape takes to travel between the orbit and its grid cell. Default `800`.
+   * Must be finite and greater than zero.
+   */
   dockMs?: number;
   /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
@@ -137,8 +141,8 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
     this.meshes = sources.map(resolveMesh);
     this.size = options.size ?? 0.34;
-    this.orbitPeriodMs = options.orbitPeriodMs ?? 9000;
-    this.dockMs = options.dockMs ?? 800;
+    this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 9000, "orbitPeriodMs");
+    this.dockMs = positiveFinite(options.dockMs ?? 800, "dockMs");
     this.backend = options.backend;
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
