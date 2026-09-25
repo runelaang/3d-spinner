@@ -31,7 +31,12 @@ export class Camera {
   readonly options: CameraOptions;
 
   constructor(options?: Partial<CameraOptions>) {
-    this.options = { ...DEFAULTS, ...options };
+    // Copy the position so cameras never share (and mutate) one object.
+    this.options = {
+      ...DEFAULTS,
+      ...options,
+      position: { ...(options?.position ?? DEFAULTS.position) },
+    };
   }
 
   /** Transform a world-space point into view (camera) space. */
