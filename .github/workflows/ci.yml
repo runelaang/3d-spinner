@@ -24,14 +24,20 @@ jobs:
 
   browser:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npm run test:browser
         env:
-          # Fail instead of skipping when the browser has no WebGPU adapter.
-          REQUIRE_WEBGPU: "1"
+          TEST_BROWSER: ${{ matrix.browser }}
+          # Chromium: fail instead of skipping when the browser has no WebGPU adapter.
+          # Firefox and WebKit skip the WebGPU checks when they have none.
+          REQUIRE_WEBGPU: ${{ matrix.browser == 'chromium' && '1' || '' }}

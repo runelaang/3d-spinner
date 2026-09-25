@@ -22,7 +22,8 @@ after(async () => {
  */
 function textureHelpers() {
   window.texturedRenderers = async () => {
-    const base = "/dist/engines/little-3d-engine/renderers/";
+    // Absolute URLs: WebKit cannot resolve a root-relative import() made from an init script.
+    const base = `${location.origin}/dist/engines/little-3d-engine/renderers/`;
     const out = {
       canvas2d: (await import(`${base}canvas2d-textured.js`)).Canvas2DTexturedRenderer,
     };
@@ -35,7 +36,9 @@ function textureHelpers() {
     return out;
   };
   window.texturedEngine = async (Renderer, mesh, source) => {
-    const { Little3dEngine } = await import("/dist/engines/little-3d-engine/little-3d-engine.js");
+    const { Little3dEngine } = await import(
+      `${location.origin}/dist/engines/little-3d-engine/little-3d-engine.js`
+    );
     const host = document.createElement("div");
     host.style.cssText = "width:160px;height:160px";
     document.body.appendChild(host);
@@ -87,7 +90,12 @@ function textureHelpers() {
 
 /** Browser messages other than the browser's own log lines for failed or blocked requests. */
 const withoutNetworkErrors = (messages) =>
-  messages.filter((text) => !/Failed to load resource|blocked by CORS policy/.test(text));
+  messages.filter(
+    (text) =>
+      !/Failed to load resource|blocked by CORS policy|not allowed by Access-Control-Allow-Origin|due to access control checks/.test(
+        text,
+      ),
+  );
 
 test("texture URLs load from this origin and from a CORS-enabled other origin", async () => {
   const { page, messages } = await browser.open(textureHelpers);

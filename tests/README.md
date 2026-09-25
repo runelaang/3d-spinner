@@ -2,8 +2,8 @@
 
 Tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
 external test framework. The unit tests need nothing beyond the package's own build tooling
-(TypeScript and `@webgpu/types` for the type checks); the browser tests drive headless Chromium through the
-`playwright` dev dependency. Neither adds a runtime dependency.
+(TypeScript and `@webgpu/types` for the type checks); the browser tests drive headless Chromium,
+Firefox, or WebKit through the `playwright` dev dependency. Neither adds a runtime dependency.
 
 They run against the compiled output in `dist/`, i.e. exactly what consumers get from npm.
 Tests are excluded from the published package by the `files` field in `package.json`, so they
@@ -16,9 +16,14 @@ npm test               # rebuilds dist, then runs every tests/*.test.mjs
 npm run test:browser   # rebuilds dist, then runs tests/browser/*.test.mjs in headless Chromium
 ```
 
-The browser tests need Chromium once: `npx playwright install chromium`. On Linux the harness
-runs WebGPU, Vulkan, and ANGLE on SwiftShader, because headless Chromium there otherwise loses
-its WebGPU device right after creating it.
+The browser tests need the browser once: `npx playwright install chromium`. Set `TEST_BROWSER`
+to `firefox` or `webkit` to run them there instead (install that browser the same way); CI runs
+all three. On Linux the harness runs Chromium's WebGPU, Vulkan, and ANGLE on SwiftShader, because
+headless Chromium there otherwise loses its WebGPU device right after creating it.
+
+A check skips when the browser lacks what it needs (WebGL2 or WebGPU). The mount/destroy loop
+that counts WebGL contexts also skips on WebKit, which frees a context only after the current
+task ends, so a loop that never yields reaches its 16-context limit.
 
 `pretest` runs the build first, so the tests always check a fresh `dist/`. To run without
 rebuilding (dist must already exist):
@@ -79,7 +84,7 @@ Lifecycle, engine, and pure logic:
   expansion, shading, the particle field, prefab story logic, label fading and accessibility,
   and the tween engine (including its deprecated aliases).
 
-Real rendering, in `tests/browser/spinner.test.mjs` (headless Chromium over a local file
+Real rendering, in `tests/browser/spinner.test.mjs` (a headless browser over a local file
 server):
 
 - Canvas 2D and WebGL draw visible pixels; WebGPU too when the browser has an adapter (skipped
