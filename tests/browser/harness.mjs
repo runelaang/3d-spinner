@@ -73,9 +73,26 @@ function countLitPixels() {
  */
 export async function startBrowser() {
   const server = await startServer();
+  // Headless Chromium on Linux (CI) loses its WebGPU device right after creating it unless
+  // WebGPU, Vulkan, and ANGLE all run on SwiftShader. On Windows these flags leave no WebGPU
+  // adapter at all, so they apply to Linux only.
+  const linuxSoftwareGpu =
+    process.platform === "linux"
+      ? [
+          "--enable-features=Vulkan",
+          "--use-vulkan=swiftshader",
+          "--use-angle=swiftshader",
+          "--use-webgpu-adapter=swiftshader",
+        ]
+      : [];
   const browser = await chromium.launch({
     channel: "chromium",
-    args: ["--enable-unsafe-webgpu", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+    args: [
+      "--enable-unsafe-webgpu",
+      "--enable-unsafe-swiftshader",
+      "--ignore-gpu-blocklist",
+      ...linuxSoftwareGpu,
+    ],
   });
   const origin = `http://127.0.0.1:${server.address().port}`;
   return {

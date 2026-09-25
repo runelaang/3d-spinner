@@ -16,7 +16,9 @@ npm test               # rebuilds dist, then runs every tests/*.test.mjs
 npm run test:browser   # rebuilds dist, then runs tests/browser/*.test.mjs in headless Chromium
 ```
 
-The browser tests need Chromium once: `npx playwright install chromium`.
+The browser tests need Chromium once: `npx playwright install chromium`. On Linux the harness
+runs WebGPU, Vulkan, and ANGLE on SwiftShader, because headless Chromium there otherwise loses
+its WebGPU device right after creating it.
 
 `pretest` runs the build first, so the tests always check a fresh `dist/`. To run without
 rebuilding (dist must already exist):
