@@ -30,7 +30,7 @@ export function planeStarTrail(options: MotionPrefabOptions = {}): Indeterminate
       colors: ["#fde047", "#f472b6", "#7dd3fc"],
       texture: particles.texture ?? starTexture(),
       emitter: object.trailEmitter(),
-      outroMs: object.outroDurationMs,
+      outroMs: () => object.outroDelayMs + object.outroDurationMs,
       seed: 11,
       backend: options.backend,
       ...particles,

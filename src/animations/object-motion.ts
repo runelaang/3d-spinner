@@ -264,6 +264,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private lastRenderAt?: number;
   private introStart = 0;
   private outroStart = Infinity;
+  private outroDelay = 0;
   private outroPosition: Vec3 = { x: 0, y: 0, z: 0 };
   private outroVelocity: Vec3 = { x: 0, y: 0, z: 0 };
   private outroDirection: Vec3 = { x: 1, y: 0, z: 0 };
@@ -342,6 +343,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     this.outroVelocity = motionVectorAt(this.motion, start);
     this.outroDirection = resolveDirection(this.outroVelocity, this.headings[0]);
     this.outroStart = start;
+    this.outroDelay = start - now;
   }
 
   isFinished(): boolean {
@@ -351,6 +353,15 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   /** Milliseconds the fly-out takes; used to align a following particle trail's outro. */
   get outroDurationMs(): number {
     return this.outro.durationMs;
+  }
+
+  /**
+   * Milliseconds between {@link exit} and the start of the fly-out: nonzero when
+   * stopped during the fly-in, which finishes first. Feed `outroDelayMs +
+   * outroDurationMs` to a trailing particle layer's `outroMs` as a function.
+   */
+  get outroDelayMs(): number {
+    return this.outroDelay;
   }
 
   /**

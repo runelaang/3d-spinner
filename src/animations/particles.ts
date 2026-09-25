@@ -51,9 +51,10 @@ export interface ParticlesOptions {
    * Milliseconds to keep emitting after {@link ParticlesAnimation.exit}. Default `0`
    * (emission stops at exit). Give it a moving `emitter`'s outro duration so fresh
    * particles keep trailing the emitter as it flies out, instead of freezing where
-   * the loop left off.
+   * the loop left off. A function is read after exit, for an emitter whose
+   * outro timing is only known then (see `ObjectMotionAnimation.outroDelayMs`).
    */
-  outroMs?: number;
+  outroMs?: number | (() => number);
   /**
    * Image applied to every particle (a URL or a drawable element), tinted by
    * the particle color; the image's alpha shapes the particle. Renders through
@@ -213,7 +214,7 @@ export class ParticlesAnimation implements SpinnerAnimation {
   private readonly labelContent?: AnimationLabel;
   private readonly fadeLabel: boolean;
   private readonly emitter?: MotionController;
-  private readonly outroMs: number;
+  private readonly outroMs: () => number;
 
   private enterAt = Infinity;
   private exitAt = Infinity;
@@ -227,7 +228,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
     this.emitter = options.emitter;
-    this.outroMs = Math.max(0, options.outroMs ?? 0);
+    const outroMs = options.outroMs ?? 0;
+    this.outroMs = () => Math.max(0, typeof outroMs === "function" ? outroMs() : outroMs);
   }
 
   mount(target: HTMLElement): Promise<void> {
@@ -270,8 +272,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
 
   render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.label) return;
-    if (this.exitAt !== Infinity && now >= this.exitAt + this.outroMs + this.field.lifeMs)
-      this.finished = true;
+    const emitEnd = this.exitAt === Infinity ? Infinity : this.exitAt + this.outroMs();
+    if (now >= emitEnd + this.field.lifeMs) this.finished = true;
 
     for (const handle of this.handles) handle.transform.scale = 0;
 
@@ -280,8 +282,8 @@ export class ParticlesAnimation implements SpinnerAnimation {
       const gap = this.field.spawnGapMs;
       let first = Math.max(0, Math.ceil((t - this.field.lifeMs) / gap));
       let last = Math.floor(t / gap);
-      if (this.exitAt !== Infinity) {
-        last = Math.min(last, Math.floor((this.exitAt - this.enterAt + this.outroMs) / gap));
+      if (emitEnd !== Infinity) {
+        last = Math.min(last, Math.floor((emitEnd - this.enterAt) / gap));
       }
       first = Math.max(first, last - this.field.maxLive + 1);
       for (let index = first; index <= last; index++) {
