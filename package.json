@@ -9,6 +9,7 @@
   "unpkg": "./dist/umd/spinner.global.min.js",
   "jsdelivr": "./dist/umd/spinner.global.min.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": {

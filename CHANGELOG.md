@@ -3,6 +3,13 @@
 Notable changes, newest first. Versions before 0.9.26 are described in the git history. Not
 every version was published to npm; each one includes all changes of the versions below it.
 
+## 0.9.30
+
+### Changed
+
+- `package.json` declares `"sideEffects": false`: no module does anything when imported, so
+  bundlers can drop the parts of the package you do not use.
+
 ## 0.9.29
 
 ### Internal
