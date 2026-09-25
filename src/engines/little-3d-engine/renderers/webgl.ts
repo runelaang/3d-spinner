@@ -217,7 +217,9 @@ export class WebGLRenderer implements Renderer {
     }
 
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // The canvas composites as premultiplied alpha: blend RGB by source alpha, but alpha itself
+    // with ONE so a 50% surface leaves alpha 0.5 (not 0.25), matching the WebGPU blend state.
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
     for (const item of frame.items) {
       const transparency = item.transparency;

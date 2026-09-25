@@ -233,7 +233,8 @@ export class WebGLTexturedRenderer implements Renderer {
     gl.uniform1i(loc.uTexture, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // Same split as WebGLRenderer: source-alpha for RGB, ONE for alpha (premultiplied canvas).
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
     for (const item of textured) {
       const buffers = this.getOrCreateTexturedBuffers(item.mesh);
