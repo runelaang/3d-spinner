@@ -1,6 +1,6 @@
 # 3d-spinner and beyond
 
-[![tests](https://img.shields.io/github/actions/workflow/status/runelaang/3d-spinner/ci.yml?label=tests&logo=github)](https://github.com/runelaang/3d-spinner/actions/workflows/ci.yml)
+[![tests](https://img.shields.io/github/actions/workflow/status/runelaang/3d-spinner/ci.yml?label=tests&logo=github&branch=main)](https://github.com/runelaang/3d-spinner/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/3d-spinner?logo=npm)](https://www.npmjs.com/package/3d-spinner)
 [![bundle size](https://img.shields.io/bundlejs/size/3d-spinner)](https://bundlejs.com/?q=3d-spinner)
 [![license](https://img.shields.io/github/license/runelaang/3d-spinner)](LICENSE)
@@ -142,6 +142,10 @@ import { parseObj } from "3d-spinner/engines/little-3d-engine/loaders/obj";
 const mesh = parseObj(objText, { mtl: mtlText, useMtlColors: true });
 ```
 
+`parseObj` throws an error naming the line when the geometry is malformed: a vertex without three
+numeric coordinates, a face with fewer than three vertices, or a face index that points at a vertex
+not defined before it.
+
 Materials work on all three backends. Canvas 2D computes the highlight once per face, so it lands
 flat, while WebGL and WebGPU compute it per pixel and produce a gradient across the face. Per-face
 opacity is applied on Canvas 2D; WebGL and WebGPU still use instance `transparency` only. The
@@ -265,8 +269,9 @@ on the mode.
 | --- | --- | --- |
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `progress` | `number` | Initial progress `0..1`. A value above 0 plays the intro immediately. |
-| `timeout` | `number` | Auto-complete after this many milliseconds. |
+| `timeoutMs` | `number` | Auto-complete after this many milliseconds. `NaN` throws a `RangeError`. (`timeout` is the deprecated older name.) |
 | `until` | `Date` | Auto-complete at this time. If both are set, the earlier wins. |
+| `ariaLabel` | `string` | Accessible name of the hidden progress bar. Default `"Loading"`. |
 
 **Indeterminate** (`type: "indeterminate"`):
 
@@ -275,14 +280,57 @@ on the mode.
 | `animation` | `SpinnerAnimation` | The renderer to play. Required. |
 | `loop` | `"bounce" \| "restart"` | `"bounce"` ramps 0 to 1 and back; `"restart"` repeats 0 to 1. Default `"bounce"`. |
 | `periodMs` | `number` | Milliseconds for one sweep. Must be finite and greater than zero. Default `2000`. |
+| `ariaLabel` | `string` | Accessible name of the hidden progress bar. Default `"Loading"`. |
 
 ### `Spinner`
 
-| Method | Description |
+| Member | Description |
 | --- | --- |
+| `ready` | Promise that resolves once the animation can draw, and rejects with the error when it cannot (for example a pinned backend the browser lacks). On rejection the spinner stops animating and leaves the page as it is. |
 | `setProgress(target)` | Advance progress toward `target` (`0..1`). No-op for an indeterminate spinner. |
 | `stop()` | Play the outro, then stop animating. Keeps the injected element. |
 | `destroy()` | Stop immediately and remove the injected element. Safe to call more than once. |
+
+The spinner renders straight into `target`, so its size and placement come from your own CSS. It
+adds a canvas and a label and never replaces what is already inside. A `static` target becomes
+`position: relative` so the overlays have a positioning context; any other position is kept.
+
+An animation instance drives one spinner: passing the same instance to a second `createSpinner`
+throws. Prefab functions return a fresh animation on every call.
+
+```js
+const spinner = createSpinner(target, gridAssembly({ backend: "webgpu" }));
+spinner.ready.catch((error) => showFallback(error.message));
+```
+
+## Accessibility
+
+Every spinner adds one visually hidden ARIA `progressbar` to its target. A progress spinner keeps
+`aria-valuenow` at the rounded percentage (written only when it changes); an indeterminate one has
+no value, which is how ARIA marks indeterminate progress. Its name comes from the `ariaLabel`
+option, default `"Loading"`, also accepted by every prefab:
+
+```js
+createSpinner(target, gridAssembly({ ariaLabel: "Uploading photos" }));
+```
+
+The overlay text drawn over the animation is hidden from assistive technology, so progress is
+announced once even when layers stack labels. A custom `HTMLElement` label keeps its own semantics.
+
+The spinner does not change its motion on its own when the system asks for reduced motion.
+`prefersReducedMotion()` reads that setting, for picking a calmer visual or none:
+
+```js
+import { createSpinner, prefersReducedMotion } from "3d-spinner";
+import { SpinAnimation } from "3d-spinner/animations/spin";
+
+createSpinner(target, {
+  type: "indeterminate",
+  animation: prefersReducedMotion()
+    ? new SpinAnimation({ spinX: 0.0002, spinY: 0.0003 })
+    : new SpinAnimation(),
+});
+```
 
 ## Rendering backend
 
@@ -313,8 +361,14 @@ Before 0.9.9 the default was `"canvas2d"`; pass `backend: "canvas2d"` to keep th
 Backends are loaded on demand, and `"auto"` decides *before* it imports anything: it probes for a
 WebGPU adapter and a WebGL2 context directly, so the code for a backend it rejects is never
 fetched. If the chosen backend still fails to start, `"auto"` moves on to the next one. Pinning a
-backend the browser cannot run throws rather than falling back - `"auto"` is the resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
+backend the browser cannot run rejects `spinner.ready` rather than falling back - `"auto"` is the
+resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
 exported from the engine.
+
+The same fallback covers a renderer that stops working after it started: if the GPU device or the
+WebGL context is lost (a driver reset, or the browser reclaiming contexts), `"auto"` switches to
+the next backend and keeps animating. A pinned backend has nothing to switch to, so its canvas is
+removed and a console warning says why.
 
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
 particular, transparent shapes are an approximate visual effect rather than a pixel-identical
@@ -379,8 +433,11 @@ bundles the whole public API onto one `window.Spinner3D` object:
 ```sh
 npm install
 npm run build   # compile src/ to dist/ (ESM + type declarations, CJS, and a browser-global build)
-npm test        # build, then run the unit tests
-npm run dev     # serve this folder; open /examples/ or /examples/prefabs.html
+npm test        # build, then run the unit tests and the consumer type check
+npm run test:browser  # real rendering in headless Chromium (npx playwright install chromium first)
+npm run lint    # type-aware ESLint over src/
+npm run format  # Prettier (format:check is what CI runs)
+npm run dev     # serve this folder; open /examples/ or /examples/prefabs-progress.html
 ```
 
 ## License

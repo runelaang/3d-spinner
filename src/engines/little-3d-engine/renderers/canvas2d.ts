@@ -24,7 +24,9 @@ export class Canvas2DRenderer implements Renderer {
   constructor(private readonly options: RendererOptions = {}) {}
 
   init(canvas: HTMLCanvasElement): void {
-    this.ctx = canvas.getContext("2d") ?? undefined;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("3d-spinner: could not create a Canvas 2D rendering context.");
+    this.ctx = ctx;
   }
 
   resize(_cssWidth: number, _cssHeight: number, dpr: number): void {
@@ -46,9 +48,10 @@ export class Canvas2DRenderer implements Renderer {
     const polygons: Polygon[] = [];
     for (const item of frame.items) {
       const world = item.mesh.vertices.map((v) => transformAffine(item.model, v));
-      const twoSidedOpacity = item.transparency?.mode === "two-sided"
-        ? resolveTwoSidedOpacity(item.transparency)
-        : undefined;
+      const twoSidedOpacity =
+        item.transparency?.mode === "two-sided"
+          ? resolveTwoSidedOpacity(item.transparency)
+          : undefined;
       for (const face of item.mesh.faces) {
         const a = world[face.indices[0]];
         const b = world[face.indices[1]];

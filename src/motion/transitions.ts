@@ -19,6 +19,13 @@ export interface ObjectMotionTransitionInput {
   elapsedMs: number;
   /** Whether this is running before or after the real motion path. */
   phase: ObjectMotionTransitionPhase;
+  /**
+   * How far the object must travel from `position` along a unit `direction`
+   * to be entirely out of view, when the animation knows its camera and
+   * viewport. The built-in fly transitions use it so an object never appears or
+   * vanishes while on screen.
+   */
+  distanceToLeaveView?: (direction: Vec3) => number;
 }
 
 export interface ObjectMotionTransitionOutput {
@@ -40,8 +47,7 @@ export interface ObjectMotionTransitionWithDuration {
 }
 
 export type ObjectMotionTransitionConfig =
-  | ObjectMotionTransition
-  | ObjectMotionTransitionWithDuration;
+  ObjectMotionTransition | ObjectMotionTransitionWithDuration;
 
 export interface DirectionTransitionOptions {
   /** Direction to travel in. Defaults to the path direction at the handoff point. */
@@ -100,20 +106,52 @@ function joinVelocity(
   return scaleVector(resolveDirection(input, options.direction), distance / durationMs);
 }
 
-export function enterFromObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
+/**
+ * Distance covered `elapsedMs` into a fly-in/out that starts at `speed` and
+ * speeds up evenly so it has covered `offscreen` when `durationMs` ends. There
+ * is no speed-up when `speed` already gets that far, so a fast path keeps its
+ * constant speed, and starting at exactly `speed` keeps the join smooth.
+ */
+function travelled(speed: number, elapsedMs: number, durationMs: number, offscreen = 0): number {
+  const shortfall = offscreen - speed * durationMs;
+  const acceleration = shortfall > 0 ? (2 * shortfall) / (durationMs * durationMs) : 0;
+  return speed * elapsedMs + 0.5 * acceleration * elapsedMs * elapsedMs;
+}
+
+/**
+ * Fly in along the path direction and join the path at its own velocity. When
+ * the animation reports its view, the fly-in starts fully out of view and
+ * slows into the path, so the object never pops into existence on screen.
+ */
+export function enterFromObjectDirection(
+  options: DirectionTransitionOptions = {},
+): ObjectMotionTransition {
   return (input) => {
     const durationMs = Math.max(1, input.durationMs);
     const velocity = joinVelocity(input, options, durationMs);
+    const back = scaleVector(normalizeVector(velocity), -1);
+    const offscreen = input.distanceToLeaveView?.(back);
     const remaining = durationMs - input.elapsedMs;
-    return { position: add(input.position, scaleVector(velocity, -remaining)) };
+    const distance = travelled(vectorLength(velocity), remaining, durationMs, offscreen);
+    return { position: add(input.position, scaleVector(back, distance)) };
   };
 }
 
-export function leaveInObjectDirection(options: DirectionTransitionOptions = {}): ObjectMotionTransition {
+/**
+ * Fly out along the path direction, leaving at the path's own velocity. When
+ * the animation reports its view, the fly-out speeds up just enough to be
+ * fully out of view when it ends, so the object never vanishes on screen.
+ */
+export function leaveInObjectDirection(
+  options: DirectionTransitionOptions = {},
+): ObjectMotionTransition {
   return (input) => {
     const durationMs = Math.max(1, input.durationMs);
     const velocity = joinVelocity(input, options, durationMs);
-    return { position: add(input.position, scaleVector(velocity, input.elapsedMs)) };
+    const direction = normalizeVector(velocity);
+    const offscreen = input.distanceToLeaveView?.(direction);
+    const distance = travelled(vectorLength(velocity), input.elapsedMs, durationMs, offscreen);
+    return { position: add(input.position, scaleVector(direction, distance)) };
   };
 }
 

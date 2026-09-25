@@ -15,10 +15,7 @@ test("expandToTriangles duplicates a face emissive across all its vertices", () 
   // Values exactly representable in Float32 so deepEqual holds after storage.
   const data = expandToTriangles(tri({ emissive: [0.25, 0.5, 0.75] }));
   assert.equal(data.emissives.length, 9);
-  assert.deepEqual(
-    [...data.emissives],
-    [0.25, 0.5, 0.75, 0.25, 0.5, 0.75, 0.25, 0.5, 0.75],
-  );
+  assert.deepEqual([...data.emissives], [0.25, 0.5, 0.75, 0.25, 0.5, 0.75, 0.25, 0.5, 0.75]);
 });
 
 test("expandToTriangles emits zero emissive for a face with no material", () => {
@@ -34,10 +31,7 @@ test("expandToTriangles emits zero emissive for a material without Ke", () => {
 test("expandToTriangles duplicates a face ambient across all its vertices", () => {
   const data = expandToTriangles(tri({ ambient: [0.25, 0.5, 0.75] }));
   assert.equal(data.ambients.length, 9);
-  assert.deepEqual(
-    [...data.ambients],
-    [0.25, 0.5, 0.75, 0.25, 0.5, 0.75, 0.25, 0.5, 0.75],
-  );
+  assert.deepEqual([...data.ambients], [0.25, 0.5, 0.75, 0.25, 0.5, 0.75, 0.25, 0.5, 0.75]);
 });
 
 test("expandToTriangles defaults ambient to (1,1,1) with no material", () => {
@@ -84,10 +78,7 @@ test("expandToTriangles emissive array stays parallel to positions and colors", 
 test("expandToTriangles packs specular as (Ks.rgb, Ns) per vertex", () => {
   const data = expandToTriangles(tri({ specular: [1, 0.5, 0.25], shininess: 200 }));
   assert.equal(data.speculars.length, 12); // 3 vertices * 4 floats
-  assert.deepEqual(
-    [...data.speculars],
-    [1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200],
-  );
+  assert.deepEqual([...data.speculars], [1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200, 1, 0.5, 0.25, 200]);
 });
 
 test("expandToTriangles defaults specular to (0,0,0,1) with no material", () => {
@@ -98,7 +89,10 @@ test("expandToTriangles defaults specular to (0,0,0,1) with no material", () => 
 test("expandToTriangles defaults the Ns exponent to 32 when specular has no shininess", () => {
   const data = expandToTriangles(tri({ specular: [1, 1, 1] }));
   // Ns lands in the w slot; check the first vertex.
-  assert.deepEqual([data.speculars[0], data.speculars[1], data.speculars[2], data.speculars[3]], [1, 1, 1, 32]);
+  assert.deepEqual(
+    [data.speculars[0], data.speculars[1], data.speculars[2], data.speculars[3]],
+    [1, 1, 1, 32],
+  );
 });
 
 test("expandToTriangles specular array has 4 floats per vertex", () => {

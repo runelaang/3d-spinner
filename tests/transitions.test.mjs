@@ -1,9 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  enterFromObjectDirection,
-  leaveInObjectDirection,
-} from "../dist/motion/transitions.js";
+import { enterFromObjectDirection, leaveInObjectDirection } from "../dist/motion/transitions.js";
 import { approx, dist } from "./helpers.mjs";
 
 const HANDOFF = { x: 0, y: 0, z: 0 };

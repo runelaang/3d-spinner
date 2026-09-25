@@ -9,6 +9,8 @@ export interface ProgressAnimationOptions {
   /** Pop-in / pop-out duration in milliseconds. Default `500`. */
   popDurationMs?: number;
   /** Scale overshoot fraction during pop. Default `0.2` (20%). */
+  overshootRatio?: number;
+  /** @deprecated Renamed to {@link ProgressAnimationOptions.overshootRatio}; removed in 1.0.0. */
   overextend?: number;
   /** Share of pop duration used for the fast overshoot snap. Default `0.2`. */
   startSnapRatio?: number;
@@ -37,7 +39,7 @@ type Phase = "idle" | "startPop" | "active" | "endPop" | "done" | "finished";
 
 interface ResolvedOptions {
   popDurationMs: number;
-  overextend: number;
+  overshootRatio: number;
   startSnapRatio: number;
   loadingText: string | false;
   doneText: string;
@@ -48,7 +50,7 @@ interface ResolvedOptions {
 function resolveOptions(options: ProgressAnimationOptions = {}): ResolvedOptions {
   return {
     popDurationMs: options.popDurationMs ?? 500,
-    overextend: options.overextend ?? 0.2,
+    overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
     startSnapRatio: options.startSnapRatio ?? 0.2,
     loadingText: options.loadingText === undefined ? "loading" : options.loadingText,
     doneText: options.doneText ?? "done",
@@ -111,7 +113,7 @@ export class ProgressAnimation {
   update(now: number, progress: number, targetProgress?: number): ProgressAnimationVisual {
     const {
       popDurationMs,
-      overextend,
+      overshootRatio,
       startSnapRatio,
       loadingText,
       doneText,
@@ -132,7 +134,7 @@ export class ProgressAnimation {
 
     if (this.phase === "startPop") {
       const t = popPhaseT(now, this.phaseStart, popDurationMs);
-      const peak = this.popTarget * (1 + overextend);
+      const peak = this.popTarget * (1 + overshootRatio);
       if (t < startSnapRatio) {
         const snapT = startSnapRatio > 0 ? t / startSnapRatio : 1;
         scale = peak * easeOutExpo(snapT);
@@ -145,7 +147,7 @@ export class ProgressAnimation {
       scale = this.activeProgress;
     } else if (this.phase === "endPop") {
       const t = popPhaseT(now, this.phaseStart, popDurationMs);
-      const peak = 1 + overextend;
+      const peak = 1 + overshootRatio;
       if (t < 0.5) {
         scale = 1 + (peak - 1) * easeOutQuad(t * 2);
       } else {

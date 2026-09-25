@@ -31,7 +31,12 @@ export class Camera {
   readonly options: CameraOptions;
 
   constructor(options?: Partial<CameraOptions>) {
-    this.options = { ...DEFAULTS, ...options };
+    // Copy the position so cameras never share (and mutate) one object.
+    this.options = {
+      ...DEFAULTS,
+      ...options,
+      position: { ...(options?.position ?? DEFAULTS.position) },
+    };
   }
 
   /** Transform a world-space point into view (camera) space. */
@@ -46,6 +51,39 @@ export class Camera {
     const view = translation(-position.x, -position.y, -position.z);
     const projection = perspective(fov, aspect, near, far);
     return multiply(projection, view);
+  }
+
+  /**
+   * How far a sphere of `radius` centered at `point` has to travel along the
+   * unit vector `direction` until it is entirely out of view for a viewport of
+   * `aspect` (width / height). Returns 0 when it is already out of view.
+   */
+  distanceToLeaveView(point: Vec3, direction: Vec3, radius: number, aspect: number): number {
+    const { position, fov, near, far } = this.options;
+    // Camera space: the camera looks down -Z, so a point's depth in front of it is -q.z.
+    const q = { x: point.x - position.x, y: point.y - position.y, z: point.z - position.z };
+    const tanY = Math.tan(fov / 2);
+    const tanX = tanY * aspect;
+    const hx = Math.hypot(1, tanX);
+    const hy = Math.hypot(1, tanY);
+    // Each bounding plane as [unit normal, offset]: n . q + offset is the signed distance
+    // outside it. The view is convex, so a sphere fully past any one plane is hidden.
+    const planes: Array<[Vec3, number]> = [
+      [{ x: 1 / hx, y: 0, z: tanX / hx }, 0],
+      [{ x: -1 / hx, y: 0, z: tanX / hx }, 0],
+      [{ x: 0, y: 1 / hy, z: tanY / hy }, 0],
+      [{ x: 0, y: -1 / hy, z: tanY / hy }, 0],
+      [{ x: 0, y: 0, z: 1 }, near],
+      [{ x: 0, y: 0, z: -1 }, -far],
+    ];
+    let closest = Infinity;
+    for (const [normal, offset] of planes) {
+      const outside = normal.x * q.x + normal.y * q.y + normal.z * q.z + offset;
+      if (outside >= radius) return 0;
+      const rate = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
+      if (rate > 1e-12) closest = Math.min(closest, (radius - outside) / rate);
+    }
+    return Number.isFinite(closest) ? closest : 0;
   }
 
   /** Convert a normalized device coordinate (-1..1) to a pixel position. */

@@ -8,14 +8,17 @@ for (const name of ["document", "window", "ResizeObserver", "navigator"]) {
 
 let observers = [];
 let requestDevice;
+let canvas2dAvailable = true;
+
+const fake2dContext = { setTransform() {} };
 
 class FakeCanvas {
   style = {};
   clientWidth = 100;
   clientHeight = 100;
   parent = undefined;
-  getContext() {
-    return null;
+  getContext(type) {
+    return type === "2d" && canvas2dAvailable ? fake2dContext : null;
   }
   remove() {
     this.parent?.children.splice(this.parent.children.indexOf(this), 1);
@@ -106,4 +109,135 @@ test("destroy during initialization stops retries and leaves nothing behind", as
   await mounting;
   assert.equal(target.children.length, 0);
   assert.equal(liveObservers(), 0);
+});
+
+test("auto rejects with every backend's error when none can start", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  canvas2dAvailable = false;
+  try {
+    const target = new FakeTarget();
+    await assert.rejects(
+      new Little3dEngine().mount(target),
+      /no renderer could start \(webgpu: .*device lost; canvas2d: .*Canvas 2D/,
+    );
+    assert.equal(target.children.length, 0);
+    assert.equal(liveObservers(), 0);
+  } finally {
+    canvas2dAvailable = true;
+  }
+});
+
+test("a WebGPU init failure after the device is acquired destroys the device", async () => {
+  observers = [];
+  const device = {
+    destroyed: false,
+    destroy() {
+      this.destroyed = true;
+    },
+  };
+  requestDevice = async () => device;
+  const target = new FakeTarget();
+  await new Little3dEngine().mount(target);
+  assert.equal(device.destroyed, true);
+  assert.equal(target.children.length, 1, "fell back to Canvas 2D");
+});
+
+test("mounting again while mounting or mounted rejects", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  const target = new FakeTarget();
+  const engine = new Little3dEngine();
+  const first = engine.mount(target);
+  await assert.rejects(engine.mount(target), /already mounted/);
+  await first;
+  await assert.rejects(engine.mount(target), /already mounted/);
+  assert.equal(target.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
+});
+
+test("a destroyed engine can be mounted again", async () => {
+  observers = [];
+  requestDevice = async () => {
+    throw new Error("device lost");
+  };
+  const first = new FakeTarget();
+  const second = new FakeTarget();
+  const engine = new Little3dEngine();
+  await engine.mount(first);
+  engine.destroy();
+  await engine.mount(second);
+  assert.equal(first.children.length, 0);
+  assert.equal(second.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
+});
+
+test("removing the last instance of a mesh releases it from the renderer", async () => {
+  observers = [];
+  const released = [];
+  const renderer = {
+    init() {},
+    resize() {},
+    render() {},
+    destroy() {},
+    releaseMesh(mesh) {
+      released.push(mesh);
+    },
+  };
+  const engine = new Little3dEngine({ backend: () => renderer });
+  const shared = { vertices: [], faces: [] };
+  const other = { vertices: [], faces: [] };
+  const first = engine.add(shared);
+  const second = engine.add(shared);
+  const third = engine.add(other);
+  await engine.mount(new FakeTarget());
+  first.remove();
+  assert.deepEqual(released, [], "another instance still uses the mesh");
+  second.remove();
+  second.remove();
+  third.remove();
+  assert.deepEqual(released, [shared, other]);
+  engine.destroy();
+});
+
+test("a renderer that fails its first resize is replaced by the next backend", async () => {
+  observers = [];
+  const made = [];
+  const fakeRenderer = (backend) => {
+    const renderer = {
+      backend,
+      destroyed: false,
+      resized: 0,
+      init() {},
+      resize() {
+        this.resized++;
+        if (backend === "webgpu") throw new Error("resize failed");
+      },
+      render() {},
+      destroy() {
+        this.destroyed = true;
+      },
+    };
+    made.push(renderer);
+    return renderer;
+  };
+  const target = new FakeTarget();
+  const engine = new Little3dEngine({ rendererFor: fakeRenderer });
+  await engine.mount(target);
+  assert.deepEqual(
+    made.map((renderer) => renderer.backend),
+    ["webgpu", "canvas2d"],
+  );
+  assert.equal(made[0].destroyed, true);
+  assert.equal(made[1].destroyed, false);
+  assert.ok(made[1].resized > 0, "the next renderer was sized");
+  assert.equal(target.children.length, 1);
+  assert.equal(liveObservers(), 1);
+  engine.destroy();
 });

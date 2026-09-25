@@ -84,7 +84,11 @@ test("resolveBackend: auto falls back to Canvas 2D when nothing is supported", a
 
 test("autoBackendCandidates: supported GPU backends first, Canvas 2D always last", async () => {
   const { autoBackendCandidates } = await import("../dist/engines/little-3d-engine/renderer.js");
-  assert.deepEqual(autoBackendCandidates({ webgpu: true, webgl: true }), ["webgpu", "webgl", "canvas2d"]);
+  assert.deepEqual(autoBackendCandidates({ webgpu: true, webgl: true }), [
+    "webgpu",
+    "webgl",
+    "canvas2d",
+  ]);
   assert.deepEqual(autoBackendCandidates({ webgpu: false, webgl: true }), ["webgl", "canvas2d"]);
   assert.deepEqual(autoBackendCandidates({ webgpu: true, webgl: false }), ["webgpu", "canvas2d"]);
   assert.deepEqual(autoBackendCandidates({ webgpu: false, webgl: false }), ["canvas2d"]);

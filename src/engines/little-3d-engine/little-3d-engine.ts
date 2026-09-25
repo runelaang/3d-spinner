@@ -1,14 +1,6 @@
 import { Camera, type CameraOptions } from "./core/camera.js";
 import { Light, type LightOptions } from "./core/light.js";
-import {
-  type Mat4,
-  multiply,
-  rotationX,
-  rotationY,
-  rotationZ,
-  scaleMatrix,
-  translation,
-} from "./core/math.js";
+import { type Mat4, multiply, rotationFromEuler, scaleMatrix, translation } from "./core/math.js";
 import {
   type Mesh,
   type Transform,
@@ -19,7 +11,9 @@ import {
   type Backend,
   type Renderer,
   type RendererFactory,
+  type RendererOptions,
   type RenderItem,
+  type ResolvedBackend,
   createRenderer,
   orderRenderItems,
   resolveAutoCandidates,
@@ -32,19 +26,31 @@ export interface Little3dEngineOptions {
    * demand. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D.
    */
   backend?: Backend | RendererFactory;
+  /**
+   * Build the renderer for a named backend instead of the built-in one, for
+   * example a textured variant. With `"auto"`, it is called for each backend
+   * tried in turn, so fallback still applies. Unused when `backend` is a factory.
+   */
+  rendererFor?: (
+    backend: ResolvedBackend,
+    options: RendererOptions,
+  ) => Renderer | Promise<Renderer>;
   camera?: Partial<CameraOptions>;
   light?: Partial<LightOptions>;
   /** Solid background color; omit for a transparent canvas (overlay use). */
   background?: string;
 }
 
-/** A live mesh in the scene. Mutate `transform` to move or rotate it. */
+/**
+ * A live mesh in the scene. Mutate `transform` to move or rotate it. The mesh
+ * itself is treated as immutable once drawn; add a new one to change its shape.
+ */
 export interface MeshHandle {
   readonly mesh: Mesh;
   readonly transform: Transform;
   /** Optional per-instance transparency. Mutate or replace it between frames. */
   transparency?: Transparency;
-  /** Remove this mesh from the scene. */
+  /** Remove this instance; GPU buffers are freed with the mesh's last instance. */
   remove(): void;
 }
 
@@ -54,14 +60,52 @@ export interface MeshInstanceOptions extends Partial<Transform> {
 }
 
 function modelMatrix(t: Transform): Mat4 {
-  const rotation = multiply(
-    rotationZ(t.rotation.z),
-    multiply(rotationY(t.rotation.y), rotationX(t.rotation.x)),
-  );
+  const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
     translation(t.position.x, t.position.y, t.position.z),
     multiply(rotation, scaleMatrix(t.scale)),
   );
+}
+
+/** A backend the engine can try: a built-in name, or a factory for a custom renderer. */
+type Candidate = ResolvedBackend | RendererFactory;
+
+/**
+ * The canvas, size observer, and renderer of one backend attempt. They are
+ * created together and released together, so a failed attempt cannot leave one
+ * of them behind or leak into the next attempt.
+ */
+interface Surface {
+  readonly canvas: HTMLCanvasElement;
+  readonly observer: ResizeObserver;
+  cssWidth: number;
+  cssHeight: number;
+  renderer?: Renderer;
+  /** True once `renderer.init` succeeded; only then does the renderer receive sizes. */
+  started: boolean;
+}
+
+/** Stop observing the surface's canvas and remove it. Safe to call more than once. */
+function detach(surface: Surface): void {
+  surface.observer.disconnect();
+  surface.canvas.remove();
+}
+
+/** Destroy the surface's renderer, then remove its canvas even if the renderer throws. */
+function release(surface: Surface): void {
+  const renderer = surface.renderer;
+  surface.renderer = undefined;
+  try {
+    renderer?.destroy();
+  } finally {
+    detach(surface);
+  }
+}
+
+/** One line of the combined "no renderer could start" error. */
+function failure(candidate: Candidate, error: unknown): string {
+  const name = typeof candidate === "string" ? candidate : "custom";
+  return `${name}: ${error instanceof Error ? error.message : String(error)}`;
 }
 
 /**
@@ -74,16 +118,19 @@ export class Little3dEngine {
   private readonly camera: Camera;
   private readonly light: Light;
   private readonly backend: Backend | RendererFactory;
+  private readonly rendererFor?: Little3dEngineOptions["rendererFor"];
   private readonly background?: string;
   private readonly scene: MeshHandle[] = [];
 
-  private canvas?: HTMLCanvasElement;
-  private observer?: ResizeObserver;
-  private renderer?: Renderer;
-  private cssWidth = 0;
-  private cssHeight = 0;
-  private ready = false;
+  /** The mounted surface: its renderer is initialized and sized. */
+  private surface?: Surface;
+  /** The surface of the backend attempt in progress, if any. */
+  private attempt?: Surface;
+  /** The candidates after the mounted one, to switch to if its renderer is lost. */
+  private fallbacks: Candidate[] = [];
+  private state: "idle" | "mounting" | "mounted" = "idle";
   private generation = 0;
+  private cancelMount?: () => void;
   private rafId = 0;
   private running = false;
 
@@ -91,6 +138,7 @@ export class Little3dEngine {
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
+    this.rendererFor = options.rendererFor;
     this.background = options.background;
   }
 
@@ -100,64 +148,155 @@ export class Little3dEngine {
    * is unavailable. With `"auto"`, a backend that fails to load or initialize
    * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
    * rejects only when all of them fail. Drawing is a no-op until it resolves.
+   * If the GPU device or WebGL context is lost later, `"auto"` switches to the
+   * next backend in the same order.
+   *
+   * An engine mounts into one element at a time: mounting again while mounting or
+   * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
+   * mounted again, for example into another element. Destroying while mounting
+   * resolves the pending mount at once, even if a backend is still starting.
    */
   async mount(target: HTMLElement): Promise<void> {
+    if (this.state !== "idle") {
+      throw new Error(
+        "3d-spinner: this engine is already mounted. Call destroy() before mounting it again.",
+      );
+    }
+    this.state = "mounting";
     const generation = this.generation;
-    const candidates: Array<Backend | RendererFactory> =
-      this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
-    if (generation !== this.generation) return;
+    const cancelled = new Promise<void>((resolve) => {
+      this.cancelMount = resolve;
+    });
+    const starting = this.candidates().then((candidates) =>
+      this.startRenderer(target, generation, candidates),
+    );
+    try {
+      // A backend that never finishes starting must not keep the mount pending after destroy().
+      // A renderer that arrives late is still cleaned up by the generation checks.
+      await Promise.race([starting, cancelled]);
+    } catch (error) {
+      if (generation === this.generation) this.state = "idle";
+      throw error;
+    } finally {
+      if (generation === this.generation) this.cancelMount = undefined;
+    }
+  }
 
+  /** The backends to try, best first: every supported one for `"auto"`, else the chosen one. */
+  private async candidates(): Promise<Candidate[]> {
+    return this.backend === "auto" ? resolveAutoCandidates() : [this.backend];
+  }
+
+  /** Mount the first candidate that starts, or reject with every candidate's error. */
+  private async startRenderer(
+    target: HTMLElement,
+    generation: number,
+    candidates: Candidate[],
+  ): Promise<void> {
     const failures: string[] = [];
-    for (const candidate of candidates) {
-      const canvas = this.attachCanvas(target);
-      let renderer: Renderer | undefined;
+    for (const [index, candidate] of candidates.entries()) {
+      if (generation !== this.generation) return;
       try {
-        renderer = await createRenderer(candidate, { background: this.background });
-        if (generation === this.generation) await renderer.init(canvas);
-        if (generation !== this.generation) {
-          renderer.destroy();
-          this.dropCanvas(canvas);
-          return;
-        }
-        this.renderer = renderer;
-        this.resize();
-        this.ready = true;
+        const surface = await this.startSurface(target, generation, candidate);
+        if (!surface) return;
+        this.surface = surface;
+        this.fallbacks = candidates.slice(index + 1);
+        this.state = "mounted";
+        surface.renderer?.onLost?.((reason) => this.recover(surface, target, reason));
         return;
       } catch (error) {
-        try {
-          renderer?.destroy();
-        } catch {}
-        this.dropCanvas(canvas);
         if (generation !== this.generation) return;
         if (candidates.length === 1) throw error;
-        const name = typeof candidate === "string" ? candidate : "custom";
-        failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+        failures.push(failure(candidate, error));
       }
     }
     throw new Error(`3d-spinner: no renderer could start (${failures.join("; ")})`);
   }
 
-  /** Append a fresh full-size canvas to `target` and track its size. */
-  private attachCanvas(target: HTMLElement): HTMLCanvasElement {
+  /**
+   * Replace a mounted renderer that stopped working with the next backend
+   * `"auto"` would have tried. `mount()` has resolved by then, so there is no
+   * promise left to reject: when no backend is left or none starts, the canvas
+   * stays removed and a console warning says why.
+   */
+  private recover(surface: Surface, target: HTMLElement, reason: string): void {
+    if (this.surface !== surface) return;
+    this.surface = undefined;
+    try {
+      release(surface);
+    } catch {
+      // A renderer that lost its GPU may fail to clean up; the next backend still gets its turn.
+    }
+    const warn = (detail: string) =>
+      console.warn(`3d-spinner: the renderer stopped working (${reason}); ${detail}`);
+    if (this.fallbacks.length === 0) {
+      warn("no other backend is left.");
+      return;
+    }
+    this.startRenderer(target, this.generation, this.fallbacks).catch((error: unknown) => {
+      warn(`switching failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+
+  /**
+   * Start `candidate` on a fresh canvas and size it. Resolves with the started
+   * surface, or `undefined` when the engine was destroyed meanwhile. On failure
+   * or cancellation, everything the attempt created is released first.
+   */
+  private async startSurface(
+    target: HTMLElement,
+    generation: number,
+    candidate: Candidate,
+  ): Promise<Surface | undefined> {
+    const surface = this.openSurface(target);
+    this.attempt = surface;
+    try {
+      surface.renderer = await this.createRenderer(candidate);
+      if (generation === this.generation) {
+        await surface.renderer.init(surface.canvas);
+        surface.started = true;
+        this.resize(surface);
+      }
+    } catch (error) {
+      try {
+        release(surface);
+      } catch {
+        // A half-initialized renderer may fail to clean up; the next candidate still gets its turn.
+      }
+      throw error;
+    } finally {
+      if (this.attempt === surface) this.attempt = undefined;
+    }
+    if (generation === this.generation) return surface;
+    release(surface);
+    return undefined;
+  }
+
+  /** Construct the renderer for `candidate`, through `rendererFor` when it is set. */
+  private async createRenderer(candidate: Candidate): Promise<Renderer> {
+    const options = { background: this.background };
+    return typeof candidate === "string" && this.rendererFor
+      ? this.rendererFor(candidate, options)
+      : createRenderer(candidate, options);
+  }
+
+  /** Append a fresh full-size canvas to `target` and start tracking its size. */
+  private openSurface(target: HTMLElement): Surface {
     const canvas = document.createElement("canvas");
     canvas.style.display = "block";
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     target.appendChild(canvas);
-    this.canvas = canvas;
-    this.observer = new ResizeObserver(() => this.resize());
-    this.observer.observe(canvas);
-    this.resize();
-    return canvas;
-  }
-
-  /** Remove `canvas` and its size observer, if it is still the current canvas. */
-  private dropCanvas(canvas: HTMLCanvasElement): void {
-    if (this.canvas !== canvas) return;
-    this.observer?.disconnect();
-    this.observer = undefined;
-    canvas.remove();
-    this.canvas = undefined;
+    const surface: Surface = {
+      canvas,
+      observer: new ResizeObserver(() => this.resize(surface)),
+      cssWidth: 0,
+      cssHeight: 0,
+      started: false,
+    };
+    surface.observer.observe(canvas);
+    this.resize(surface);
+    return surface;
   }
 
   /** Add a mesh to the scene and return a handle for animating it. */
@@ -168,29 +307,35 @@ export class Little3dEngine {
       transparency: init?.transparency,
       remove: () => {
         const i = this.scene.indexOf(entry);
-        if (i >= 0) this.scene.splice(i, 1);
+        if (i < 0) return;
+        this.scene.splice(i, 1);
+        if (!this.scene.some((other) => other.mesh === mesh)) {
+          this.surface?.renderer?.releaseMesh?.(mesh);
+        }
       },
     };
     this.scene.push(entry);
     return entry;
   }
 
-  private resize(): void {
-    const canvas = this.canvas;
-    if (!canvas) return;
+  /** Match the canvas's pixel size to its CSS size, and tell a started renderer. */
+  private resize(surface: Surface): void {
+    const { canvas } = surface;
     const dpr = window.devicePixelRatio || 1;
-    this.cssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
-    this.cssHeight = canvas.clientHeight || canvas.parentElement?.clientHeight || 0;
-    canvas.width = Math.max(1, Math.round(this.cssWidth * dpr));
-    canvas.height = Math.max(1, Math.round(this.cssHeight * dpr));
-    this.renderer?.resize(this.cssWidth, this.cssHeight, dpr);
+    surface.cssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
+    surface.cssHeight = canvas.clientHeight || canvas.parentElement?.clientHeight || 0;
+    canvas.width = Math.max(1, Math.round(surface.cssWidth * dpr));
+    canvas.height = Math.max(1, Math.round(surface.cssHeight * dpr));
+    if (surface.started) surface.renderer?.resize(surface.cssWidth, surface.cssHeight, dpr);
   }
 
   /** Draw a single frame from the current scene state. */
   render(): void {
-    if (!this.ready || !this.renderer) return;
-    const width = this.cssWidth;
-    const height = this.cssHeight;
+    const surface = this.surface;
+    const renderer = surface?.renderer;
+    if (!surface || !renderer) return;
+    const width = surface.cssWidth;
+    const height = surface.cssHeight;
     if (width === 0 || height === 0) return;
 
     const items: RenderItem[] = this.scene.map((entry) => ({
@@ -201,7 +346,7 @@ export class Little3dEngine {
 
     const eye = this.camera.options.position;
 
-    this.renderer.render({
+    renderer.render({
       items: orderRenderItems(items, eye),
       viewProjection: this.camera.viewProjection(width / height),
       eye,
@@ -233,14 +378,18 @@ export class Little3dEngine {
   /** Stop animating, release the renderer, and remove the canvas. */
   destroy(): void {
     this.generation++;
-    this.ready = false;
+    this.cancelMount?.();
+    this.cancelMount = undefined;
+    this.state = "idle";
     this.stop();
-    this.observer?.disconnect();
-    this.observer = undefined;
-    this.renderer?.destroy();
-    this.renderer = undefined;
-    this.canvas?.remove();
-    this.canvas = undefined;
+    const { surface, attempt } = this;
+    this.surface = undefined;
+    this.attempt = undefined;
+    this.fallbacks = [];
+    // A renderer that is still starting is never destroyed mid-init; its attempt
+    // releases it as soon as init settles.
+    if (attempt) detach(attempt);
+    if (surface) release(surface);
   }
 }
 
@@ -287,12 +436,4 @@ export {
   detectBackendSupport,
   resolveBackend,
 } from "./renderer.js";
-export {
-  type Vec3,
-  vec3,
-  subtract,
-  cross,
-  dot,
-  scale,
-  normalize,
-} from "./core/math.js";
+export { type Vec3, vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";

@@ -1,7 +1,7 @@
 {
   "name": "3d-spinner",
-  "version": "0.9.14",
-  "description": "Zero-dependency 3D spinners, loaders, and progress indicators for the browser — ready-made prefabs, GPU auto (WebGPU/WebGL) with Canvas 2D fallback.",
+  "version": "0.9.30",
+  "description": "Zero-dependency 3D spinners, loaders, and progress indicators for the browser - ready-made prefabs, GPU auto (WebGPU/WebGL) with Canvas 2D fallback.",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/index.js",
@@ -9,96 +9,187 @@
   "unpkg": "./dist/umd/spinner.global.min.js",
   "jsdelivr": "./dist/umd/spinner.global.min.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./animations/spin": {
-      "types": "./dist/animations/spin.d.ts",
-      "import": "./dist/animations/spin.js",
-      "require": "./dist/cjs/animations/spin.cjs"
+      "import": {
+        "types": "./dist/animations/spin.d.ts",
+        "default": "./dist/animations/spin.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/spin.d.cts",
+        "default": "./dist/cjs/animations/spin.cjs"
+      }
     },
     "./animations/object-motion": {
-      "types": "./dist/animations/object-motion.d.ts",
-      "import": "./dist/animations/object-motion.js",
-      "require": "./dist/cjs/animations/object-motion.cjs"
+      "import": {
+        "types": "./dist/animations/object-motion.d.ts",
+        "default": "./dist/animations/object-motion.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/object-motion.d.cts",
+        "default": "./dist/cjs/animations/object-motion.cjs"
+      }
     },
     "./animations/particles": {
-      "types": "./dist/animations/particles.d.ts",
-      "import": "./dist/animations/particles.js",
-      "require": "./dist/cjs/animations/particles.cjs"
+      "import": {
+        "types": "./dist/animations/particles.d.ts",
+        "default": "./dist/animations/particles.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/particles.d.cts",
+        "default": "./dist/cjs/animations/particles.cjs"
+      }
     },
     "./animations/charged-orb": {
-      "types": "./dist/animations/charged-orb.d.ts",
-      "import": "./dist/animations/charged-orb.js",
-      "require": "./dist/cjs/animations/charged-orb.cjs"
+      "import": {
+        "types": "./dist/animations/charged-orb.d.ts",
+        "default": "./dist/animations/charged-orb.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/charged-orb.d.cts",
+        "default": "./dist/cjs/animations/charged-orb.cjs"
+      }
     },
     "./animations/ghost-train": {
-      "types": "./dist/animations/ghost-train.d.ts",
-      "import": "./dist/animations/ghost-train.js",
-      "require": "./dist/cjs/animations/ghost-train.cjs"
+      "import": {
+        "types": "./dist/animations/ghost-train.d.ts",
+        "default": "./dist/animations/ghost-train.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/ghost-train.d.cts",
+        "default": "./dist/cjs/animations/ghost-train.cjs"
+      }
     },
     "./animations/grid-assembly": {
-      "types": "./dist/animations/grid-assembly.d.ts",
-      "import": "./dist/animations/grid-assembly.js",
-      "require": "./dist/cjs/animations/grid-assembly.cjs"
+      "import": {
+        "types": "./dist/animations/grid-assembly.d.ts",
+        "default": "./dist/animations/grid-assembly.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/grid-assembly.d.cts",
+        "default": "./dist/cjs/animations/grid-assembly.cjs"
+      }
     },
     "./animations/rocket-launch": {
-      "types": "./dist/animations/rocket-launch.d.ts",
-      "import": "./dist/animations/rocket-launch.js",
-      "require": "./dist/cjs/animations/rocket-launch.cjs"
+      "import": {
+        "types": "./dist/animations/rocket-launch.d.ts",
+        "default": "./dist/animations/rocket-launch.js"
+      },
+      "require": {
+        "types": "./dist/cjs/animations/rocket-launch.d.cts",
+        "default": "./dist/cjs/animations/rocket-launch.cjs"
+      }
     },
     "./composite-animation": {
-      "types": "./dist/composite-animation.d.ts",
-      "import": "./dist/composite-animation.js",
-      "require": "./dist/cjs/composite-animation.cjs"
+      "import": {
+        "types": "./dist/composite-animation.d.ts",
+        "default": "./dist/composite-animation.js"
+      },
+      "require": {
+        "types": "./dist/cjs/composite-animation.d.cts",
+        "default": "./dist/cjs/composite-animation.cjs"
+      }
     },
     "./prefabs": {
-      "types": "./dist/prefabs/prefabs.d.ts",
-      "import": "./dist/prefabs/prefabs.js",
-      "require": "./dist/cjs/prefabs/prefabs.cjs"
+      "import": {
+        "types": "./dist/prefabs/prefabs.d.ts",
+        "default": "./dist/prefabs/prefabs.js"
+      },
+      "require": {
+        "types": "./dist/cjs/prefabs/prefabs.d.cts",
+        "default": "./dist/cjs/prefabs/prefabs.cjs"
+      }
     },
     "./motion": {
-      "types": "./dist/motion/motion.d.ts",
-      "import": "./dist/motion/motion.js",
-      "require": "./dist/cjs/motion/motion.cjs"
+      "import": {
+        "types": "./dist/motion/motion.d.ts",
+        "default": "./dist/motion/motion.js"
+      },
+      "require": {
+        "types": "./dist/cjs/motion/motion.d.cts",
+        "default": "./dist/cjs/motion/motion.cjs"
+      }
     },
     "./motion/transitions": {
-      "types": "./dist/motion/transitions.d.ts",
-      "import": "./dist/motion/transitions.js",
-      "require": "./dist/cjs/motion/transitions.cjs"
+      "import": {
+        "types": "./dist/motion/transitions.d.ts",
+        "default": "./dist/motion/transitions.js"
+      },
+      "require": {
+        "types": "./dist/cjs/motion/transitions.d.cts",
+        "default": "./dist/cjs/motion/transitions.cjs"
+      }
     },
     "./engines/little-3d-engine": {
-      "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
-      "import": "./dist/engines/little-3d-engine/little-3d-engine.js",
-      "require": "./dist/cjs/engines/little-3d-engine/little-3d-engine.cjs"
+      "import": {
+        "types": "./dist/engines/little-3d-engine/little-3d-engine.d.ts",
+        "default": "./dist/engines/little-3d-engine/little-3d-engine.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-3d-engine/little-3d-engine.d.cts",
+        "default": "./dist/cjs/engines/little-3d-engine/little-3d-engine.cjs"
+      }
     },
     "./engines/little-3d-engine/renderers/webgl-textured": {
-      "types": "./dist/engines/little-3d-engine/renderers/webgl-textured.d.ts",
-      "import": "./dist/engines/little-3d-engine/renderers/webgl-textured.js",
-      "require": "./dist/cjs/engines/little-3d-engine/renderers/webgl-textured.cjs"
+      "import": {
+        "types": "./dist/engines/little-3d-engine/renderers/webgl-textured.d.ts",
+        "default": "./dist/engines/little-3d-engine/renderers/webgl-textured.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-3d-engine/renderers/webgl-textured.d.cts",
+        "default": "./dist/cjs/engines/little-3d-engine/renderers/webgl-textured.cjs"
+      }
     },
     "./engines/little-3d-engine/renderers/canvas2d-textured": {
-      "types": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.d.ts",
-      "import": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.js",
-      "require": "./dist/cjs/engines/little-3d-engine/renderers/canvas2d-textured.cjs"
+      "import": {
+        "types": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.d.ts",
+        "default": "./dist/engines/little-3d-engine/renderers/canvas2d-textured.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-3d-engine/renderers/canvas2d-textured.d.cts",
+        "default": "./dist/cjs/engines/little-3d-engine/renderers/canvas2d-textured.cjs"
+      }
     },
     "./engines/little-3d-engine/renderers/webgpu-textured": {
-      "types": "./dist/engines/little-3d-engine/renderers/webgpu-textured.d.ts",
-      "import": "./dist/engines/little-3d-engine/renderers/webgpu-textured.js",
-      "require": "./dist/cjs/engines/little-3d-engine/renderers/webgpu-textured.cjs"
+      "import": {
+        "types": "./dist/engines/little-3d-engine/renderers/webgpu-textured.d.ts",
+        "default": "./dist/engines/little-3d-engine/renderers/webgpu-textured.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-3d-engine/renderers/webgpu-textured.d.cts",
+        "default": "./dist/cjs/engines/little-3d-engine/renderers/webgpu-textured.cjs"
+      }
     },
     "./engines/little-3d-engine/loaders/obj": {
-      "types": "./dist/engines/little-3d-engine/loaders/obj.d.ts",
-      "import": "./dist/engines/little-3d-engine/loaders/obj.js",
-      "require": "./dist/cjs/engines/little-3d-engine/loaders/obj.cjs"
+      "import": {
+        "types": "./dist/engines/little-3d-engine/loaders/obj.d.ts",
+        "default": "./dist/engines/little-3d-engine/loaders/obj.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-3d-engine/loaders/obj.d.cts",
+        "default": "./dist/cjs/engines/little-3d-engine/loaders/obj.cjs"
+      }
     },
     "./engines/little-tween-engine": {
-      "types": "./dist/engines/little-tween-engine/little-tween-engine.d.ts",
-      "import": "./dist/engines/little-tween-engine/little-tween-engine.js",
-      "require": "./dist/cjs/engines/little-tween-engine/little-tween-engine.cjs"
+      "import": {
+        "types": "./dist/engines/little-tween-engine/little-tween-engine.d.ts",
+        "default": "./dist/engines/little-tween-engine/little-tween-engine.js"
+      },
+      "require": {
+        "types": "./dist/cjs/engines/little-tween-engine/little-tween-engine.d.cts",
+        "default": "./dist/cjs/engines/little-tween-engine/little-tween-engine.cjs"
+      }
     }
   },
   "files": [
@@ -108,11 +199,16 @@
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build:esm": "tsc",
     "build:cjs": "node scripts/build-cjs.mjs",
-    "build:umd": "node scripts/build-umd.mjs",
-    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:umd",
+    "build:browser": "node scripts/build-browser.mjs",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:browser",
     "dev": "npx serve .",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\" \"*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\" \"*.mjs\"",
     "pretest": "npm run build",
     "test": "node --test tests/*.test.mjs",
+    "pretest:browser": "npm run build",
+    "test:browser": "node --test tests/browser/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -134,7 +230,13 @@
     "url": "https://github.com/runelaang/3d-spinner/issues"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@webgpu/types": "^0.1.74",
     "esbuild": "^0.28.1",
-    "typescript": "^5.7.0"
+    "eslint": "^10.11.0",
+    "playwright": "^1.63.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.70.1"
   }
 }

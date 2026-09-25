@@ -14,6 +14,8 @@ export interface PrefabOptions {
   loop?: "bounce" | "restart";
   /** Milliseconds for one progress sweep. Default `2000`. */
   periodMs?: number;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export interface ProgressPrefabOptions {
@@ -26,9 +28,13 @@ export interface ProgressPrefabOptions {
   /** Initial progress 0..1. Defaults just above zero so the story begins on mount. */
   progress?: number;
   /** Auto-complete (drive progress to 1) after this many milliseconds. */
+  timeoutMs?: number;
+  /** @deprecated Renamed to {@link ProgressPrefabOptions.timeoutMs}; removed in 1.0.0. */
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export interface MotionPrefabOptions extends PrefabOptions {

@@ -8,6 +8,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
+    // noUncheckedIndexedAccess stays off: nearly all indexed reads are in render loops over
+    // arrays whose bounds hold by construction (fixed 16-entry Mat4 tuples, face indices into
+    // their own mesh). External geometry is validated where it enters, in the OBJ loader.
     "skipLibCheck": true
   },
   "include": ["src"]

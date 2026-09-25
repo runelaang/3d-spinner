@@ -1,4 +1,6 @@
 import type { SpinnerAnimation } from "./animation.js";
+import { damp } from "./engines/little-tween-engine/core/damp.js";
+import { mountAnimation } from "./mount-host.js";
 
 /** A spinner driven by real progress the caller reports via {@link Spinner.setProgress}. */
 export interface ProgressSpinnerOptions {
@@ -10,10 +12,17 @@ export interface ProgressSpinnerOptions {
    * to start idle until {@link Spinner.setProgress} is called.
    */
   progress?: number;
-  /** Auto-complete (drive progress to 1, playing the outro) after this many ms. */
+  /**
+   * Auto-complete (drive progress to 1, playing the outro) after this many ms.
+   * `NaN` throws a `RangeError`; zero or less completes on the first frame.
+   */
+  timeoutMs?: number;
+  /** @deprecated Renamed to {@link ProgressSpinnerOptions.timeoutMs}; removed in 1.0.0. */
   timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 /** A self-driving spinner: it loops a synthetic progress on a timer until stopped. */
@@ -25,11 +34,21 @@ export interface IndeterminateSpinnerOptions {
   loop?: "bounce" | "restart";
   /** Milliseconds for one 0->1 sweep. Must be finite and greater than zero. Default `2000`. */
   periodMs?: number;
+  /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
+  ariaLabel?: string;
 }
 
 export type SpinnerOptions = ProgressSpinnerOptions | IndeterminateSpinnerOptions;
 
 export interface Spinner {
+  /**
+   * Settles once the animation has set up: resolves when it can draw, rejects
+   * with the error when it cannot (for example a pinned backend the browser
+   * lacks). On rejection the spinner stops animating and leaves the page as it
+   * is; call {@link Spinner.destroy} to remove it. Built-in animations resolve it
+   * when the spinner is destroyed before setup finishes.
+   */
+  readonly ready: Promise<void>;
   /** Set the progress target (0..1). No-op for an indeterminate spinner. */
   setProgress(target: number): void;
   /** Play the outro, then stop animating (keeps the injected DOM in place). */
@@ -47,6 +66,59 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
+const usedAnimations = new WeakSet<SpinnerAnimation>();
+
+// Visually hidden but read by assistive technology.
+const PROGRESSBAR_STYLE =
+  "position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
+
+/**
+ * True when the user has asked the system to reduce motion
+ * (`prefers-reduced-motion: reduce`). The spinner does not act on it by itself;
+ * use it to choose a calmer animation, a slower spin, or no spinner at all.
+ */
+export function prefersReducedMotion(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Add the spinner's accessible progress bar to `target`: an ARIA `progressbar`
+ * named `label`. The visual labels are hidden from assistive technology, so this
+ * is the one element that reports progress. An indeterminate spinner has no
+ * value. `update` writes the value only when the rounded percentage changes.
+ */
+function mountProgressbar(
+  target: HTMLElement,
+  label: string,
+  indeterminate: boolean,
+): { element: HTMLElement; update(progress: number): void } {
+  const element = document.createElement("div");
+  element.style.cssText = PROGRESSBAR_STYLE;
+  element.setAttribute("role", "progressbar");
+  element.setAttribute("aria-label", label);
+  if (!indeterminate) {
+    element.setAttribute("aria-valuemin", "0");
+    element.setAttribute("aria-valuemax", "100");
+  }
+  target.appendChild(element);
+  let shown = -1;
+  return {
+    element,
+    update(progress) {
+      if (indeterminate) return;
+      const percent = Math.round(progress * 100);
+      if (percent === shown) return;
+      shown = percent;
+      element.setAttribute("aria-valuenow", String(percent));
+    },
+  };
+}
+
+/**
+ * Mount `options.animation` inside `target` and start its animation loop.
+ * Throws before mounting anything on invalid options or a reused animation
+ * instance; setup failures after that are reported through {@link Spinner.ready}.
+ */
 export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spinner {
   if (!(target instanceof HTMLElement)) {
     throw new Error("3d-spinner: createSpinner requires a target HTMLElement.");
@@ -61,14 +133,25 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   ) {
     throw new RangeError("3d-spinner: periodMs must be a finite number greater than zero.");
   }
-  if (
-    !indeterminate &&
-    options.until instanceof Date &&
-    Number.isNaN(options.until.getTime())
-  ) {
+  if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
   }
-  animation.mount(target);
+  const timeoutMs = indeterminate ? undefined : (options.timeoutMs ?? options.timeout);
+  if (Number.isNaN(timeoutMs)) {
+    throw new RangeError("3d-spinner: timeoutMs must be a number of milliseconds, not NaN.");
+  }
+  if (usedAnimations.has(animation)) {
+    throw new Error(
+      "3d-spinner: this animation instance is already in use. Animations are single-use; create a new one for each spinner.",
+    );
+  }
+  usedAnimations.add(animation);
+  const mounting = mountAnimation(animation, target);
+  const progressbar = mountProgressbar(target, options.ariaLabel ?? "Loading", indeterminate);
+  const ready = Promise.resolve(mounting).catch((error: unknown) => {
+    halt();
+    throw error;
+  });
 
   const start = performance.now();
   let rafId = 0;
@@ -83,33 +166,29 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   let deadline = Infinity;
   let lastFrame = start;
   if (!indeterminate) {
-    const opts = options as ProgressSpinnerOptions;
-    if (typeof opts.progress === "number") {
-      current = clamp01(opts.progress);
+    if (typeof options.progress === "number") {
+      current = clamp01(options.progress);
       targetProgress = current;
     }
-    if (typeof opts.timeout === "number") deadline = Math.min(deadline, start + opts.timeout);
+    if (typeof timeoutMs === "number") deadline = Math.min(deadline, start + timeoutMs);
     // `until` is wall-clock time; rAF timestamps share performance.now()'s origin.
-    if (opts.until instanceof Date) {
-      deadline = Math.min(deadline, start + (opts.until.getTime() - Date.now()));
+    if (options.until instanceof Date) {
+      deadline = Math.min(deadline, start + (options.until.getTime() - Date.now()));
     }
   }
 
   function computeProgress(now: number): number {
     if (!indeterminate) {
       if (now >= deadline) targetProgress = 1;
-      const deltaMs = Math.max(0, now - lastFrame);
+      const deltaMs = now - lastFrame;
       lastFrame = now;
-      // Frame-rate independent form of a 0.12 lerp per 60 fps frame.
-      const alpha = 1 - Math.pow(1 - 0.12, deltaMs / (1000 / 60));
-      current = lerp(current, targetProgress, alpha);
+      current = lerp(current, targetProgress, damp(0.12, deltaMs));
       if (Math.abs(targetProgress - current) < 0.0005) current = targetProgress;
       return current;
     }
-    const opts = options as IndeterminateSpinnerOptions;
-    const period = opts.periodMs ?? 2000;
+    const period = options.periodMs ?? 2000;
     const t = (now - start) / period;
-    if ((opts.loop ?? "bounce") === "restart") return t - Math.floor(t);
+    if ((options.loop ?? "bounce") === "restart") return t - Math.floor(t);
     const phase = t - 2 * Math.floor(t / 2); // 0..2
     return phase <= 1 ? phase : 2 - phase; // triangle 0..1..0
   }
@@ -129,6 +208,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
 
     const target = indeterminate ? progress : targetProgress;
     animation.render(now, { progress, targetProgress: target, indeterminate });
+    progressbar.update(progress);
 
     if (exiting && animation.isFinished()) {
       halt();
@@ -162,11 +242,15 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     if (destroyed) return;
     destroyed = true;
     halt();
-    animation.destroy();
+    try {
+      animation.destroy();
+    } finally {
+      progressbar.element.remove();
+    }
   }
 
   rafId = requestAnimationFrame(frame);
-  return { setProgress, stop, destroy };
+  return { ready, setProgress, stop, destroy };
 }
 
 export type { SpinnerAnimation, AnimationFrame, AnimationLabel } from "./animation.js";

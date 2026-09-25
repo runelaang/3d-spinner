@@ -15,3 +15,48 @@ test("zero-duration label transitions complete immediately", () => {
   assert.equal(animationLabelOpacity(100, 100, 0, Infinity, 0), 1);
   assert.equal(animationLabelOpacity(100, 100, 0, 100, 0), 0);
 });
+
+test("text labels are hidden from assistive technology and only rewritten on change", async () => {
+  const { mountAnimationLabel } = await import("../dist/animation-label.js");
+  const saved = globalThis.document;
+  globalThis.document = {
+    createElement: () => {
+      const element = { style: {}, attributes: {}, writes: 0, children: [] };
+      element.setAttribute = (name, value) => (element.attributes[name] = value);
+      element.appendChild = (child) => element.children.push(child);
+      let text = "";
+      Object.defineProperty(element, "textContent", {
+        get: () => text,
+        set: (value) => {
+          element.writes++;
+          text = value;
+        },
+      });
+      return element;
+    },
+  };
+  try {
+    const target = { appendChild() {} };
+    const text = mountAnimationLabel(target, "Loading");
+    assert.equal(text.container.attributes["aria-hidden"], "true");
+    assert.equal(text.container.attributes.role, undefined);
+    text.setText("Loading");
+    text.setText("42%");
+    text.setText("42%");
+    assert.equal(text.container.textContent, "42%");
+    assert.equal(text.container.writes, 2, "initial text plus one change");
+
+    const custom = { style: {} };
+    const markup = mountAnimationLabel(target, custom);
+    assert.equal(
+      markup.container.attributes["aria-hidden"],
+      undefined,
+      "consumer markup keeps its semantics",
+    );
+    markup.setText("42%");
+    assert.equal(markup.container.writes, 0);
+  } finally {
+    if (saved === undefined) delete globalThis.document;
+    else globalThis.document = saved;
+  }
+});

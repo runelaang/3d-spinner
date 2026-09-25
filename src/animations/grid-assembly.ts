@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -106,12 +107,12 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
   private label?: MountedAnimationLabel;
   private observer?: ResizeObserver;
   private readonly handles: MeshHandle[] = [];
-  private readonly blends: number[] = new Array(COUNT).fill(0);
-  private readonly dockedAt: number[] = new Array(COUNT).fill(Infinity);
+  private readonly blends: number[] = new Array<number>(COUNT).fill(0);
+  private readonly dockedAt: number[] = new Array<number>(COUNT).fill(Infinity);
   private readonly tumbleX: number[] = [];
   private readonly tumbleY: number[] = [];
   private readonly collapseDelay: number[] = [];
-  private readonly popStarted: boolean[] = new Array(COUNT).fill(false);
+  private readonly popStarted: boolean[] = new Array<boolean>(COUNT).fill(false);
   private maxCollapseDelay = 0;
   private readonly fades: OneSidedTransparency[] = [];
   private readonly slots: Vec3[] = [];
@@ -154,8 +155,8 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     this.maxCollapseDelay = Math.max(...this.collapseDelay);
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -165,9 +166,7 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
       this.handles.push(engine.add(this.meshes[i % this.meshes.length], { scale: 0 }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     const measure = () => {
       if (target.clientWidth > 0 && target.clientHeight > 0) {
@@ -180,6 +179,7 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {
@@ -214,20 +214,23 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     if (now >= this.collapseAt) this.renderCollapse(now);
     else this.renderStory(now, dt);
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.enterAt,
-        LABEL_FADE_MS,
-        this.collapseAt,
-        COLLAPSE_MS,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(now, this.enterAt, LABEL_FADE_MS, this.collapseAt, COLLAPSE_MS),
+      );
     }
 
-    if (this.collapseAt !== Infinity && now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS) {
+    if (
+      this.collapseAt !== Infinity &&
+      now >= this.collapseAt + this.maxCollapseDelay + COLLAPSE_MS + POP_MS
+    ) {
       this.finished = true;
     }
     this.engine.render();
@@ -251,7 +254,9 @@ export class GridAssemblyAnimation implements SpinnerAnimation {
     const ringComplete = now - this.enterAt >= INTRO_DONE_MS;
     const want = !ringComplete
       ? 0
-      : exiting ? COUNT : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
+      : exiting
+        ? COUNT
+        : Math.min(COUNT, Math.floor(progress * COUNT + 1e-9));
     const rate = (dt / this.dockMs) * (exiting ? EXIT_HURRY : 1);
 
     for (let i = 0; i < COUNT; i++) {

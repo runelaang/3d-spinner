@@ -11,8 +11,8 @@
 
 <body>
   <nav class="topbar">
-    <a href="/examples/prefabs.html">Prefabs</a>
     <a href="/examples/prefabs-progress.html">Progress prefabs</a>
+    <a href="/examples/prefabs.html">Prefabs</a>
     <a href="/examples/shapes.html">Shapes</a>
     <a href="/examples/shading.html">Shading</a>
     <a href="/examples/spinner-types.html">Spinner types</a>
@@ -49,7 +49,9 @@
   <div class="spinner-grid" id="motion-showcase"></div>
 
   <script type="module">
-    import { createSpinner } from "/dist/index.js";
+    import { createSpinner as mountSpinner } from "/dist/index.js";
+    import { showSetupFailure } from "/examples/stage-error.js";
+    const createSpinner = (target, options) => showSetupFailure(mountSpinner(target, options), target);
     import { ObjectMotionAnimation } from "/dist/animations/object-motion.js";
     import {
       circleMotion,

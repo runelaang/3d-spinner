@@ -1,4 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "./animation.js";
+import { mountAnimation, prepareHost } from "./mount-host.js";
 
 /** One animation layer in a {@link CompositeAnimation}. Later layers render above earlier ones. */
 export interface CompositeAnimationLayer {
@@ -12,18 +13,21 @@ export class CompositeAnimation implements SpinnerAnimation {
   private readonly elements: HTMLElement[] = [];
 
   constructor(layers: ReadonlyArray<SpinnerAnimation | CompositeAnimationLayer>) {
-    this.layers = layers.map((layer) => "animation" in layer ? layer : { animation: layer });
+    this.layers = layers.map((layer) => ("animation" in layer ? layer : { animation: layer }));
   }
 
-  mount(target: HTMLElement): void {
-    target.style.position = "relative";
+  /** Mount every layer in its own stacked element; resolves once all layers can draw. */
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
+    const mounting: Array<Promise<void>> = [];
     for (const [index, layer] of this.layers.entries()) {
       const element = document.createElement("div");
       element.style.cssText = `position:absolute;inset:0;z-index:${layer.zIndex ?? index}`;
       target.appendChild(element);
       this.elements.push(element);
-      layer.animation.mount(element);
+      mounting.push(mountAnimation(layer.animation, element));
     }
+    return Promise.all(mounting).then(() => undefined);
   }
 
   enter(now: number): void {
@@ -42,9 +46,22 @@ export class CompositeAnimation implements SpinnerAnimation {
     return this.layers.every((layer) => layer.animation.isFinished());
   }
 
+  /** Destroy every layer even if one throws, then rethrow the first error. */
   destroy(): void {
-    for (const layer of this.layers) layer.animation.destroy();
+    // Deliberately not an AggregateError: only a faulty custom layer throws here, and the
+    // first error is enough to find it. What matters is that every other layer is cleaned up.
+    let failed = false;
+    let firstError: unknown;
+    for (const layer of this.layers) {
+      try {
+        layer.animation.destroy();
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+      }
+    }
     for (const element of this.elements) element.remove();
     this.elements.length = 0;
+    if (failed) throw firstError;
   }
 }

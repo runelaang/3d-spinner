@@ -1,12 +1,15 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
   type MountedAnimationLabel,
 } from "../animation-label.js";
 import {
+  Camera,
   Little3dEngine,
   type Backend,
+  type CameraOptions,
   type Mesh,
   type MeshHandle,
   type Transparency,
@@ -17,12 +20,11 @@ import {
   subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import {
-  type Mat4,
+  eulerFromRotation,
   multiply,
-  rotationX,
-  rotationY,
-  rotationZ,
+  rotationFromEuler,
 } from "../engines/little-3d-engine/core/math.js";
+import { damp } from "../engines/little-tween-engine/core/damp.js";
 import type { MotionController } from "../motion/controller.js";
 import {
   enterFromObjectDirection,
@@ -39,7 +41,7 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 
 /** Trailing copies that chase the lead object in single file. */
 export interface ObjectMotionTail {
-  /** Number of trailing copies. */
+  /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
   count: number;
   /** Time each copy lags the one ahead of it, in milliseconds. */
   gapMs: number;
@@ -106,6 +108,7 @@ const BANK_GAIN = 26;
 const BANK_LIMIT = 0.7;
 const BANK_SMOOTH = 0.12;
 const SAMPLE_MS = 8;
+const CAMERA: Partial<CameraOptions> = { position: { x: 0, y: 0, z: 3 } };
 
 // Rotation (proper, winding-preserving) that maps each `facing` axis onto +X.
 const FACE_FORWARD: Record<Facing, (v: Vec3) => Vec3> = {
@@ -189,32 +192,13 @@ function orientationFor(forward: Vec3, bank: number): Vec3 {
   };
 }
 
-/** Engine rotation matrix from Euler angles (Rz * Ry * Rx). */
-function rotationMatrix(x: number, y: number, z: number): Mat4 {
-  return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
-}
-
-/** Inverse of {@link rotationMatrix} for the engine's Rz * Ry * Rx order. */
-function eulerFromRotationMatrix(matrix: Mat4): Vec3 {
-  const sy = Math.hypot(matrix[0], matrix[1]);
-  if (sy > 1e-6) {
-    return {
-      x: Math.atan2(matrix[9], matrix[10]),
-      y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-      z: Math.atan2(matrix[4], matrix[0]),
-    };
-  }
-  return {
-    x: Math.atan2(-matrix[6], matrix[5]),
-    y: Math.asin(Math.max(-1, Math.min(1, -matrix[8]))),
-    z: 0,
-  };
-}
-
 /** Compose path orientation with a local-space offset/spin rotation. */
 function combineLocalRotation(path: Vec3, extra: Vec3): Vec3 {
-  return eulerFromRotationMatrix(
-    multiply(rotationMatrix(path.x, path.y, path.z), rotationMatrix(extra.x, extra.y, extra.z)),
+  return eulerFromRotation(
+    multiply(
+      rotationFromEuler(path.x, path.y, path.z),
+      rotationFromEuler(extra.x, extra.y, extra.z),
+    ),
   );
 }
 
@@ -237,7 +221,10 @@ function resolveTransition(
 ): ResolvedObjectMotionTransition {
   if (!config) return { transition: fallback, durationMs };
   if (typeof config === "function") return { transition: config, durationMs };
-  return { transition: config.transition, durationMs: Math.max(0, config.durationMs ?? durationMs) };
+  return {
+    transition: config.transition,
+    durationMs: Math.max(0, config.durationMs ?? durationMs),
+  };
 }
 
 /**
@@ -267,11 +254,17 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   private readonly rotationOffset: Vec3;
   private readonly rotationSpin: Vec3;
   private readonly hasExtraRotation: boolean;
+  private readonly camera = new Camera(CAMERA);
+  private readonly radius: number;
 
+  private target?: HTMLElement;
+  private aspect = 1;
   private started = false;
   private finished = false;
+  private lastRenderAt?: number;
   private introStart = 0;
   private outroStart = Infinity;
+  private outroDelay = 0;
   private outroPosition: Vec3 = { x: 0, y: 0, z: 0 };
   private outroVelocity: Vec3 = { x: 0, y: 0, z: 0 };
   private outroDirection: Vec3 = { x: 1, y: 0, z: 0 };
@@ -280,12 +273,20 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     const centered = centerAndScaleMesh(resolveMesh(options.mesh), options.size ?? 1);
     const facing = faceForward(centered, options.facing ?? "+x");
     this.mesh = applyColor(facing, options.color);
+    this.radius = this.mesh.vertices.reduce(
+      (max, v) => Math.max(max, Math.hypot(v.x, v.y, v.z)),
+      0,
+    );
     this.motion = options.motion;
     this.backend = options.backend;
     this.transparency = options.transparency;
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
-    this.tailCount = Math.max(0, Math.floor(options.tail?.count ?? 0));
+    const tailCount = options.tail?.count ?? 0;
+    if (!Number.isFinite(tailCount)) {
+      throw new RangeError("3d-spinner: tail.count must be a finite number.");
+    }
+    this.tailCount = Math.max(0, Math.floor(tailCount));
     this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
     this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
     this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
@@ -306,38 +307,43 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       this.rotationSpin.z !== 0;
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
-    const engine = new Little3dEngine({
-      backend: this.backend,
-      camera: { position: { x: 0, y: 0, z: 3 } },
-    });
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
+    this.target = target;
+    const engine = new Little3dEngine({ backend: this.backend, camera: CAMERA });
     for (let i = 0; i <= this.tailCount; i++) {
       this.handles.push(engine.add(this.mesh, { transparency: this.transparency }));
       this.banks.push(0);
       this.headings.push({ x: 1, y: 0, z: 0 });
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {
     if (this.started) return;
     this.started = true;
     this.introStart = now;
+    this.measureAspect();
   }
 
+  /**
+   * Begin the fly-out. A stop during the fly-in lets the fly-in finish first,
+   * so the fly-out starts from where the object really is on its path.
+   */
   exit(now: number): void {
     if (!this.started || this.outroStart !== Infinity) return;
-    this.outroPosition = this.motion.positionAt(now);
-    this.outroVelocity = motionVectorAt(this.motion, now);
+    const start = Math.max(now, this.introStart + this.intro.durationMs);
+    this.measureAspect();
+    this.outroPosition = this.motion.positionAt(start);
+    this.outroVelocity = motionVectorAt(this.motion, start);
     this.outroDirection = resolveDirection(this.outroVelocity, this.headings[0]);
-    this.outroStart = now;
+    this.outroStart = start;
+    this.outroDelay = start - now;
   }
 
   isFinished(): boolean {
@@ -347,6 +353,15 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   /** Milliseconds the fly-out takes; used to align a following particle trail's outro. */
   get outroDurationMs(): number {
     return this.outro.durationMs;
+  }
+
+  /**
+   * Milliseconds between {@link exit} and the start of the fly-out: nonzero when
+   * stopped during the fly-in, which finishes first. Feed `outroDelayMs +
+   * outroDurationMs` to a trailing particle layer's `outroMs` as a function.
+   */
+  get outroDelayMs(): number {
+    return this.outroDelay;
   }
 
   /**
@@ -362,9 +377,14 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
   render(now: number, frame: AnimationFrame): void {
     if (!this.engine || !this.label) return;
 
-    if (this.outroStart !== Infinity && now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap) {
+    if (
+      this.outroStart !== Infinity &&
+      now >= this.outroStart + this.outro.durationMs + this.tailCount * this.tailGap
+    ) {
       this.finished = true;
     }
+    const bankStep = damp(BANK_SMOOTH, now - (this.lastRenderAt ?? now - 1000 / 60));
+    this.lastRenderAt = now;
 
     for (let k = 0; k < this.handles.length; k++) {
       const transform = this.handles[k].transform;
@@ -377,7 +397,10 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       transform.scale = sample.size;
       let euler = sample.orientation;
       if (!euler) {
-        const heading = subtract(this.positionAt(t + SAMPLE_MS) ?? sample.position, sample.position);
+        const heading = subtract(
+          this.positionAt(t + SAMPLE_MS) ?? sample.position,
+          sample.position,
+        );
         if (Math.hypot(heading.x, heading.y, heading.z) > 1e-5) {
           this.headings[k] = normalize(heading);
         }
@@ -386,7 +409,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
           -BANK_LIMIT,
           Math.min(BANK_LIMIT, cross(this.headings[k], ahead).y * BANK_GAIN),
         );
-        this.banks[k] += (targetBank - this.banks[k]) * BANK_SMOOTH;
+        this.banks[k] += (targetBank - this.banks[k]) * bankStep;
         euler = orientationFor(this.headings[k], this.banks[k]);
       }
       if (this.hasExtraRotation) {
@@ -404,17 +427,23 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       transform.rotation.z = euler.z;
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.started ? this.introStart : Infinity,
-        this.intro.durationMs,
-        this.outroStart,
-        this.outro.durationMs,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(
+          now,
+          this.started ? this.introStart : Infinity,
+          this.intro.durationMs,
+          this.outroStart,
+          this.outro.durationMs,
+        ),
+      );
     }
     this.engine.render();
   }
@@ -447,7 +476,8 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     }
     if (this.outroStart !== Infinity) {
       if (t > this.outroStart + this.outro.durationMs) return undefined;
-      if (t >= this.outroStart) return this.transitionSample("outro", t, this.outro, this.outroStart);
+      if (t >= this.outroStart)
+        return this.transitionSample("outro", t, this.outro, this.outroStart);
     }
     return { position: this.motion.positionAt(t), size: 1 };
   }
@@ -465,6 +495,19 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     return this.applyTransitionOutput(input, output, phase, t);
   }
 
+  /** Take the viewport shape the fly transitions aim out of; unmeasured stays 1. */
+  private measureAspect(): void {
+    const width = this.target?.clientWidth ?? 0;
+    const height = this.target?.clientHeight ?? 0;
+    if (width > 0 && height > 0) this.aspect = width / height;
+  }
+
+  /** How far the object must travel from `from` along `direction` to be fully out of view. */
+  private leaveViewFrom(from: Vec3): (direction: Vec3) => number {
+    const aspect = this.aspect;
+    return (direction) => this.camera.distanceToLeaveView(from, direction, this.radius, aspect);
+  }
+
   private transitionInput(
     phase: ObjectMotionTransitionPhase,
     delta: number,
@@ -475,15 +518,17 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     if (phase === "intro") {
       const handoff = start + durationMs;
       const velocity = motionVectorAt(this.motion, handoff);
+      const position = this.motion.positionAt(handoff);
       return {
         delta,
-        position: this.motion.positionAt(handoff),
+        position,
         direction: resolveDirection(velocity, { x: 1, y: 0, z: 0 }),
         velocity,
         size: 1,
         durationMs,
         elapsedMs,
         phase,
+        distanceToLeaveView: this.leaveViewFrom(position),
       };
     }
     return {
@@ -495,6 +540,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       durationMs,
       elapsedMs,
       phase,
+      distanceToLeaveView: this.leaveViewFrom(this.outroPosition),
     };
   }
 
@@ -505,8 +551,7 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
     t: number,
   ): ObjectMotionSample {
     return {
-      position:
-        output.position ?? (phase === "intro" ? this.motion.positionAt(t) : input.position),
+      position: output.position ?? (phase === "intro" ? this.motion.positionAt(t) : input.position),
       size: output.size ?? input.size ?? 1,
       orientation: output.orientation,
     };

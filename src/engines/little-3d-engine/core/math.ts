@@ -42,10 +42,27 @@ export function normalize(v: Vec3): Vec3 {
 }
 
 /**
- * A 4x4 matrix in column-major order (16 numbers), suitable for chaining
- * model, view, and projection transforms.
+ * A 4x4 matrix in column-major order (exactly 16 numbers), suitable for
+ * chaining model, view, and projection transforms.
  */
-export type Mat4 = number[];
+export type Mat4 = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
 
 /** The 4x4 identity matrix. */
 export function identity(): Mat4 {
@@ -64,7 +81,7 @@ export function multiply(a: Mat4, b: Mat4): Mat4 {
       out[col * 4 + row] = sum;
     }
   }
-  return out;
+  return out as Mat4;
 }
 
 /** Translation matrix. */
@@ -99,6 +116,32 @@ export function rotationZ(rad: number): Mat4 {
 }
 
 /**
+ * Rotation matrix for the engine's Euler convention: X first, then Y, then Z
+ * (`Rz * Ry * Rx`). This is how mesh transforms interpret `rotation`.
+ */
+export function rotationFromEuler(x: number, y: number, z: number): Mat4 {
+  return multiply(rotationZ(z), multiply(rotationY(y), rotationX(x)));
+}
+
+/**
+ * Inverse of {@link rotationFromEuler}: the Euler angles of a rotation matrix.
+ * At gimbal lock (Y = +-90 degrees) X and Z are not separable, so Z is 0.
+ */
+export function eulerFromRotation(m: Mat4): Vec3 {
+  // Column-major: m[col * 4 + row]. For Rz*Ry*Rx, row 2 of column 0 is -sin(y),
+  // column 0 carries cos(y)*(cos z, sin z) and row 2 of columns 1-2 carries cos(y)*(sin x, cos x).
+  const horizontal = Math.hypot(m[0], m[1]);
+  if (horizontal <= 1e-6) {
+    return { x: Math.atan2(-m[9], m[5]), y: Math.atan2(-m[2], horizontal), z: 0 };
+  }
+  return {
+    x: Math.atan2(m[6], m[10]),
+    y: Math.atan2(-m[2], horizontal),
+    z: Math.atan2(m[1], m[0]),
+  };
+}
+
+/**
  * Perspective projection matrix.
  *
  * @param fovY Vertical field of view in radians.
@@ -110,10 +153,22 @@ export function perspective(fovY: number, aspect: number, near: number, far: num
   const f = 1 / Math.tan(fovY / 2);
   const nf = 1 / (near - far);
   return [
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * nf, -1,
-    0, 0, 2 * far * near * nf, 0,
+    f / aspect,
+    0,
+    0,
+    0,
+    0,
+    f,
+    0,
+    0,
+    0,
+    0,
+    (far + near) * nf,
+    -1,
+    0,
+    0,
+    2 * far * near * nf,
+    0,
   ];
 }
 

@@ -5,8 +5,25 @@ import { createSpinner } from "../dist/index.js";
 const originalHTMLElement = globalThis.HTMLElement;
 const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+const originalDocument = globalThis.document;
 
-class FakeHTMLElement {}
+class FakeHTMLElement {
+  style = {};
+  attributes = {};
+  children = [];
+  parent = undefined;
+  appendChild(child) {
+    child.parent = this;
+    this.children.push(child);
+  }
+  setAttribute(name, value) {
+    this.attributes[name] = value;
+  }
+  remove() {
+    this.parent?.children.splice(this.parent.children.indexOf(this), 1);
+    this.parent = undefined;
+  }
+}
 
 let frames;
 let nextFrameId;
@@ -17,6 +34,7 @@ function resetFrameScheduler() {
   nextFrameId = 1;
   frameTime = performance.now() + 16;
   globalThis.HTMLElement = FakeHTMLElement;
+  globalThis.document = { createElement: () => new FakeHTMLElement() };
   globalThis.requestAnimationFrame = (callback) => {
     const id = nextFrameId++;
     frames.set(id, callback);
@@ -83,6 +101,7 @@ after(() => {
   restoreGlobal("HTMLElement", originalHTMLElement);
   restoreGlobal("requestAnimationFrame", originalRequestAnimationFrame);
   restoreGlobal("cancelAnimationFrame", originalCancelAnimationFrame);
+  restoreGlobal("document", originalDocument);
 });
 
 test("createSpinner mounts once and completes reported progress after the outro", () => {
@@ -231,10 +250,20 @@ test("until uses wall-clock time and the earlier of timeout and until wins", asy
 
 test("an invalid until Date fails before mounting", () => {
   const animation = fakeAnimation();
-  assert.throws(
-    () => createSpinner(new FakeHTMLElement(), { animation, until: new Date(NaN) }),
-    { name: "RangeError", message: /until/ },
-  );
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, until: new Date(NaN) }), {
+    name: "RangeError",
+    message: /until/,
+  });
+  assert.equal(animation.mounts.length, 0);
+  assert.equal(frames.size, 0);
+});
+
+test("a NaN timeout fails before mounting", () => {
+  const animation = fakeAnimation();
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, timeout: NaN }), {
+    name: "RangeError",
+    message: /timeout/,
+  });
   assert.equal(animation.mounts.length, 0);
   assert.equal(frames.size, 0);
 });
@@ -276,4 +305,127 @@ test("progress smoothing stays finite across irregular frames and long gaps", ()
   }
   assert.equal(animation.renders.at(-1).frame.progress, 1);
   assert.equal(animation.exits.length, 1);
+});
+
+test("ready resolves once the animation has mounted", async () => {
+  const animation = fakeAnimation();
+  let finishMount;
+  animation.mount = (target) => {
+    animation.mounts.push(target);
+    return new Promise((resolve) => {
+      finishMount = resolve;
+    });
+  };
+  const spinner = createSpinner(new FakeHTMLElement(), { animation });
+  let settled = false;
+  spinner.ready.then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false);
+  finishMount();
+  await spinner.ready;
+  assert.equal(settled, true);
+  assert.equal(frames.size, 1, "the loop keeps running");
+  spinner.destroy();
+});
+
+test("a failed mount rejects ready and stops the loop", async () => {
+  const animation = fakeAnimation();
+  animation.mount = () => Promise.reject(new Error("no renderer"));
+  const spinner = createSpinner(new FakeHTMLElement(), { animation });
+  assert.equal(frames.size, 1);
+  await assert.rejects(spinner.ready, /no renderer/);
+  assert.equal(frames.size, 0);
+  spinner.stop();
+  assert.equal(frames.size, 0);
+  spinner.destroy();
+  assert.equal(animation.destroyCalls, 1);
+});
+
+test("an animation instance cannot drive a second spinner", () => {
+  const animation = fakeAnimation();
+  const first = createSpinner(new FakeHTMLElement(), { animation });
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation }), /already in use/);
+  first.destroy();
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { type: "indeterminate", animation }),
+    /already in use/,
+  );
+  assert.equal(animation.mounts.length, 1);
+});
+
+test("a progress spinner exposes one progressbar whose value follows the rounded progress", () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  const spinner = createSpinner(target, { animation, ariaLabel: "Uploading" });
+  const bar = target.children.find((child) => child.attributes.role === "progressbar");
+  assert.ok(bar, "progressbar element");
+  assert.equal(bar.attributes["aria-label"], "Uploading");
+  assert.equal(bar.attributes["aria-valuemin"], "0");
+  assert.equal(bar.attributes["aria-valuemax"], "100");
+
+  let writes = 0;
+  const setAttribute = bar.setAttribute.bind(bar);
+  bar.setAttribute = (name, value) => {
+    if (name === "aria-valuenow") writes++;
+    setAttribute(name, value);
+  };
+  runNextFrame();
+  runNextFrame();
+  assert.equal(bar.attributes["aria-valuenow"], "0");
+  assert.equal(writes, 1, "unchanged percentages are not rewritten");
+
+  spinner.setProgress(1);
+  runUntil(() => bar.attributes["aria-valuenow"] === "100");
+  spinner.destroy();
+  assert.equal(target.children.includes(bar), false, "destroy removes it");
+});
+
+test("an indeterminate spinner's progressbar has a name but no value", () => {
+  const target = new FakeHTMLElement();
+  createSpinner(target, { type: "indeterminate", animation: fakeAnimation() });
+  const bar = target.children.find((child) => child.attributes.role === "progressbar");
+  runNextFrame();
+  assert.equal(bar.attributes["aria-label"], "Loading");
+  assert.equal("aria-valuenow" in bar.attributes, false);
+  assert.equal("aria-valuemax" in bar.attributes, false);
+});
+
+test("timeoutMs completes a progress spinner and wins over the deprecated timeout", () => {
+  const animation = fakeAnimation();
+  createSpinner(new FakeHTMLElement(), { animation, timeoutMs: 0, timeout: 60_000 });
+  runNextFrame();
+  assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
+  assert.throws(
+    () => createSpinner(new FakeHTMLElement(), { animation: fakeAnimation(), timeoutMs: NaN }),
+    { name: "RangeError", message: /timeoutMs/ },
+  );
+});
+
+test("a mount that throws at once still returns a spinner and rejects ready", async () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  animation.mount = () => {
+    throw new Error("broken extension");
+  };
+  const spinner = createSpinner(target, { animation });
+  await assert.rejects(spinner.ready, /broken extension/);
+  assert.equal(frames.size, 0, "the loop stopped");
+  spinner.destroy();
+  assert.equal(animation.destroyCalls, 1);
+  assert.deepEqual(target.children, [], "the progress bar is gone");
+});
+
+test("destroy removes the progress bar even when the animation's destroy throws", () => {
+  const target = new FakeHTMLElement();
+  const animation = fakeAnimation();
+  animation.destroy = () => {
+    throw new Error("broken destroy");
+  };
+  const spinner = createSpinner(target, { animation });
+  assert.throws(() => spinner.destroy(), /broken destroy/);
+  assert.deepEqual(target.children, []);
+  assert.equal(frames.size, 0);
+  assert.doesNotThrow(() => spinner.destroy(), "a second destroy is a no-op");
 });

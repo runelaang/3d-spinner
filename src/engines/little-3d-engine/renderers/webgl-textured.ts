@@ -67,7 +67,7 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string): WebG
 }
 
 function link(gl: WebGL2RenderingContext): WebGLProgram {
-  const program = gl.createProgram()!;
+  const program = gl.createProgram();
   gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX_SHADER));
   gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER));
   gl.linkProgram(program);
@@ -112,14 +112,23 @@ export class WebGLTexturedRenderer implements Renderer {
   private readonly sources = new Map<Mesh, TextureSource>();
   private readonly textures = new Map<Mesh, WebGLTexture>();
   private readonly buffers = new Map<Mesh, TexturedBuffers>();
+  private readonly modelScratch = new Float32Array(16);
 
   constructor(options: RendererOptions = {}) {
     this.inner = new WebGLRenderer(options);
   }
 
-  /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+  /**
+   * Texture every instance of `mesh` with `source`. Call any time, also before
+   * init; a new source replaces the one already uploaded.
+   */
   setTexture(mesh: Mesh, source: TextureSource): void {
+    if (this.sources.get(mesh) === source) return;
     this.sources.set(mesh, source);
+    const texture = this.textures.get(mesh);
+    if (!texture) return;
+    this.textures.delete(mesh);
+    this.gl?.deleteTexture(texture);
   }
 
   init(canvas: HTMLCanvasElement): void {
@@ -146,10 +155,17 @@ export class WebGLTexturedRenderer implements Renderer {
     const cached = this.textures.get(mesh);
     if (cached) return cached;
     const gl = this.gl!;
-    const texture = gl.createTexture()!;
+    const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
       new Uint8Array([255, 255, 255, 255]),
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -161,7 +177,14 @@ export class WebGLTexturedRenderer implements Renderer {
     const upload = (image: TexImageSource) => {
       if (!this.gl || this.textures.get(mesh) !== texture) return;
       this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-      this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        image,
+      );
     };
     const source = this.sources.get(mesh)!;
     if (typeof source === "string") {
@@ -174,18 +197,18 @@ export class WebGLTexturedRenderer implements Renderer {
     return texture;
   }
 
-  private buffersFor(mesh: Mesh): TexturedBuffers {
+  private getOrCreateTexturedBuffers(mesh: Mesh): TexturedBuffers {
     const cached = this.buffers.get(mesh);
     if (cached) return cached;
     const gl = this.gl!;
     const loc = this.locations!;
     const data = expandToTriangles(mesh);
-    const vao = gl.createVertexArray()!;
+    const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     const buffers: WebGLBuffer[] = [];
     const attribute = (location: number, array: Float32Array, size: number) => {
       if (location < 0) return;
-      const buffer = gl.createBuffer()!;
+      const buffer = gl.createBuffer();
       buffers.push(buffer);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW);
@@ -218,12 +241,14 @@ export class WebGLTexturedRenderer implements Renderer {
     gl.uniform1i(loc.uTexture, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // Same split as WebGLRenderer: source-alpha for RGB, ONE for alpha (premultiplied canvas).
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
     for (const item of textured) {
-      const buffers = this.buffersFor(item.mesh);
+      const buffers = this.getOrCreateTexturedBuffers(item.mesh);
       gl.bindTexture(gl.TEXTURE_2D, this.textureFor(item.mesh));
-      gl.uniformMatrix4fv(loc.uModel, false, new Float32Array(item.model));
+      this.modelScratch.set(item.model);
+      gl.uniformMatrix4fv(loc.uModel, false, this.modelScratch);
       gl.uniform1f(loc.uOpacity, itemOpacity(item.transparency));
       gl.bindVertexArray(buffers.vao);
       gl.drawArrays(gl.TRIANGLES, 0, buffers.count);
@@ -233,18 +258,31 @@ export class WebGLTexturedRenderer implements Renderer {
     gl.bindVertexArray(null);
   }
 
+  /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
+  releaseMesh(mesh: Mesh): void {
+    this.inner.releaseMesh(mesh);
+    const cached = this.buffers.get(mesh);
+    if (!cached) return;
+    this.buffers.delete(mesh);
+    const gl = this.gl;
+    if (!gl) return;
+    gl.deleteVertexArray(cached.vao);
+    for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
+  }
+
+  /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+  onLost(listener: (reason: string) => void): void {
+    this.inner.onLost(listener);
+  }
+
   destroy(): void {
     const gl = this.gl;
     if (gl) {
       for (const texture of this.textures.values()) gl.deleteTexture(texture);
-      for (const cached of this.buffers.values()) {
-        gl.deleteVertexArray(cached.vao);
-        for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
-      }
+      for (const mesh of [...this.buffers.keys()]) this.releaseMesh(mesh);
       if (this.program) gl.deleteProgram(this.program);
     }
     this.textures.clear();
-    this.buffers.clear();
     this.sources.clear();
     this.gl = undefined;
     this.program = undefined;

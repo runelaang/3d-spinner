@@ -35,121 +35,121 @@ export type EaseType =
   | "easeOutBounce"
   | "easeInOutBounce";
 
-export type EaseFunction = (value: number, overextend?: boolean) => number;
+export type EaseFunction = (value: number, allowExtrapolation?: boolean) => number;
 
-function input(value: number, overextend: boolean): number {
+function input(value: number, allowExtrapolation: boolean): number {
   if (Number.isNaN(value)) return 0;
-  if (overextend) return value;
+  if (allowExtrapolation) return value;
   return Math.min(1, Math.max(0, value));
 }
 
-export function linear(value: number, overextend = false): number {
-  return input(value, overextend);
+export function linear(value: number, allowExtrapolation = false): number {
+  return input(value, allowExtrapolation);
 }
 
-export function quadratic(value: number, overextend = false): number {
-  return easeInQuad(value, overextend);
+export function quadratic(value: number, allowExtrapolation = false): number {
+  return easeInQuad(value, allowExtrapolation);
 }
 
-export function cubic(value: number, overextend = false): number {
-  return easeInCubic(value, overextend);
+export function cubic(value: number, allowExtrapolation = false): number {
+  return easeInCubic(value, allowExtrapolation);
 }
 
-export function quartic(value: number, overextend = false): number {
-  return easeInQuart(value, overextend);
+export function quartic(value: number, allowExtrapolation = false): number {
+  return easeInQuart(value, allowExtrapolation);
 }
 
-export function quintic(value: number, overextend = false): number {
-  return easeInQuint(value, overextend);
+export function quintic(value: number, allowExtrapolation = false): number {
+  return easeInQuint(value, allowExtrapolation);
 }
 
-export function easeInSine(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInSine(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.cos((x * Math.PI) / 2);
 }
 
-export function easeOutSine(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutSine(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return Math.sin((x * Math.PI) / 2);
 }
 
-export function easeInOutSine(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutSine(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return -(Math.cos(Math.PI * x) - 1) / 2;
 }
 
-export function easeInQuad(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInQuad(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x * x;
 }
 
-export function easeOutQuad(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutQuad(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - (1 - x) * (1 - x);
 }
 
-export function easeInOutQuad(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutQuad(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 }
 
-export function easeInCubic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInCubic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x * x * x;
 }
 
-export function easeOutCubic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutCubic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.pow(1 - x, 3);
 }
 
-export function easeInOutCubic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutCubic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 
-export function easeInQuart(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInQuart(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x * x * x * x;
 }
 
-export function easeOutQuart(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutQuart(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.pow(1 - x, 4);
 }
 
-export function easeInOutQuart(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutQuart(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2;
 }
 
-export function easeInQuint(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInQuint(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x * x * x * x * x;
 }
 
-export function easeOutQuint(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutQuint(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.pow(1 - x, 5);
 }
 
-export function easeInOutQuint(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutQuint(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
 }
 
-export function easeInExpo(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInExpo(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x === 0 ? 0 : Math.pow(2, 10 * x - 10);
 }
 
-export function easeOutExpo(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutExpo(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
 }
 
-export function easeInOutExpo(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutExpo(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x === 0
     ? 0
     : x === 1
@@ -159,39 +159,39 @@ export function easeInOutExpo(value: number, overextend = false): number {
         : (2 - Math.pow(2, -20 * x + 10)) / 2;
 }
 
-export function easeInCirc(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInCirc(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - Math.sqrt(1 - Math.pow(x, 2));
 }
 
-export function easeOutCirc(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutCirc(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return Math.sqrt(1 - Math.pow(x - 1, 2));
 }
 
-export function easeInOutCirc(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutCirc(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5
     ? (1 - Math.sqrt(1 - Math.pow(2 * x, 2))) / 2
     : (Math.sqrt(1 - Math.pow(-2 * x + 2, 2)) + 1) / 2;
 }
 
-export function easeInBack(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInBack(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return c3 * x * x * x - c1 * x * x;
 }
 
-export function easeOutBack(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutBack(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
 }
 
-export function easeInOutBack(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutBack(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c1 = 1.70158;
   const c2 = c1 * 1.525;
   return x < 0.5
@@ -199,28 +199,20 @@ export function easeInOutBack(value: number, overextend = false): number {
     : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
 }
 
-export function easeInElastic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInElastic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c4 = (2 * Math.PI) / 3;
-  return x === 0
-    ? 0
-    : x === 1
-      ? 1
-      : -Math.pow(2, 10 * x - 10) * Math.sin((x * 10 - 10.75) * c4);
+  return x === 0 ? 0 : x === 1 ? 1 : -Math.pow(2, 10 * x - 10) * Math.sin((x * 10 - 10.75) * c4);
 }
 
-export function easeOutElastic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeOutElastic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c4 = (2 * Math.PI) / 3;
-  return x === 0
-    ? 0
-    : x === 1
-      ? 1
-      : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
+  return x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
 }
 
-export function easeInOutElastic(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutElastic(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   const c5 = (2 * Math.PI) / 4.5;
   return x === 0
     ? 0
@@ -231,13 +223,13 @@ export function easeInOutElastic(value: number, overextend = false): number {
         : (Math.pow(2, -20 * x + 10) * Math.sin((20 * x - 11.125) * c5)) / 2 + 1;
 }
 
-export function easeInBounce(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInBounce(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return 1 - easeOutBounce(1 - x, true);
 }
 
-export function easeOutBounce(value: number, overextend = false): number {
-  let x = input(value, overextend);
+export function easeOutBounce(value: number, allowExtrapolation = false): number {
+  let x = input(value, allowExtrapolation);
   const n1 = 7.5625;
   const d1 = 2.75;
 
@@ -257,8 +249,8 @@ export function easeOutBounce(value: number, overextend = false): number {
   return n1 * x * x + 0.984375;
 }
 
-export function easeInOutBounce(value: number, overextend = false): number {
-  const x = input(value, overextend);
+export function easeInOutBounce(value: number, allowExtrapolation = false): number {
+  const x = input(value, allowExtrapolation);
   return x < 0.5
     ? (1 - easeOutBounce(1 - 2 * x, true)) / 2
     : (1 + easeOutBounce(2 * x - 1, true)) / 2;
@@ -302,6 +294,6 @@ export const easeTypes: Readonly<Record<EaseType, EaseFunction>> = {
   easeInOutBounce,
 };
 
-export function ease(type: EaseType, value: number, overextend = false): number {
-  return easeTypes[type](value, overextend);
+export function ease(type: EaseType, value: number, allowExtrapolation = false): number {
+  return easeTypes[type](value, allowExtrapolation);
 }

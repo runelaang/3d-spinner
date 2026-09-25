@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -107,8 +108,10 @@ export class GhostTrainAnimation implements SpinnerAnimation {
   private label?: MountedAnimationLabel;
   private observer?: ResizeObserver;
   private readonly cars: MeshHandle[] = [];
-  private readonly appear: number[] = new Array(MAX_CARS).fill(0);
-  private readonly headings: Array<Vec3 | undefined> = new Array(MAX_CARS).fill(undefined);
+  private readonly appear: number[] = new Array<number>(MAX_CARS).fill(0);
+  private readonly headings: Array<Vec3 | undefined> = new Array<Vec3 | undefined>(MAX_CARS).fill(
+    undefined,
+  );
   private readonly motion: MotionController;
   private readonly size: number;
   private readonly backend?: Backend;
@@ -134,8 +137,8 @@ export class GhostTrainAnimation implements SpinnerAnimation {
     this.fadeLabel = options.fadeLabel ?? true;
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
@@ -145,9 +148,7 @@ export class GhostTrainAnimation implements SpinnerAnimation {
       this.cars.push(engine.add(mesh, { scale: 0, transparency: { ...TRANSPARENCY } }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     const measure = () => {
       if (target.clientWidth > 0 && target.clientHeight > 0) {
@@ -160,6 +161,7 @@ export class GhostTrainAnimation implements SpinnerAnimation {
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {
@@ -223,9 +225,10 @@ export class GhostTrainAnimation implements SpinnerAnimation {
 
     // One car per 2%; round so the fiftieth attaches ~99% and has a beat to pop
     // before the 100% blast-off (mirrors the rocket-launch count).
-    const want = this.outroAt !== Infinity
-      ? this.carsAtOutro
-      : Math.min(MAX_CARS, Math.round(frame.progress * MAX_CARS));
+    const want =
+      this.outroAt !== Infinity
+        ? this.carsAtOutro
+        : Math.min(MAX_CARS, Math.round(frame.progress * MAX_CARS));
     const halfWidth = HALF_HEIGHT * this.aspect;
     const warp = this.warp(now);
     let anyOnScreen = false;
@@ -240,14 +243,18 @@ export class GhostTrainAnimation implements SpinnerAnimation {
 
       const p = now - this.enterAt - k * RUN_GAP_MS + warp;
       const position = this.pathPosition(p);
-      if (Math.abs(position.x) > halfWidth + this.size || Math.abs(position.y) > HALF_HEIGHT + this.size) {
+      if (
+        Math.abs(position.x) > halfWidth + this.size ||
+        Math.abs(position.y) > HALF_HEIGHT + this.size
+      ) {
         continue; // off-screen: leave it hidden
       }
 
       const ahead = subtract(this.pathPosition(p + SAMPLE_MS), position);
-      const targetDir = Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5
-        ? ahead
-        : this.headings[k] ?? { x: 1, y: 0, z: 0 };
+      const targetDir =
+        Math.hypot(ahead.x, ahead.y, ahead.z) > 1e-5
+          ? ahead
+          : (this.headings[k] ?? { x: 1, y: 0, z: 0 });
       this.headings[k] = this.headings[k]
         ? rotateToward(this.headings[k]!, targetDir, TURN_RATE * dt)
         : normalize(targetDir);
@@ -264,15 +271,24 @@ export class GhostTrainAnimation implements SpinnerAnimation {
       anyOnScreen = true;
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS));
+      this.label.setOpacity(
+        animationLabelOpacity(now, this.enterAt, POP_MS, this.outroAt, TRAIL_OUTRO_MS),
+      );
     }
 
-    if (this.outroAt !== Infinity && now > this.outroAt + 300 &&
-        (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)) {
+    if (
+      this.outroAt !== Infinity &&
+      now > this.outroAt + 300 &&
+      (!anyOnScreen || now >= this.outroAt + MAX_OUTRO_MS)
+    ) {
       this.finished = true;
     }
     this.engine.render();

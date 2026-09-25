@@ -1,4 +1,5 @@
 import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import type { MotionController } from "../motion/controller.js";
 import {
   Little3dEngine,
@@ -78,8 +79,8 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
   private engine?: Little3dEngine;
   private center?: MeshHandle;
   private readonly minis: MeshHandle[] = [];
-  private readonly blends: number[] = new Array(MINIS).fill(0);
-  private readonly offsets: number[] = new Array(MINIS).fill(0);
+  private readonly blends: number[] = new Array<number>(MINIS).fill(0);
+  private readonly offsets: number[] = new Array<number>(MINIS).fill(0);
   private readonly orbitPeriodMs: number;
   private readonly backend?: Backend;
 
@@ -94,8 +95,8 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
     this.backend = options.backend;
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const engine = new Little3dEngine({
       backend: this.backend,
       camera: { position: { x: 0, y: 0, z: CAMERA_Z } },
@@ -106,9 +107,7 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
       this.minis.push(engine.add(mesh, { scale: 0, transparency: { ...MINI_TRANSPARENCY } }));
     }
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    return engine.mount(target);
   }
 
   enter(now: number): void {
@@ -273,9 +272,10 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
         return 0;
       }
       if (w > 0) {
-        return CENTER_SCALE * (w < 0.35
-          ? 1 + 0.18 * easeOutQuad(w / 0.35)
-          : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)));
+        return (
+          CENTER_SCALE *
+          (w < 0.35 ? 1 + 0.18 * easeOutQuad(w / 0.35) : 1.18 * (1 - easeInQuad((w - 0.35) / 0.65)))
+        );
       }
     }
     return CENTER_SCALE * easeOutBack(clamp01(t / CENTER_POP_MS));

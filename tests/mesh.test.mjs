@@ -8,9 +8,12 @@ function bounds(mesh) {
   const lo = { x: Infinity, y: Infinity, z: Infinity };
   const hi = { x: -Infinity, y: -Infinity, z: -Infinity };
   for (const v of mesh.vertices) {
-    lo.x = Math.min(lo.x, v.x); hi.x = Math.max(hi.x, v.x);
-    lo.y = Math.min(lo.y, v.y); hi.y = Math.max(hi.y, v.y);
-    lo.z = Math.min(lo.z, v.z); hi.z = Math.max(hi.z, v.z);
+    lo.x = Math.min(lo.x, v.x);
+    hi.x = Math.max(hi.x, v.x);
+    lo.y = Math.min(lo.y, v.y);
+    hi.y = Math.max(hi.y, v.y);
+    lo.z = Math.min(lo.z, v.z);
+    hi.z = Math.max(hi.z, v.z);
   }
   return { lo, hi };
 }

@@ -1,4 +1,5 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
+import { prepareHost } from "../mount-host.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
@@ -8,14 +9,13 @@ import {
   Little3dEngine,
   pyramid,
   quad,
-  resolveBackend,
   type Backend,
   type Mesh,
   type MeshHandle,
   type OneSidedTransparency,
-  type RendererFactory,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import { canvasTexture } from "../engines/little-3d-engine/textures/dynamic/canvas-texture.js";
+import { createTexturedRenderer } from "../engines/little-3d-engine/textured-renderer.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 
 export interface RocketLaunchOptions {
@@ -124,13 +124,13 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
   private readonly smokeFades: OneSidedTransparency[] = [];
   private readonly fireFades: OneSidedTransparency[] = [];
 
-  private readonly blends: number[] = new Array(ROCKETS).fill(0);
-  private readonly groundedAt: number[] = new Array(ROCKETS).fill(Infinity);
+  private readonly blends: number[] = new Array<number>(ROCKETS).fill(0);
+  private readonly groundedAt: number[] = new Array<number>(ROCKETS).fill(Infinity);
   // Per-rocket veer parameters (turnS = Infinity for a rocket that climbs straight).
-  private readonly turnS: number[] = new Array(ROCKETS).fill(Infinity);
+  private readonly turnS: number[] = new Array<number>(ROCKETS).fill(Infinity);
   private readonly turnDir: Vec2[] = [];
-  private readonly turnRoll: number[] = new Array(ROCKETS).fill(0);
-  private readonly stagger: number[] = new Array(ROCKETS).fill(0);
+  private readonly turnRoll: number[] = new Array<number>(ROCKETS).fill(0);
+  private readonly stagger: number[] = new Array<number>(ROCKETS).fill(0);
 
   private aspect = 16 / 9;
   private enterAt = Infinity;
@@ -163,34 +163,21 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     }
   }
 
-  mount(target: HTMLElement): void {
-    if (!target.style.position) target.style.position = "relative";
+  mount(target: HTMLElement): Promise<void> {
+    prepareHost(target);
     const smokeMeshes = SMOKE_COLORS.map((color) => quad(1, [color]));
     const fireMeshes = FIRE_COLORS.map((color) => quad(1, [color]));
     const smokeTexture = puffTexture(0.85, 0.5);
     const fireTexture = puffTexture(1, 0.32);
 
-    const backend: Backend | RendererFactory = async (rendererOptions) => {
-      const picked = await resolveBackend(this.backend ?? "auto");
-      const renderer =
-        picked === "webgpu"
-          ? new (
-              await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
-            ).WebGPUTexturedRenderer(rendererOptions)
-          : picked === "webgl"
-            ? new (
-                await import("../engines/little-3d-engine/renderers/webgl-textured.js")
-              ).WebGLTexturedRenderer(rendererOptions)
-            : new (
-                await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
-              ).Canvas2DTexturedRenderer(rendererOptions);
-      for (const mesh of smokeMeshes) renderer.setTexture(mesh, smokeTexture);
-      for (const mesh of fireMeshes) renderer.setTexture(mesh, fireTexture);
-      return renderer;
-    };
+    const textures = new Map<Mesh, TexImageSource>([
+      ...smokeMeshes.map((mesh) => [mesh, smokeTexture] as const),
+      ...fireMeshes.map((mesh) => [mesh, fireTexture] as const),
+    ]);
 
     const engine = new Little3dEngine({
-      backend,
+      backend: this.backend,
+      rendererFor: (backend, options) => createTexturedRenderer(backend, options, textures),
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
     });
 
@@ -201,18 +188,20 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     for (let s = 0; s < SMOKE_POOL; s++) {
       const fade: OneSidedTransparency = { mode: "one-sided", opacity: 0 };
       this.smokeFades.push(fade);
-      this.smoke.push(engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }));
+      this.smoke.push(
+        engine.add(smokeMeshes[s % smokeMeshes.length], { scale: 0, transparency: fade }),
+      );
     }
     for (let f = 0; f < FIRE_POOL; f++) {
       const fade: OneSidedTransparency = { mode: "one-sided", opacity: 0 };
       this.fireFades.push(fade);
-      this.fire.push(engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }));
+      this.fire.push(
+        engine.add(fireMeshes[f % fireMeshes.length], { scale: 0, transparency: fade }),
+      );
     }
 
     this.engine = engine;
-    engine.mount(target).catch((error) => {
-      target.textContent = error instanceof Error ? error.message : String(error);
-    });
+    const mounting = engine.mount(target);
 
     const measure = () => {
       if (target.clientWidth > 0 && target.clientHeight > 0) {
@@ -225,6 +214,7 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
 
     this.label = mountAnimationLabel(target, this.labelContent);
     if (this.fadeLabel) this.label.setOpacity(0);
+    return mounting;
   }
 
   enter(now: number): void {
@@ -301,17 +291,17 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
       }
     }
 
-    this.label.setText(frame.indeterminate
-      ? (typeof this.labelContent === "string" ? this.labelContent : "")
-      : `${Math.round(frame.progress * 100)}%`);
+    this.label.setText(
+      frame.indeterminate
+        ? typeof this.labelContent === "string"
+          ? this.labelContent
+          : ""
+        : `${Math.round(frame.progress * 100)}%`,
+    );
     if (this.fadeLabel) {
-      this.label.setOpacity(animationLabelOpacity(
-        now,
-        this.enterAt,
-        SLIDE_MS,
-        this.launchedAt,
-        LAUNCH_SPREAD_MS,
-      ));
+      this.label.setOpacity(
+        animationLabelOpacity(now, this.enterAt, SLIDE_MS, this.launchedAt, LAUNCH_SPREAD_MS),
+      );
     }
 
     if (launched && now >= this.launchedAt + LAUNCH_SPREAD_MS + FINISH_PAD_MS) {
@@ -409,7 +399,8 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
       const baseY = pose.pos.y + back.y * SIZE * 0.5;
       const transform = this.fire[cursor].transform;
       transform.position.x = baseX + back.x * FIRE_TRAIL * seconds + perp.x * lat;
-      transform.position.y = baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
+      transform.position.y =
+        baseY + back.y * FIRE_TRAIL * seconds + perp.y * lat - 0.12 * seconds * seconds;
       transform.position.z = PARTICLE_Z;
       transform.rotation.z = hash01(i * 97 + n, 2) * Math.PI * 2;
       transform.scale = FIRE_SIZE * (0.7 + 0.5 * hash01(i * 97 + n, 3)) * (1 - 0.55 * life);
@@ -420,7 +411,13 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     return cursor;
   }
 
-  private emitSmoke(i: number, homeX: number, now: number, launchAt: number, cursor: number): number {
+  private emitSmoke(
+    i: number,
+    homeX: number,
+    now: number,
+    launchAt: number,
+    cursor: number,
+  ): number {
     const start = this.groundedAt[i];
     const tr = now - start;
     const gap = SMOKE_GAP_MS;

@@ -28,32 +28,46 @@ export function animationLabelOpacity(
   outroDurationMs: number,
 ): number {
   if (enterAt === Infinity) return 0;
-  const intro = introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
-  const outro = exitAt === Infinity
-    ? 1
-    : outroDurationMs <= 0
-      ? 0
-      : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
+  const intro =
+    introDurationMs <= 0 ? 1 : Math.max(0, Math.min(1, (now - enterAt) / introDurationMs));
+  const outro =
+    exitAt === Infinity
+      ? 1
+      : outroDurationMs <= 0
+        ? 0
+        : Math.max(0, Math.min(1, 1 - (now - exitAt) / outroDurationMs));
   return Math.min(intro, outro);
 }
 
+/**
+ * Overlay a centered label on `target`: plain text (hidden from assistive
+ * technology) or the consumer's own element. `setText` only touches the DOM when
+ * the text changes, so calling it every frame is cheap.
+ */
 export function mountAnimationLabel(
   target: HTMLElement,
   content: AnimationLabel | undefined,
 ): MountedAnimationLabel {
   const container = document.createElement("div");
   container.style.cssText = LABEL_STYLE;
-  container.setAttribute("role", "status");
-  if (typeof content === "string") container.textContent = content;
-  else if (content) {
+  let text = "";
+  if (typeof content === "object") {
+    // Consumer markup keeps its own semantics (it may contain controls).
     content.style.pointerEvents ||= "auto";
     container.appendChild(content);
+  } else {
+    // Generated text is visual only: the spinner's hidden progress bar reports
+    // progress to assistive technology, once, even when layers stack labels.
+    container.setAttribute("aria-hidden", "true");
+    if (content) container.textContent = text = content;
   }
   target.appendChild(container);
   return {
     container,
     setText(value): void {
-      if (typeof content !== "object") container.textContent = value;
+      if (typeof content === "object" || value === text) return;
+      text = value;
+      container.textContent = value;
     },
     setOpacity(value): void {
       container.style.opacity = String(value);

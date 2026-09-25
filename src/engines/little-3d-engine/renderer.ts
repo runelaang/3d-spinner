@@ -1,6 +1,7 @@
 import type { LightParams } from "./core/light.js";
 import type { Mat4, Vec3 } from "./core/math.js";
 import type { Mesh, Transparency, TwoSidedTransparency } from "./core/mesh.js";
+import { webgpu } from "./core/webgpu-api.js";
 
 /**
  * Rendering backend. Each is loaded on demand; unused ones are never fetched.
@@ -35,7 +36,7 @@ export async function detectBackendSupport(): Promise<BackendSupport> {
 }
 
 async function hasWebGPU(): Promise<boolean> {
-  const gpu = (globalThis as any).navigator?.gpu;
+  const gpu = webgpu();
   if (!gpu) return false;
   try {
     return Boolean(await gpu.requestAdapter());
@@ -45,7 +46,7 @@ async function hasWebGPU(): Promise<boolean> {
 }
 
 function hasWebGL2(): boolean {
-  const doc = (globalThis as any).document;
+  const doc = (globalThis as { document?: Document }).document;
   if (!doc?.createElement) return false;
   try {
     const gl = doc.createElement("canvas").getContext("webgl2");
@@ -103,16 +104,12 @@ export function opacity(value: number | undefined, fallback: number): number {
 }
 
 /** Resolve two-sided defaults, shorthand, and explicit per-side overrides. */
-export function resolveTwoSidedOpacity(
-  transparency: TwoSidedTransparency,
-): { front: number; back: number } {
-  const front = opacity(
-    transparency.frontOpacity ?? transparency.opacity,
-    DEFAULT_FRONT_OPACITY,
-  );
-  const backFallback = transparency.opacity === undefined
-    ? DEFAULT_BACK_OPACITY
-    : front * (2 / 3);
+export function resolveTwoSidedOpacity(transparency: TwoSidedTransparency): {
+  front: number;
+  back: number;
+} {
+  const front = opacity(transparency.frontOpacity ?? transparency.opacity, DEFAULT_FRONT_OPACITY);
+  const backFallback = transparency.opacity === undefined ? DEFAULT_BACK_OPACITY : front * (2 / 3);
   return {
     front,
     back: opacity(transparency.backOpacity, backFallback),
@@ -120,10 +117,7 @@ export function resolveTwoSidedOpacity(
 }
 
 /** Draw opaque instances first, then transparent instances from farthest to nearest. */
-export function orderRenderItems(
-  items: ReadonlyArray<RenderItem>,
-  eye: Vec3,
-): RenderItem[] {
+export function orderRenderItems(items: ReadonlyArray<RenderItem>, eye: Vec3): RenderItem[] {
   const opaque: RenderItem[] = [];
   const transparent: RenderItem[] = [];
   for (const item of items) {
@@ -171,11 +165,27 @@ export type RendererFactory = (options: RendererOptions) => Renderer | Promise<R
  * A pluggable drawing backend. The engine owns the canvas and sizing; a
  * renderer only initializes its context, reacts to resizes, and draws frames.
  * Renderer-specific features can produce intentional visual differences.
+ *
+ * A mesh is treated as immutable once drawn: GPU backends upload it once and
+ * cache the buffers per `Mesh` object. To change geometry or colors, add a new
+ * `Mesh` instead of editing one in place.
  */
 export interface Renderer {
   init(canvas: HTMLCanvasElement): void | Promise<void>;
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   render(frame: RenderFrame): void;
+  /**
+   * Free whatever is cached for `mesh`. Optional. The engine calls it when the
+   * last scene instance of that mesh is removed.
+   */
+  releaseMesh?(mesh: Mesh): void;
+  /**
+   * Optional. The engine calls it once `init` succeeded, with a listener to call
+   * if the renderer stops working later, for example when the GPU device or the
+   * WebGL context is lost. The engine then switches to the next backend `"auto"`
+   * would have tried. Do not call it for a loss caused by `destroy()`.
+   */
+  onLost?(listener: (reason: string) => void): void;
   destroy(): void;
 }
 
