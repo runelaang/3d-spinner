@@ -82,7 +82,9 @@ export interface GpuDevice {
     entries: Array<Record<string, unknown>>;
   }): GpuBindGroupLayout;
   createPipelineLayout(descriptor: { bindGroupLayouts: GpuBindGroupLayout[] }): GpuPipelineLayout;
-  createRenderPipeline(descriptor: Record<string, unknown>): GpuRenderPipeline;
+  // Descriptors are loosely typed on purpose: exact types would mean the `@webgpu/types`
+  // dependency or hand-copying the spec. The few fixed descriptors are covered by the browser tests.
+  createRenderPipelineAsync(descriptor: Record<string, unknown>): Promise<GpuRenderPipeline>;
   createBindGroup(descriptor: {
     layout: GpuBindGroupLayout;
     entries: Array<{ binding: number; resource: unknown }>;

@@ -175,8 +175,10 @@ export class WebGPURenderer implements Renderer {
       },
       alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
     };
+    // The async variant rejects on an invalid pipeline, so "auto" can fall back. Deliberately no
+    // error scopes or device-loss handling: the shaders are fixed and no consumer input reaches them.
     const pipeline = (cullMode: string, transparent: boolean) =>
-      device.createRenderPipeline({
+      device.createRenderPipelineAsync({
         layout: pipelineLayout,
         vertex: {
           module,
@@ -202,11 +204,13 @@ export class WebGPURenderer implements Renderer {
           depthCompare: "less",
         },
       });
-    this.pipelines = {
-      opaque: pipeline("back", false),
-      transparentBack: pipeline("front", true),
-      transparentFront: pipeline("back", true),
-    };
+    const [opaque, transparentBack, transparentFront] = await Promise.all([
+      pipeline("back", false),
+      pipeline("front", true),
+      pipeline("back", true),
+    ]);
+    if (this.destroyed) return;
+    this.pipelines = { opaque, transparentBack, transparentFront };
   }
 
   resize(): void {

@@ -134,7 +134,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
     await super.init(canvas);
     const device = this.device;
     const format = this.format;
-    if (!device || !format) return;
+    if (!device || !format || this.destroyed) return;
 
     const module = device.createShaderModule({ code: WGSL });
     const stage = gpuFlags().shaderStage;
@@ -153,7 +153,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
       arrayStride: components * 4,
       attributes: [{ shaderLocation: location, offset: 0, format: `float32x${components}` }],
     });
-    const pipeline = device.createRenderPipeline({
+    const pipeline = await device.createRenderPipelineAsync({
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
       vertex: {
         module,
@@ -184,6 +184,7 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         depthCompare: "less",
       },
     });
+    if (this.destroyed) return;
     const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
     this.textured = { pipeline, sampler };
   }
