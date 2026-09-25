@@ -118,9 +118,17 @@ export class WebGLTexturedRenderer implements Renderer {
     this.inner = new WebGLRenderer(options);
   }
 
-  /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+  /**
+   * Texture every instance of `mesh` with `source`. Call any time, also before
+   * init; a new source replaces the one already uploaded.
+   */
   setTexture(mesh: Mesh, source: TextureSource): void {
+    if (this.sources.get(mesh) === source) return;
     this.sources.set(mesh, source);
+    const texture = this.textures.get(mesh);
+    if (!texture) return;
+    this.textures.delete(mesh);
+    this.gl?.deleteTexture(texture);
   }
 
   init(canvas: HTMLCanvasElement): void {

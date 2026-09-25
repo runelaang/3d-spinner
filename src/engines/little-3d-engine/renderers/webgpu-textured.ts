@@ -115,9 +115,19 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
   private readonly bindGroups = new Map<Mesh, BindGroupEntry>();
   private readonly texturedScratch = new Float32Array(UNIFORM_STRIDE / 4);
 
-  /** Texture every instance of `mesh` with `source`. Call any time, also before init. */
+  /**
+   * Texture every instance of `mesh` with `source`. Call any time, also before
+   * init; a new source replaces the one already uploaded.
+   */
   setTexture(mesh: Mesh, source: TextureSource): void {
+    if (this.sources.get(mesh) === source) return;
     this.sources.set(mesh, source);
+    const texture = this.textures.get(mesh);
+    if (!texture) return;
+    // The old texture may still be referenced by an unsubmitted command buffer,
+    // so it is retired and destroyed with the renderer.
+    this.textures.delete(mesh);
+    this.retired.push(texture);
   }
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
