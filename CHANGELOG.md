@@ -1,6 +1,15 @@
 # Changelog
 
-Notable changes, newest first. Versions before 0.9.26 are described in the git history.
+Notable changes, newest first. Versions before 0.9.26 are described in the git history. Not
+every version was published to npm; each one includes all changes of the versions below it.
+
+## 0.9.29
+
+### Internal
+
+- Browser tests on Linux run WebGPU, Vulkan, and ANGLE on SwiftShader. Headless Chromium there
+  otherwise loses the WebGPU device right after creating it, so CI now really tests WebGPU.
+- The tests badge in the README shows the status of `main`.
 
 ## 0.9.28
 
