@@ -9,15 +9,14 @@ import type { MotionController } from "../motion/controller.js";
 import {
   Little3dEngine,
   quad,
-  resolveBackend,
   type Backend,
   type MeshHandle,
   type OneSidedTransparency,
-  type RendererFactory,
   type Vec3,
   cross,
   normalize,
 } from "../engines/little-3d-engine/little-3d-engine.js";
+import { createTexturedRenderer } from "../engines/little-3d-engine/textured-renderer.js";
 
 export interface ParticlesOptions {
   /** Particles emitted per second. Default `20`. */
@@ -235,27 +234,12 @@ export class ParticlesAnimation implements SpinnerAnimation {
     prepareHost(target);
     const meshes = this.colors.map((color) => quad(1, [color]));
     const texture = this.texture;
-    const backend: Backend | RendererFactory | undefined = texture
-      ? async (rendererOptions) => {
-          const picked = await resolveBackend(this.backend ?? "auto");
-          const renderer =
-            picked === "webgpu"
-              ? new (
-                  await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
-                ).WebGPUTexturedRenderer(rendererOptions)
-              : picked === "webgl"
-                ? new (
-                    await import("../engines/little-3d-engine/renderers/webgl-textured.js")
-                  ).WebGLTexturedRenderer(rendererOptions)
-                : new (
-                    await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
-                  ).Canvas2DTexturedRenderer(rendererOptions);
-          for (const mesh of meshes) renderer.setTexture(mesh, texture);
-          return renderer;
-        }
-      : this.backend;
     const engine = new Little3dEngine({
-      backend,
+      backend: this.backend,
+      rendererFor: texture
+        ? (backend, options) =>
+            createTexturedRenderer(backend, options, new Map(meshes.map((mesh) => [mesh, texture])))
+        : undefined,
       camera: { position: { x: 0, y: 0, z: 3 } },
       light: { intensity: 0, ambient: 1 },
     });

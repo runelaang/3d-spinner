@@ -11,7 +11,9 @@ import {
   type Backend,
   type Renderer,
   type RendererFactory,
+  type RendererOptions,
   type RenderItem,
+  type ResolvedBackend,
   createRenderer,
   orderRenderItems,
   resolveAutoCandidates,
@@ -24,6 +26,15 @@ export interface Little3dEngineOptions {
    * demand. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D.
    */
   backend?: Backend | RendererFactory;
+  /**
+   * Build the renderer for a named backend instead of the built-in one, for
+   * example a textured variant. With `"auto"`, it is called for each backend
+   * tried in turn, so fallback still applies. Unused when `backend` is a factory.
+   */
+  rendererFor?: (
+    backend: ResolvedBackend,
+    options: RendererOptions,
+  ) => Renderer | Promise<Renderer>;
   camera?: Partial<CameraOptions>;
   light?: Partial<LightOptions>;
   /** Solid background color; omit for a transparent canvas (overlay use). */
@@ -66,6 +77,7 @@ export class Little3dEngine {
   private readonly camera: Camera;
   private readonly light: Light;
   private readonly backend: Backend | RendererFactory;
+  private readonly rendererFor?: Little3dEngineOptions["rendererFor"];
   private readonly background?: string;
   private readonly scene: MeshHandle[] = [];
 
@@ -84,6 +96,7 @@ export class Little3dEngine {
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
+    this.rendererFor = options.rendererFor;
     this.background = options.background;
   }
 
@@ -116,16 +129,19 @@ export class Little3dEngine {
 
   /** Try each backend candidate in order until one initializes on a fresh canvas. */
   private async startRenderer(target: HTMLElement, generation: number): Promise<void> {
-    const candidates: Array<Backend | RendererFactory> =
+    const candidates: Array<ResolvedBackend | RendererFactory> =
       this.backend === "auto" ? await resolveAutoCandidates() : [this.backend];
     if (generation !== this.generation) return;
 
+    const options = { background: this.background };
     const failures: string[] = [];
     for (const candidate of candidates) {
       const canvas = this.attachCanvas(target);
       let renderer: Renderer | undefined;
       try {
-        renderer = await createRenderer(candidate, { background: this.background });
+        renderer = await (typeof candidate === "string" && this.rendererFor
+          ? this.rendererFor(candidate, options)
+          : createRenderer(candidate, options));
         if (generation === this.generation) await renderer.init(canvas);
         if (generation !== this.generation) {
           renderer.destroy();

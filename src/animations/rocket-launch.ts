@@ -9,14 +9,13 @@ import {
   Little3dEngine,
   pyramid,
   quad,
-  resolveBackend,
   type Backend,
   type Mesh,
   type MeshHandle,
   type OneSidedTransparency,
-  type RendererFactory,
 } from "../engines/little-3d-engine/little-3d-engine.js";
 import { canvasTexture } from "../engines/little-3d-engine/textures/dynamic/canvas-texture.js";
+import { createTexturedRenderer } from "../engines/little-3d-engine/textured-renderer.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 
 export interface RocketLaunchOptions {
@@ -171,27 +170,14 @@ export class RocketLaunchAnimation implements SpinnerAnimation {
     const smokeTexture = puffTexture(0.85, 0.5);
     const fireTexture = puffTexture(1, 0.32);
 
-    const backend: Backend | RendererFactory = async (rendererOptions) => {
-      const picked = await resolveBackend(this.backend ?? "auto");
-      const renderer =
-        picked === "webgpu"
-          ? new (
-              await import("../engines/little-3d-engine/renderers/webgpu-textured.js")
-            ).WebGPUTexturedRenderer(rendererOptions)
-          : picked === "webgl"
-            ? new (
-                await import("../engines/little-3d-engine/renderers/webgl-textured.js")
-              ).WebGLTexturedRenderer(rendererOptions)
-            : new (
-                await import("../engines/little-3d-engine/renderers/canvas2d-textured.js")
-              ).Canvas2DTexturedRenderer(rendererOptions);
-      for (const mesh of smokeMeshes) renderer.setTexture(mesh, smokeTexture);
-      for (const mesh of fireMeshes) renderer.setTexture(mesh, fireTexture);
-      return renderer;
-    };
+    const textures = new Map<Mesh, TexImageSource>([
+      ...smokeMeshes.map((mesh) => [mesh, smokeTexture] as const),
+      ...fireMeshes.map((mesh) => [mesh, fireTexture] as const),
+    ]);
 
     const engine = new Little3dEngine({
-      backend,
+      backend: this.backend,
+      rendererFor: (backend, options) => createTexturedRenderer(backend, options, textures),
       camera: { position: { x: 0, y: 0, z: CAMERA_Z }, fov: FOV },
     });
 

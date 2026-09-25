@@ -66,6 +66,7 @@ server):
 - Canvas 2D and WebGL draw visible pixels; WebGPU too when the browser has an adapter (skipped
   otherwise, as are the WebGL checks on a machine without WebGL2).
 - `"auto"` falls back and still draws when WebGPU fails to create a device.
+- A textured particle layer on `"auto"` falls back the same way and still draws.
 - When no backend can start, `spinner.ready` rejects and the host's own content is untouched.
 - `destroy()` during renderer setup leaves only the host's content.
 - A host positioned by a CSS class (`position: fixed`) keeps its position and children; a static
@@ -73,3 +74,9 @@ server):
 - 24 mount/destroy cycles on WebGL leave no canvases and no context-limit warnings.
 - The hidden progress bar reports the value once, with no live regions, for a prefab that stacks
   two labels.
+
+## Not covered, on purpose
+
+- **An installed tarball.** The consumer type check resolves the package by self-reference, not
+  from an `npm pack` result installed into a clean project. `files` ships all of `dist/`, the
+  same files self-reference resolves, so a separate install test would mostly re-check npm.

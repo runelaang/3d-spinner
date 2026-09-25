@@ -277,3 +277,27 @@ test("the progress bar reports progress once, even when layers stack labels", as
   });
   assert.deepEqual(result, { bars: 1, name: "Syncing", liveRegions: 0, barsAfterDestroy: 0 });
 });
+
+test("a textured particle layer falls back and still draws when WebGPU fails to start", async () => {
+  const { page, messages } = await browser.open(failingWebGPU);
+  const result = await page.evaluate(async () => {
+    const { ParticlesAnimation } = await import("/dist/animations/particles.js");
+    const { starTexture } = await import("/dist/engines/little-3d-engine/little-3d-engine.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const particles = new ParticlesAnimation({ texture: starTexture(), size: 0.4, seed: 3 });
+    await particles.mount(host);
+    particles.enter(0);
+    particles.render(1000, { progress: 0, targetProgress: 0, indeterminate: true });
+    const out = {
+      canvases: host.querySelectorAll("canvas").length,
+      lit: litPixels(host.querySelector("canvas")),
+    };
+    particles.destroy();
+    return out;
+  });
+  assert.equal(result.canvases, 1);
+  assert.ok(result.lit > 200, `fallback drew ${result.lit} pixels`);
+  assert.deepEqual(messages, []);
+});
