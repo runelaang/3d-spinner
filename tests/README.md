@@ -94,6 +94,10 @@ server):
 - A plane stopped during its intro keeps its trail emitting until its fly-out ends.
 - A lost WebGL context makes `"auto"` switch to Canvas 2D, which draws.
 
+`webgpu-exercised.test.mjs` reports which WebGPU adapter the browser tests ran on. When there is
+none, the WebGPU checks above skip; with `REQUIRE_WEBGPU=1` (set in CI) it fails instead, so a
+run cannot pass without exercising WebGPU.
+
 ## Not covered, on purpose
 
 - **An installed tarball.** The consumer type check resolves the package by self-reference, not

@@ -32,3 +32,6 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+        env:
+          # Fail instead of skipping when the browser has no WebGPU adapter.
+          REQUIRE_WEBGPU: "1"
