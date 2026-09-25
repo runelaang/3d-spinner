@@ -163,6 +163,7 @@ export interface GpuQueue extends GpuObject<"GPUQueue"> {
     size: GpuExtent,
   ): void;
   submit(commandBuffers: GpuCommandBuffer[]): void;
+  onSubmittedWorkDone(): Promise<undefined>;
 }
 
 export interface GpuDeviceLostInfo {

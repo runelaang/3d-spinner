@@ -11,15 +11,20 @@ const types = {
   ".mjs": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
+  ".svg": "image/svg+xml",
 };
 
 /**
  * Serve the package folder over HTTP (ES modules do not load from file://). `/`
- * is an empty page the tests script against; everything else is a file.
+ * is an empty page the tests script against; everything else is a file. A
+ * `?cors` query adds `Access-Control-Allow-Origin: *`; the page is served from
+ * 127.0.0.1, so `localhost` on the same port is another origin.
  */
 function startServer() {
   const server = createServer(async (request, response) => {
-    const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+    const url = new URL(request.url, "http://localhost");
+    const path = decodeURIComponent(url.pathname);
+    const cors = url.searchParams.has("cors") ? { "access-control-allow-origin": "*" } : {};
     if (path === "/") {
       response.writeHead(200, { "content-type": "text/html" });
       response.end(
@@ -36,6 +41,7 @@ function startServer() {
       const body = await readFile(file);
       response.writeHead(200, {
         "content-type": types[extname(file)] ?? "application/octet-stream",
+        ...cors,
       });
       response.end(body);
     } catch {
