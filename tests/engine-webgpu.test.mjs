@@ -178,3 +178,31 @@ test("destroying the engine is not reported as a lost device", async (t) => {
   assert.equal(target.children.length, 0, "no replacement canvas appeared");
   assert.deepEqual(warnings, []);
 });
+
+test("a validation error during WebGPU setup counts as a failed start", async () => {
+  devices = [];
+  observers = [];
+  const gpu = globalThis.navigator.gpu;
+  const requestAdapter = gpu.requestAdapter;
+  gpu.requestAdapter = async () => ({
+    requestDevice: async () => {
+      const device = fakeDevice();
+      device.popErrorScope = async () => ({ message: "bad shader" });
+      return device;
+    },
+  });
+  try {
+    const target = new FakeTarget();
+    await new Little3dEngine().mount(target);
+    assert.equal(devices[0].destroyed, true, "the broken device was released");
+    assert.equal(target.children.length, 1, "auto fell back");
+    assert.equal(liveObservers(), 1);
+
+    await assert.rejects(
+      new Little3dEngine({ backend: "webgpu" }).mount(new FakeTarget()),
+      /WebGPU setup failed: bad shader/,
+    );
+  } finally {
+    gpu.requestAdapter = requestAdapter;
+  }
+});

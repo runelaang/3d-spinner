@@ -149,8 +149,20 @@ export class WebGPURenderer implements Renderer {
     this.context = context;
     const format = gpu.getPreferredCanvasFormat();
     this.format = format;
-    context.configure({ device, format, alphaMode: this.alphaMode });
+    const pipelines = await this.validated(device, () =>
+      this.createPipelines(device, context, format),
+    );
+    if (this.destroyed) return;
+    this.pipelines = pipelines;
+  }
 
+  /** Configure the canvas for `device` and build the opaque and transparent pipelines. */
+  private async createPipelines(
+    device: GpuDevice,
+    context: GpuCanvasContext,
+    format: string,
+  ): Promise<Pipelines> {
+    context.configure({ device, format, alphaMode: this.alphaMode });
     const module = device.createShaderModule({ code: WGSL });
     const stage = gpuFlags().shaderStage;
     const layout = device.createBindGroupLayout({
@@ -208,8 +220,20 @@ export class WebGPURenderer implements Renderer {
       pipeline("front", true),
       pipeline("back", true),
     ]);
-    if (this.destroyed) return;
-    this.pipelines = { opaque, transparentBack, transparentFront };
+    return { opaque, transparentBack, transparentFront };
+  }
+
+  /**
+   * Run `setup` inside a WebGPU validation error scope and throw if it reported
+   * an error. Most WebGPU calls report mistakes that way instead of throwing, so
+   * without the scope a broken setup would look like success and `"auto"` would
+   * not fall back. `setup` must make its GPU calls before its first `await`.
+   */
+  protected async validated<T>(device: GpuDevice, setup: () => Promise<T>): Promise<T> {
+    device.pushErrorScope("validation");
+    const [result, error] = await Promise.all([setup(), device.popErrorScope()]);
+    if (error) throw new Error(`3d-spinner: WebGPU setup failed: ${error.message}`);
+    return result;
   }
 
   resize(): void {

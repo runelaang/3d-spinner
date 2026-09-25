@@ -77,6 +77,10 @@ export interface GpuDeviceLostInfo {
   readonly message: string;
 }
 
+export interface GpuError {
+  readonly message: string;
+}
+
 export interface GpuDevice {
   readonly queue: GpuQueue;
   /** Resolves when the device stops working, including after `destroy()`. */
@@ -97,6 +101,8 @@ export interface GpuDevice {
     entries: Array<{ binding: number; resource: unknown }>;
   }): GpuBindGroup;
   createCommandEncoder(): GpuCommandEncoder;
+  pushErrorScope(filter: "validation" | "out-of-memory" | "internal"): void;
+  popErrorScope(): Promise<GpuError | null>;
   destroy(): void;
 }
 
