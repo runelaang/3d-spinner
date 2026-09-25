@@ -365,6 +365,11 @@ backend the browser cannot run rejects `spinner.ready` rather than falling back 
 resilient choice. To decide yourself, `detectBackendSupport()` and `chooseBackend()` are
 exported from the engine.
 
+The same fallback covers a renderer that stops working after it started: if the GPU device or the
+WebGL context is lost (a driver reset, or the browser reclaiming contexts), `"auto"` switches to
+the next backend and keeps animating. A pinned backend has nothing to switch to, so its canvas is
+removed and a console warning says why.
+
 Renderer-specific features can look different between Canvas 2D, WebGL, and WebGPU. In
 particular, transparent shapes are an approximate visual effect rather than a pixel-identical
 cross-renderer result.

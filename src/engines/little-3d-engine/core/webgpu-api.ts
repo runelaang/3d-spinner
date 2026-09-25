@@ -72,8 +72,15 @@ export interface GpuQueue {
   submit(commandBuffers: GpuCommandBuffer[]): void;
 }
 
+export interface GpuDeviceLostInfo {
+  readonly reason: "unknown" | "destroyed";
+  readonly message: string;
+}
+
 export interface GpuDevice {
   readonly queue: GpuQueue;
+  /** Resolves when the device stops working, including after `destroy()`. */
+  readonly lost: Promise<GpuDeviceLostInfo>;
   createBuffer(descriptor: { size: number; usage: number }): GpuBuffer;
   createTexture(descriptor: { size: GpuExtent; format: string; usage: number }): GpuTexture;
   createSampler(descriptor: { magFilter: string; minFilter: string }): GpuSampler;

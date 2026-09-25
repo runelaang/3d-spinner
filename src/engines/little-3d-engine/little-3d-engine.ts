@@ -126,6 +126,8 @@ export class Little3dEngine {
   private surface?: Surface;
   /** The surface of the backend attempt in progress, if any. */
   private attempt?: Surface;
+  /** The candidates after the mounted one, to switch to if its renderer is lost. */
+  private fallbacks: Candidate[] = [];
   private state: "idle" | "mounting" | "mounted" = "idle";
   private generation = 0;
   private cancelMount?: () => void;
@@ -146,6 +148,8 @@ export class Little3dEngine {
    * is unavailable. With `"auto"`, a backend that fails to load or initialize
    * is replaced by the next one (WebGPU, WebGL, Canvas 2D), and the promise
    * rejects only when all of them fail. Drawing is a no-op until it resolves.
+   * If the GPU device or WebGL context is lost later, `"auto"` switches to the
+   * next backend in the same order.
    *
    * An engine mounts into one element at a time: mounting again while mounting or
    * mounted rejects. {@link destroy} keeps the scene, so a destroyed engine can be
@@ -190,13 +194,15 @@ export class Little3dEngine {
     candidates: Candidate[],
   ): Promise<void> {
     const failures: string[] = [];
-    for (const candidate of candidates) {
+    for (const [index, candidate] of candidates.entries()) {
       if (generation !== this.generation) return;
       try {
         const surface = await this.startSurface(target, generation, candidate);
         if (!surface) return;
         this.surface = surface;
+        this.fallbacks = candidates.slice(index + 1);
         this.state = "mounted";
+        surface.renderer?.onLost?.((reason) => this.recover(surface, target, reason));
         return;
       } catch (error) {
         if (generation !== this.generation) return;
@@ -205,6 +211,31 @@ export class Little3dEngine {
       }
     }
     throw new Error(`3d-spinner: no renderer could start (${failures.join("; ")})`);
+  }
+
+  /**
+   * Replace a mounted renderer that stopped working with the next backend
+   * `"auto"` would have tried. `mount()` has resolved by then, so there is no
+   * promise left to reject: when no backend is left or none starts, the canvas
+   * stays removed and a console warning says why.
+   */
+  private recover(surface: Surface, target: HTMLElement, reason: string): void {
+    if (this.surface !== surface) return;
+    this.surface = undefined;
+    try {
+      release(surface);
+    } catch {
+      // A renderer that lost its GPU may fail to clean up; the next backend still gets its turn.
+    }
+    const warn = (detail: string) =>
+      console.warn(`3d-spinner: the renderer stopped working (${reason}); ${detail}`);
+    if (this.fallbacks.length === 0) {
+      warn("no other backend is left.");
+      return;
+    }
+    this.startRenderer(target, this.generation, this.fallbacks).catch((error: unknown) => {
+      warn(`switching failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
   }
 
   /**
@@ -354,6 +385,7 @@ export class Little3dEngine {
     const { surface, attempt } = this;
     this.surface = undefined;
     this.attempt = undefined;
+    this.fallbacks = [];
     // A renderer that is still starting is never destroyed mid-init; its attempt
     // releases it as soon as init settles.
     if (attempt) detach(attempt);

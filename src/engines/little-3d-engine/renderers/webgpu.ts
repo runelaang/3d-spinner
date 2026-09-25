@@ -175,8 +175,7 @@ export class WebGPURenderer implements Renderer {
       },
       alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
     };
-    // The async variant rejects on an invalid pipeline, so "auto" can fall back. Deliberately no
-    // error scopes or device-loss handling: the shaders are fixed and no consumer input reaches them.
+    // The async variant rejects on an invalid pipeline, so "auto" can fall back.
     const pipeline = (cullMode: string, transparent: boolean) =>
       device.createRenderPipelineAsync({
         layout: pipelineLayout,
@@ -370,6 +369,13 @@ export class WebGPURenderer implements Renderer {
     cached.ambient.destroy();
     cached.emissive.destroy();
     cached.specular.destroy();
+  }
+
+  /** Tell `listener` when the GPU device is lost, unless this renderer destroyed it. */
+  onLost(listener: (reason: string) => void): void {
+    void this.device?.lost.then((info) => {
+      if (!this.destroyed) listener(info.message || `WebGPU device ${info.reason}`);
+    });
   }
 
   destroy(): void {

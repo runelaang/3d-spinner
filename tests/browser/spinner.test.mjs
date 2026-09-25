@@ -463,3 +463,49 @@ test("a plane stopped during its intro keeps its trail emitting until its fly-ou
   assert.ok(done.plane > 0 && done.trail > 0, JSON.stringify(done));
   assert.ok(Math.abs(done.trail - done.plane - 1900) <= 20, JSON.stringify(done));
 });
+
+/** Init script: no WebGPU, so "auto" starts on WebGL. */
+function noWebGPU() {
+  Object.defineProperty(navigator, "gpu", { configurable: true, value: undefined });
+}
+
+test("a lost WebGL context switches to Canvas 2D and keeps drawing", async (t) => {
+  const { page } = await browser.open(noWebGPU);
+  if (!(await hasWebGL2(page))) {
+    t.skip("no WebGL2 in this browser");
+    return;
+  }
+  const result = await page.evaluate(async () => {
+    const { Little3dEngine, cube } =
+      await import("/dist/engines/little-3d-engine/little-3d-engine.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const engine = new Little3dEngine();
+    engine.add(cube(1)).transform.rotation.y = 0.6;
+    await engine.mount(host);
+    const first = host.querySelector("canvas");
+    first.getContext("webgl2").getExtension("WEBGL_lose_context").loseContext();
+    const deadline = performance.now() + 3000;
+    let lit = 0;
+    while (performance.now() < deadline) {
+      const canvas = host.querySelector("canvas");
+      if (canvas && canvas !== first) {
+        engine.render();
+        lit = litPixels(canvas);
+        if (lit > 0) break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    const out = {
+      replaced: host.querySelector("canvas") !== first,
+      canvases: host.querySelectorAll("canvas").length,
+      lit,
+    };
+    engine.destroy();
+    return out;
+  });
+  assert.equal(result.replaced, true);
+  assert.equal(result.canvases, 1);
+  assert.ok(result.lit > 500, `Canvas 2D drew ${result.lit} pixels`);
+});

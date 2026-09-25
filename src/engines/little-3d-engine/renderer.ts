@@ -179,6 +179,13 @@ export interface Renderer {
    * last scene instance of that mesh is removed.
    */
   releaseMesh?(mesh: Mesh): void;
+  /**
+   * Optional. The engine calls it once `init` succeeded, with a listener to call
+   * if the renderer stops working later, for example when the GPU device or the
+   * WebGL context is lost. The engine then switches to the next backend `"auto"`
+   * would have tried. Do not call it for a loss caused by `destroy()`.
+   */
+  onLost?(listener: (reason: string) => void): void;
   destroy(): void;
 }
 

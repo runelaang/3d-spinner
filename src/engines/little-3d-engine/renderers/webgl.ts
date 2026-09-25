@@ -111,8 +111,10 @@ function link(gl: WebGL2RenderingContext): WebGLProgram {
 /** Hardware renderer using WebGL2: GPU transforms with a real depth buffer. */
 export class WebGLRenderer implements Renderer {
   private gl?: WebGL2RenderingContext;
+  private canvas?: HTMLCanvasElement;
   private program?: WebGLProgram;
   private locations?: Locations;
+  private destroyed = false;
   private readonly cache = new Map<Mesh, MeshBuffers>();
   private readonly modelScratch = new Float32Array(16);
   private readonly clearColor: [number, number, number, number];
@@ -130,6 +132,7 @@ export class WebGLRenderer implements Renderer {
     const gl = canvas.getContext("webgl2");
     if (!gl) throw new Error("3d-spinner: WebGL2 is not supported in this browser.");
     this.gl = gl;
+    this.canvas = canvas;
     this.program = link(gl);
     this.locations = {
       aPos: gl.getAttribLocation(this.program, "aPos"),
@@ -259,7 +262,19 @@ export class WebGLRenderer implements Renderer {
     for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
   }
 
+  /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+  onLost(listener: (reason: string) => void): void {
+    this.canvas?.addEventListener(
+      "webglcontextlost",
+      () => {
+        if (!this.destroyed) listener("WebGL context lost");
+      },
+      { once: true },
+    );
+  }
+
   destroy(): void {
+    this.destroyed = true;
     const gl = this.gl;
     if (gl) {
       for (const mesh of [...this.cache.keys()]) this.releaseMesh(mesh);
@@ -271,6 +286,7 @@ export class WebGLRenderer implements Renderer {
     }
     this.cache.clear();
     this.gl = undefined;
+    this.canvas = undefined;
     this.program = undefined;
     this.locations = undefined;
   }

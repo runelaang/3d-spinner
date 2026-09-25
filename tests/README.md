@@ -53,6 +53,9 @@ Lifecycle, engine, and pure logic:
   back when a backend fails, rejects with every backend's error when none starts, releases a
   partially initialized WebGPU device, refuses a second mount, remounts after destroy, frees
   a mesh's GPU buffers with its last instance, and replaces a renderer whose first resize fails.
+- `engine-webgpu.test.mjs` - `Little3dEngine` with a fake WebGPU that starts: a device lost
+  after mounting makes `"auto"` switch to the next backend, a pinned backend removes its canvas
+  with a warning, and destroying the engine is not mistaken for a loss.
 - `obj-loader.test.mjs` / `mtl-material.test.mjs` - OBJ parsing (MTL colors and materials,
   line-numbered errors for malformed vertices and faces).
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
@@ -85,6 +88,7 @@ server):
   not just that something was drawn).
 - `setTexture` replaces a texture that is already on screen (WebGL, and WebGPU when available).
 - A plane stopped during its intro keeps its trail emitting until its fly-out ends.
+- A lost WebGL context makes `"auto"` switch to Canvas 2D, which draws.
 
 ## Not covered, on purpose
 

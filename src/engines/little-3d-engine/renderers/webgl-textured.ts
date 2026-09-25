@@ -270,6 +270,11 @@ export class WebGLTexturedRenderer implements Renderer {
     for (const buffer of cached.buffers) gl.deleteBuffer(buffer);
   }
 
+  /** Tell `listener` when the WebGL context is lost, unless this renderer lost it on purpose. */
+  onLost(listener: (reason: string) => void): void {
+    this.inner.onLost(listener);
+  }
+
   destroy(): void {
     const gl = this.gl;
     if (gl) {
