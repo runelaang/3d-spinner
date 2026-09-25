@@ -1,0 +1,18 @@
+import { type GhostTrainOptions } from "../animations/ghost-train.cjs";
+import { type ParticlesOptions } from "../animations/particles.cjs";
+import type { ProgressSpinnerOptions } from "../index.cjs";
+import type { ProgressPrefabOptions } from "./types.cjs";
+export interface GhostTrainPrefabOptions extends ProgressPrefabOptions {
+    /** Overrides for the train layer. */
+    train?: GhostTrainOptions;
+    /** Overrides for the particle layer. */
+    particles?: ParticlesOptions;
+}
+/**
+ * A progress story: a translucent train of ice cubes runs laps around a tilted
+ * square track, shedding a trail of pale stars. Every 2% of progress attaches
+ * one more car, popping it into existence at the tail; at 100% the whole convoy
+ * peels off the track one after another and accelerates away, clearing the view
+ * within four seconds as the star trail drains behind it.
+ */
+export declare function ghostTrain(options?: GhostTrainPrefabOptions): ProgressSpinnerOptions;
