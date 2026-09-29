@@ -429,3 +429,75 @@ test("destroy removes the progress bar even when the animation's destroy throws"
   assert.equal(frames.size, 0);
   assert.doesNotThrow(() => spinner.destroy(), "a second destroy is a no-op");
 });
+
+test("finished resolves once the spinner stops animating, for every way it can stop", async (t) => {
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const track = (spinner) => {
+    const state = { resolved: false };
+    spinner.finished.then(() => (state.resolved = true));
+    return state;
+  };
+
+  await t.test("after the outro finishes", async () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    const spinner = createSpinner(new FakeHTMLElement(), { type: "indeterminate", animation });
+    const state = track(spinner);
+    runNextFrame();
+    spinner.stop();
+    runNextFrame();
+    await flush();
+    assert.equal(state.resolved, false, "still playing the outro");
+    animation.finished = true;
+    runNextFrame();
+    await flush();
+    assert.equal(state.resolved, true);
+  });
+
+  await t.test("after progress reaches 1 and the outro finishes", async () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    const spinner = createSpinner(new FakeHTMLElement(), { animation, progress: 1 });
+    const state = track(spinner);
+    runUntil(() => animation.exits.length === 1);
+    await flush();
+    assert.equal(state.resolved, false);
+    animation.finished = true;
+    runNextFrame();
+    await flush();
+    assert.equal(state.resolved, true);
+  });
+
+  await t.test("when stopped before the intro", async () => {
+    resetFrameScheduler();
+    const spinner = createSpinner(new FakeHTMLElement(), { animation: fakeAnimation() });
+    const state = track(spinner);
+    spinner.stop();
+    await flush();
+    assert.equal(state.resolved, true);
+  });
+
+  await t.test("on destroy, also during the outro", async () => {
+    resetFrameScheduler();
+    const spinner = createSpinner(new FakeHTMLElement(), {
+      type: "indeterminate",
+      animation: fakeAnimation(),
+    });
+    const state = track(spinner);
+    runNextFrame();
+    spinner.stop();
+    spinner.destroy();
+    await flush();
+    assert.equal(state.resolved, true);
+  });
+
+  await t.test("when setup fails", async () => {
+    resetFrameScheduler();
+    const animation = fakeAnimation();
+    animation.mount = () => Promise.reject(new Error("no renderer"));
+    const spinner = createSpinner(new FakeHTMLElement(), { animation });
+    await assert.rejects(spinner.ready, /no renderer/);
+    await spinner.finished;
+    spinner.destroy();
+  });
+});

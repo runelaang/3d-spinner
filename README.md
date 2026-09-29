@@ -60,6 +60,11 @@ const spinner = createSpinner(document.getElementById("app"), {
 // When the work is done:
 spinner.stop();    // play the outro, then stop (leaves the element in place)
 spinner.destroy(); // stop now and remove the element
+
+// Or play the outro first, then remove the element:
+spinner.stop();
+await spinner.finished;
+spinner.destroy();
 ```
 
 ## Reporting progress
@@ -290,8 +295,9 @@ on the mode.
 | Member | Description |
 | --- | --- |
 | `ready` | Promise that resolves once the animation can draw, and rejects with the error when it cannot (for example a pinned backend the browser lacks). On rejection the spinner stops animating and leaves the page as it is. |
+| `finished` | Promise that resolves once the spinner has stopped animating: its outro finished (after `stop()`, progress reaching 1, `timeoutMs`, or `until`), it was stopped before its intro, it was destroyed, or its setup failed. Never rejects. |
 | `setProgress(target)` | Advance progress toward `target` (`0..1`). No-op for an indeterminate spinner. |
-| `stop()` | Play the outro, then stop animating. Keeps the injected element. |
+| `stop()` | Play the outro, then stop animating. Keeps the injected element. Await `finished` to know when the outro is done. |
 | `destroy()` | Stop immediately and remove the injected element. Safe to call more than once. |
 
 The spinner renders straight into `target`, so its size and placement come from your own CSS. It

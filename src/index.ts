@@ -47,6 +47,14 @@ export interface Spinner {
    * when the spinner is destroyed before setup finishes.
    */
   readonly ready: Promise<void>;
+  /**
+   * Resolves once the spinner has stopped animating: its outro finished (after
+   * {@link Spinner.stop}, progress reaching 1, `timeoutMs`, or `until`), it was
+   * stopped before its intro, it was destroyed, or its setup failed. Never
+   * rejects. Await it to play the outro before removing the spinner:
+   * `spinner.stop(); await spinner.finished; spinner.destroy();`
+   */
+  readonly finished: Promise<void>;
   /** Set the progress target (0..1). No-op for an indeterminate spinner. */
   setProgress(target: number): void;
   /** Play the outro, then stop animating (keeps the injected DOM in place). */
@@ -144,6 +152,10 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     );
   }
   usedAnimations.add(animation);
+  let resolveFinished!: () => void;
+  const finished = new Promise<void>((resolve) => {
+    resolveFinished = resolve;
+  });
   const mounting = mountAnimation(animation, target);
   const progressbar = mountProgressbar(target, options.ariaLabel ?? "Loading", indeterminate);
   const ready = Promise.resolve(mounting).catch((error: unknown) => {
@@ -220,6 +232,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
     stopped = true;
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
+    resolveFinished();
   }
 
   function setProgress(value: number): void {
@@ -248,7 +261,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   }
 
   rafId = requestAnimationFrame(frame);
-  return { ready, setProgress, stop, destroy };
+  return { ready, finished, setProgress, stop, destroy };
 }
 
 export type { SpinnerAnimation, AnimationFrame, AnimationLabel } from "./animation.js";
