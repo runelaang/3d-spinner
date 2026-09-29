@@ -1,12 +1,12 @@
 import type { AnimationFrame, AnimationLabel, SpinnerAnimation } from "../animation.js";
 import { prepareHost } from "../mount-host.js";
+import { finite } from "../validate.js";
 import {
   animationLabelOpacity,
   mountAnimationLabel,
   type MountedAnimationLabel,
 } from "../animation-label.js";
 import {
-  Camera,
   Little3dEngine,
   type Backend,
   type CameraOptions,
@@ -14,15 +14,17 @@ import {
   type MeshHandle,
   type Transparency,
   type Vec3,
-  cross,
-  normalize,
-  scale,
-  subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Camera } from "../engines/little-3d-engine/core/camera.js";
+import { centerAndScaleMesh } from "../engines/little-3d-engine/core/mesh.js";
 import {
+  cross,
   eulerFromRotation,
   multiply,
+  normalize,
   rotationFromEuler,
+  scale,
+  subtract,
 } from "../engines/little-3d-engine/core/math.js";
 import { damp } from "../engines/little-tween-engine/core/damp.js";
 import type { MotionController } from "../motion/controller.js";
@@ -43,7 +45,7 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export interface ObjectMotionTail {
   /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
   count: number;
-  /** Time each copy lags the one ahead of it, in milliseconds. */
+  /** Time each copy lags the one ahead of it, in milliseconds. Must be finite (`RangeError` otherwise). */
   gapMs: number;
 }
 
@@ -64,7 +66,7 @@ export interface ObjectMotionOptions {
   mesh: Mesh | (() => Mesh);
   /** How the object moves: a circle, square, figure-8, wander, or any custom controller. */
   motion: MotionController;
-  /** Face color applied to every triangle. Omit to retain the mesh's face colors. */
+  /** Hex face color applied to every triangle. Omit to retain the mesh's face colors. */
   color?: string;
   /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
@@ -139,40 +141,6 @@ function faceForward(mesh: Mesh, facing: Facing): Mesh {
   return { vertices: mesh.vertices.map(turn), faces: mesh.faces };
 }
 
-/** Centers a mesh at the origin and uniformly scales it to fit within `targetSize`. */
-export function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh {
-  let minX = Infinity;
-  let minY = Infinity;
-  let minZ = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let maxZ = -Infinity;
-
-  for (const vertex of mesh.vertices) {
-    minX = Math.min(minX, vertex.x);
-    minY = Math.min(minY, vertex.y);
-    minZ = Math.min(minZ, vertex.z);
-    maxX = Math.max(maxX, vertex.x);
-    maxY = Math.max(maxY, vertex.y);
-    maxZ = Math.max(maxZ, vertex.z);
-  }
-
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const centerZ = (minZ + maxZ) / 2;
-  const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-  const factor = targetSize / extent;
-
-  return {
-    vertices: mesh.vertices.map((vertex) => ({
-      x: (vertex.x - centerX) * factor,
-      y: (vertex.y - centerY) * factor,
-      z: (vertex.z - centerZ) * factor,
-    })),
-    faces: mesh.faces,
-  };
-}
-
 /**
  * Orientation (engine Euler, Rz*Ry*Rx) that points the nose (+X) along
  * `forward` and keeps `up` upright, rolled by `bank` radians about the nose.
@@ -214,16 +182,18 @@ function resolveDirection(velocity: Vec3, fallback: Vec3): Vec3 {
   return Math.hypot(velocity.x, velocity.y, velocity.z) > 1e-6 ? normalize(velocity) : fallback;
 }
 
+/** The transition and duration for an intro or outro; `name` labels a non-finite duration's error. */
 function resolveTransition(
   config: ObjectMotionTransitionConfig | undefined,
   fallback: ObjectMotionTransition,
   durationMs: number,
+  name: string,
 ): ResolvedObjectMotionTransition {
   if (!config) return { transition: fallback, durationMs };
   if (typeof config === "function") return { transition: config, durationMs };
   return {
     transition: config.transition,
-    durationMs: Math.max(0, config.durationMs ?? durationMs),
+    durationMs: Math.max(0, finite(config.durationMs ?? durationMs, name)),
   };
 }
 
@@ -287,9 +257,19 @@ export class ObjectMotionAnimation implements SpinnerAnimation {
       throw new RangeError("3d-spinner: tail.count must be a finite number.");
     }
     this.tailCount = Math.max(0, Math.floor(tailCount));
-    this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
-    this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
-    this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
+    this.tailGap = Math.max(0, finite(options.tail?.gapMs ?? 0, "tail.gapMs"));
+    this.intro = resolveTransition(
+      options.intro,
+      enterFromObjectDirection(),
+      DEFAULT_INTRO_MS,
+      "intro.durationMs",
+    );
+    this.outro = resolveTransition(
+      options.outro,
+      leaveInObjectDirection(),
+      DEFAULT_OUTRO_MS,
+      "outro.durationMs",
+    );
 
     const rotation = options.rotation;
     this.rotationOffset = { x: rotation?.x ?? 0, y: rotation?.y ?? 0, z: rotation?.z ?? 0 };

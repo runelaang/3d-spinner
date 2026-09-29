@@ -1,7 +1,20 @@
 import { type Vec3, cross, normalize, scale, subtract } from "./math.js";
 import type { Mesh } from "./mesh.js";
 
-/** Parse a CSS hex color (`#rgb` or `#rrggbb`) into 0..255 channels. */
+const HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Throw a `RangeError` unless `color` is a hex color (`#rgb` or `#rrggbb`).
+ * `what` names the value in the message.
+ */
+export function assertHexColor(color: unknown, what: string): void {
+  if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+  throw new RangeError(
+    `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`,
+  );
+}
+
+/** Parse a hex color (`#rgb` or `#rrggbb`) into 0..255 channels. */
 export function parseColor(color: string): [number, number, number] {
   const hex = color.trim().replace("#", "");
   const full =

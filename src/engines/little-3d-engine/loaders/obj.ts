@@ -5,7 +5,7 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "
 /** Options for {@link parseObj}. */
 export interface ObjOptions {
   /**
-   * CSS colors assigned to faces in order, cycling when there are more faces
+   * Hex colors assigned to faces in order, cycling when there are more faces
    * than colors. Defaults to a built-in palette, also when the array is empty.
    * Pass a single-entry array for a uniform color.
    */
@@ -23,7 +23,7 @@ export interface ObjOptions {
 
 /** One material parsed from MTL text: a face color plus its surface material. */
 interface ParsedMaterial {
-  /** Diffuse color (`Kd`) as a CSS hex string, if present. */
+  /** Diffuse color (`Kd`) as a hex string, if present. */
   color?: string;
   /** Ambient, specular, shininess, emissive, and dissolve gathered from MTL. */
   material?: Material;

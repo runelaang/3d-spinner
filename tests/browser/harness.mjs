@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { chromium, firefox, webkit } from "playwright";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const types = {
@@ -11,15 +11,20 @@ const types = {
   ".mjs": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
+  ".svg": "image/svg+xml",
 };
 
 /**
  * Serve the package folder over HTTP (ES modules do not load from file://). `/`
- * is an empty page the tests script against; everything else is a file.
+ * is an empty page the tests script against; everything else is a file. A
+ * `?cors` query adds `Access-Control-Allow-Origin: *`; the page is served from
+ * 127.0.0.1, so `localhost` on the same port is another origin.
  */
 function startServer() {
   const server = createServer(async (request, response) => {
-    const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+    const url = new URL(request.url, "http://localhost");
+    const path = decodeURIComponent(url.pathname);
+    const cors = url.searchParams.has("cors") ? { "access-control-allow-origin": "*" } : {};
     if (path === "/") {
       response.writeHead(200, { "content-type": "text/html" });
       response.end(
@@ -36,6 +41,7 @@ function startServer() {
       const body = await readFile(file);
       response.writeHead(200, {
         "content-type": types[extname(file)] ?? "application/octet-stream",
+        ...cors,
       });
       response.end(body);
     } catch {
@@ -66,13 +72,8 @@ function countLitPixels() {
   };
 }
 
-/**
- * Start the file server and a headless Chromium with WebGPU enabled where the
- * machine supports it. Returns `open()` for a fresh page on the empty test page
- * (collecting console warnings/errors) and `close()`.
- */
-export async function startBrowser() {
-  const server = await startServer();
+/** Headless Chromium with WebGPU enabled where the machine supports it. */
+function launchChromium() {
   // Headless Chromium on Linux (CI) loses its WebGPU device right after creating it unless
   // WebGPU, Vulkan, and ANGLE all run on SwiftShader. On Windows these flags leave no WebGPU
   // adapter at all, so they apply to Linux only.
@@ -85,7 +86,7 @@ export async function startBrowser() {
           "--use-webgpu-adapter=swiftshader",
         ]
       : [];
-  const browser = await chromium.launch({
+  return chromium.launch({
     channel: "chromium",
     args: [
       "--enable-unsafe-webgpu",
@@ -94,14 +95,42 @@ export async function startBrowser() {
       ...linuxSoftwareGpu,
     ],
   });
+}
+
+/**
+ * Warnings a browser logs about its own setup when a context is requested and it
+ * has none to give (Firefox without WebGL2 or with WebGPU blocklisted). The
+ * backend probe asks on purpose, so these say nothing about the library.
+ */
+const browserSetupNoise = /Failed to create WebGL context|WebGPU is disabled by blocklist/;
+
+const launchers = {
+  chromium: launchChromium,
+  firefox: () => firefox.launch(),
+  webkit: () => webkit.launch(),
+};
+
+/** The browser the tests run in: `TEST_BROWSER` (`chromium`, `firefox`, `webkit`), default Chromium. */
+export const browserName = process.env.TEST_BROWSER || "chromium";
+
+/**
+ * Start the file server and the headless {@link browserName} browser. Returns
+ * `open()` for a fresh page on the empty test page (collecting console
+ * warnings/errors) and `close()`.
+ */
+export async function startBrowser() {
+  const launch = launchers[browserName];
+  if (!launch) throw new Error(`TEST_BROWSER must be one of ${Object.keys(launchers).join(", ")}`);
+  const server = await startServer();
+  const browser = await launch();
   const origin = `http://127.0.0.1:${server.address().port}`;
   return {
     async open(initScript) {
       const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
       const messages = [];
       page.on("console", (message) => {
-        if (message.type() === "error" || message.type() === "warning")
-          messages.push(message.text());
+        const relevant = message.type() === "error" || message.type() === "warning";
+        if (relevant && !browserSetupNoise.test(message.text())) messages.push(message.text());
       });
       page.on("pageerror", (error) => messages.push(error.message));
       await page.addInitScript(countLitPixels);

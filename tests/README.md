@@ -2,8 +2,8 @@
 
 Tests for this package, using Node's built-in test runner (`node:test`) and `assert` - no
 external test framework. The unit tests need nothing beyond the package's own build tooling
-(TypeScript and `@webgpu/types` for the type checks); the browser tests drive headless Chromium through the
-`playwright` dev dependency. Neither adds a runtime dependency.
+(TypeScript and `@webgpu/types` for the type checks); the browser tests drive headless Chromium,
+Firefox, or WebKit through the `playwright` dev dependency. Neither adds a runtime dependency.
 
 They run against the compiled output in `dist/`, i.e. exactly what consumers get from npm.
 Tests are excluded from the published package by the `files` field in `package.json`, so they
@@ -16,9 +16,14 @@ npm test               # rebuilds dist, then runs every tests/*.test.mjs
 npm run test:browser   # rebuilds dist, then runs tests/browser/*.test.mjs in headless Chromium
 ```
 
-The browser tests need Chromium once: `npx playwright install chromium`. On Linux the harness
-runs WebGPU, Vulkan, and ANGLE on SwiftShader, because headless Chromium there otherwise loses
-its WebGPU device right after creating it.
+The browser tests need the browser once: `npx playwright install chromium`. Set `TEST_BROWSER`
+to `firefox` or `webkit` to run them there instead (install that browser the same way); CI runs
+all three. On Linux the harness runs Chromium's WebGPU, Vulkan, and ANGLE on SwiftShader, because
+headless Chromium there otherwise loses its WebGPU device right after creating it.
+
+A check skips when the browser lacks what it needs (WebGL2 or WebGPU). The mount/destroy loop
+that counts WebGL contexts also skips on WebKit, which frees a context only after the current
+task ends, so a loop that never yields reaches its 16-context limit.
 
 `pretest` runs the build first, so the tests always check a fresh `dist/`. To run without
 rebuilding (dist must already exist):
@@ -48,7 +53,7 @@ Lifecycle, engine, and pure logic:
   done-label fading and immediate completion when the fade is disabled.
 - `spinner-lifecycle.test.mjs` - `createSpinner` mounting, reported and timed completion,
   indeterminate stop, immediate/idempotent destroy, and option validation (`periodMs`,
-  `until`, `timeout`) using a fake animation, element, and animation-frame scheduler. A mount
+  `until`, `timeoutMs`) using a fake animation, element, and animation-frame scheduler. A mount
   that throws at once still returns a spinner and rejects `ready`; a throwing `destroy()` still
   removes the progress bar.
 - `engine-fallback.test.mjs` - `Little3dEngine` mounting with fake canvases: `"auto"` falls
@@ -63,6 +68,15 @@ Lifecycle, engine, and pure logic:
   line-numbered errors for malformed vertices and faces).
 - `consumer-types.test.mjs` - every `exports` subpath type-checks by package name for ESM and
   CommonJS consumers (`node16`, `nodenext`, `bundler`), with declaration files checked.
+- `packed.test.mjs` - the `npm pack` tarball installed into a new project in a temp folder: every
+  file `package.json` points to is there, every subpath imports as ESM and loads with `require()`,
+  and TypeScript resolves every subpath's types (`node16`, `nodenext`, `bundler`).
+- `colors.test.mjs` - shape builders fall back to their default palette for an empty color list;
+  the engine rejects face and background colors that are not hex.
+- `options.test.mjs` - time options that are `NaN` or infinite throw a `RangeError`: motion path
+  and orbit periods (zero too; a negative period still runs backwards), object-motion tail gaps and
+  transition durations, docking time, progress-animation durations, and a numeric particle
+  `outroMs`.
 - `webgpu-types.test.mjs` - the engine's own WebGPU types match `@webgpu/types` (a dev
   dependency only): every member exists, every descriptor the local types allow is valid for the
   official method, and every value the official API returns fits the local type.
@@ -74,7 +88,7 @@ Lifecycle, engine, and pure logic:
   expansion, shading, the particle field, prefab story logic, label fading and accessibility,
   and the tween engine (including its deprecated aliases).
 
-Real rendering, in `tests/browser/spinner.test.mjs` (headless Chromium over a local file
+Real rendering, in `tests/browser/spinner.test.mjs` (a headless browser over a local file
 server):
 
 - Canvas 2D and WebGL draw visible pixels; WebGPU too when the browser has an adapter (skipped
@@ -95,13 +109,21 @@ server):
 - `setTexture` replaces a texture that is already on screen (WebGL, and WebGPU when available).
 - A plane stopped during its intro keeps its trail emitting until its fly-out ends.
 - A lost WebGL context makes `"auto"` switch to Canvas 2D, which draws.
+- Particles with an empty color list draw with the default palette.
+- Particles whose `outroMs` function returns `NaN` still finish.
+
+Textures, in `tests/browser/textures.test.mjs`, on every textured renderer the browser supports:
+
+- A texture URL loads from the page's origin and from another origin that allows CORS (the local
+  server on `localhost` instead of `127.0.0.1`).
+- Canvas 2D draws an image from another origin that sends no CORS headers.
+- A missing image, a file that is not an image, and (on WebGL and WebGPU) another origin without
+  CORS each give one warning, and the mesh keeps its plain color.
+- WebGPU warns, instead of leaving an unhandled rejection, when an image cannot be decoded.
+- Destroying a renderer while its texture loads gives no warning or error.
+- WebGPU frees replaced textures once the frames that used them are done, including several
+  replacements between two frames.
 
 `webgpu-exercised.test.mjs` reports which WebGPU adapter the browser tests ran on. When there is
 none, the WebGPU checks above skip; with `REQUIRE_WEBGPU=1` (set in CI) it fails instead, so a
 run cannot pass without exercising WebGPU.
-
-## Not covered, on purpose
-
-- **An installed tarball.** The consumer type check resolves the package by self-reference, not
-  from an `npm pack` result installed into a clean project. `files` ships all of `dist/`, the
-  same files self-reference resolves, so a separate install test would mostly re-check npm.

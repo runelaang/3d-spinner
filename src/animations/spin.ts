@@ -18,7 +18,7 @@ import {
 export interface SpinAnimationOptions {
   /** Shape to spin: a mesh, or a factory that returns one. Default: a cube. */
   shape?: Mesh | (() => Mesh);
-  /** Face color(s): one color for every face, or an array applied per face. */
+  /** Hex face color(s): one color for every face, or an array applied per face. */
   color?: string | string[];
   /** Surface material (ambient, specular, shininess, emissive) applied to every face. */
   material?: Material;

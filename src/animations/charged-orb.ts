@@ -1,5 +1,6 @@
 import type { AnimationFrame, SpinnerAnimation } from "../animation.js";
 import { prepareHost } from "../mount-host.js";
+import { finiteNonZero } from "../validate.js";
 import type { MotionController } from "../motion/controller.js";
 import {
   Little3dEngine,
@@ -20,7 +21,10 @@ import {
 } from "../engines/little-tween-engine/core/tweens.js";
 
 export interface ChargedOrbOptions {
-  /** Milliseconds for one satellite revolution around the center orb. Default `6000`. */
+  /**
+   * Milliseconds for one satellite revolution around the center orb. Default `6000`.
+   * Must be finite and not zero.
+   */
   orbitPeriodMs?: number;
   /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
   backend?: Backend;
@@ -91,7 +95,7 @@ export class ChargedOrbAnimation implements SpinnerAnimation {
   private finished = false;
 
   constructor(options: ChargedOrbOptions = {}) {
-    this.orbitPeriodMs = options.orbitPeriodMs ?? 6000;
+    this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 6000, "orbitPeriodMs");
     this.backend = options.backend;
   }
 

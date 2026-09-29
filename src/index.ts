@@ -17,8 +17,6 @@ export interface ProgressSpinnerOptions {
    * `NaN` throws a `RangeError`; zero or less completes on the first frame.
    */
   timeoutMs?: number;
-  /** @deprecated Renamed to {@link ProgressSpinnerOptions.timeoutMs}; removed in 1.0.0. */
-  timeout?: number;
   /** Auto-complete at this absolute time. If both are set, the earlier wins. */
   until?: Date;
   /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */
@@ -136,7 +134,7 @@ export function createSpinner(target: HTMLElement, options: SpinnerOptions): Spi
   if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
   }
-  const timeoutMs = indeterminate ? undefined : (options.timeoutMs ?? options.timeout);
+  const timeoutMs = indeterminate ? undefined : options.timeoutMs;
   if (Number.isNaN(timeoutMs)) {
     throw new RangeError("3d-spinner: timeoutMs must be a number of milliseconds, not NaN.");
   }

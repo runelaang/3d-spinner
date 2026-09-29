@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { centerAndScaleMesh } from "../dist/animations/object-motion.js";
+import { centerAndScaleMesh } from "../dist/engines/little-3d-engine/core/mesh.js";
 import { approx } from "./helpers.mjs";
 
 /** Axis-aligned bounds of a mesh's vertices. */

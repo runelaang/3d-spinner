@@ -15,10 +15,11 @@ const DEFAULT_COLORS = [
  * Build a regular octahedron mesh centered on the origin.
  *
  * @param size Distance between opposite vertices. Defaults to `1`.
- * @param colors Eight CSS colors, one per triangular face. Defaults to a built-in palette.
+ * @param colors Eight hex colors, one per triangular face. Defaults to a built-in palette.
  * @param material Optional surface material applied to every face.
  */
 export function octahedron(size = 1, colors: string[] = DEFAULT_COLORS, material?: Material): Mesh {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const r = size / 2;
   const vertices = [
     { x: r, y: 0, z: 0 },

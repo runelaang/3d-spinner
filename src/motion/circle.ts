@@ -1,11 +1,12 @@
 import type { Vec3 } from "../engines/little-3d-engine/little-3d-engine.js";
 import type { MotionController } from "./controller.js";
+import { finiteNonZero } from "../validate.js";
 
 /** Options for {@link circleMotion}. */
 export interface CircleMotionOptions {
   /** Circle radius in scene units. Default `1.3`. */
   radius?: number;
-  /** Milliseconds for one full revolution. Default `3000`. */
+  /** Milliseconds for one full revolution. Default `3000`. Must be finite and not zero. */
   periodMs?: number;
   /** Tilt of the circle's plane about the X axis, radians. `0` faces the camera. Default `0.5`. */
   tilt?: number;
@@ -19,7 +20,7 @@ export interface CircleMotionOptions {
  */
 export function circleMotion(options: CircleMotionOptions = {}): MotionController {
   const radius = options.radius ?? 1.3;
-  const periodMs = options.periodMs ?? 3000;
+  const periodMs = finiteNonZero(options.periodMs ?? 3000, "periodMs");
   const tilt = options.tilt ?? 0.5;
   const direction = options.direction ?? 1;
   const cosTilt = Math.cos(tilt);

@@ -3,6 +3,56 @@
 Notable changes, newest first. Versions before 0.9.26 are described in the git history. Not
 every version was published to npm; each one includes all changes of the versions below it.
 
+## 1.0.0
+
+The public interface is stable from this version on and follows semantic versioning: breaking
+changes only come with a new major version.
+
+### Removed
+
+- Names deprecated in 0.9.24: `LittleTweenEngine.value()` (now `evaluate()`), the tween option
+  `overextend` (now `allowExtrapolation`), the `ProgressAnimation` option `overextend` (now
+  `overshootRatio`), and the spinner and prefab option `timeout` (now `timeoutMs`).
+- The ease aliases `quadratic`, `cubic`, `quartic`, and `quintic`, as functions and as `EaseType`
+  names. They were identical to `easeInQuad`, `easeInCubic`, `easeInQuart`, and `easeInQuint`.
+- Engine internals exported from `3d-spinner/engines/little-3d-engine`: `Camera`, `Light`,
+  `vec3`, `subtract`, `cross`, `dot`, `scale`, `normalize`, `expandToTriangles`,
+  `orderRenderItems`, `autoBackendCandidates`, and `transform`. The `CameraOptions`,
+  `LightOptions`, `LightParams`, and `Vec3` types remain.
+- `particleField`, `ParticleField`, and `ParticleSample` from `3d-spinner/animations/particles`,
+  and `centerAndScaleMesh` from `3d-spinner/animations/object-motion`.
+
+## 0.9.31
+
+### Changed
+
+- Mesh, particle, and engine background colors must be hex (`#rgb` or `#rrggbb`). Other values
+  used to draw as black or a wrong color without notice; now the spinner's `ready` rejects with a
+  `RangeError` (a `Little3dEngine` with such a `background` throws when constructed).
+- The WebGL and WebGPU textured renderers request texture URLs with CORS, so an image from
+  another origin loads when its server allows it. Canvas 2D loads them as before.
+
+### Fixed
+
+- An empty `colors` list on particles or a built-in shape falls back to the default palette
+  instead of breaking the render.
+- A texture that fails to load or decode logs one console warning and the mesh keeps its plain
+  color, instead of an unhandled promise rejection or nothing at all.
+- The WebGPU textured renderer frees a replaced texture once the frames that used it are done,
+  instead of keeping every replaced texture until the renderer is destroyed.
+- Time options that are `NaN` or infinite throw a `RangeError` when the animation or motion path
+  is created. They used to make the object vanish or keep a stopped spinner running forever. This
+  covers motion path and orbit periods (zero too), tail gaps, intro/outro durations, `dockMs`,
+  `popDurationMs`, `doneFadeDurationMs`, and a numeric particle `outroMs`. A particle `outroMs`
+  function that returns such a value counts as `0`.
+
+### Internal
+
+- A test installs the `npm pack` tarball into a new project and imports, requires, and
+  type-checks every subpath from there.
+- Browser tests also run in Firefox and WebKit.
+- Regression tests for each fix above.
+
 ## 0.9.30
 
 ### Changed

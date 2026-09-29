@@ -8,7 +8,7 @@ import {
   type RendererOptions,
 } from "../renderer.js";
 import { Canvas2DRenderer } from "./canvas2d.js";
-import type { TextureSource } from "./textured-helpers.js";
+import { loadImage, type TextureSource, warnTextureFailed } from "./textured-helpers.js";
 
 export type { TextureSource } from "./textured-helpers.js";
 
@@ -100,8 +100,14 @@ export class Canvas2DTexturedRenderer implements Renderer {
   setTexture(mesh: Mesh, source: TextureSource): void {
     this.sources.set(mesh, source);
     if (typeof source === "string" && !this.loaded.has(source)) {
-      const image = new Image();
-      image.src = source;
+      const image = loadImage(source, {
+        // No CORS request here: Canvas 2D draws a cross-origin image without it,
+        // and asking for it would fail the load on servers that send no CORS headers.
+        cors: false,
+        onError: (error) => {
+          if (this.loaded.get(source) === image) warnTextureFailed(source, error);
+        },
+      });
       this.loaded.set(source, image);
     }
   }

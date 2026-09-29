@@ -9,9 +9,3 @@ test("evaluate maps through the ease and clamps unless extrapolation is allowed"
   const free = new LittleTweenEngine({ type: "linear", allowExtrapolation: true });
   assert.equal(free.evaluate(2), 2);
 });
-
-test("the deprecated value() and overextend still work as aliases", () => {
-  const legacy = new LittleTweenEngine({ type: "linear", overextend: true });
-  assert.equal(legacy.value(2), 2);
-  assert.equal(legacy.value(0.3, "easeInQuad"), legacy.evaluate(0.3, "easeInQuad"));
-});

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Camera, planeMesh } from "../dist/engines/little-3d-engine/little-3d-engine.js";
+import { planeMesh } from "../dist/engines/little-3d-engine/little-3d-engine.js";
+import { Camera } from "../dist/engines/little-3d-engine/core/camera.js";
 import { enterFromObjectDirection, leaveInObjectDirection } from "../dist/motion/transitions.js";
 import { ObjectMotionAnimation } from "../dist/animations/object-motion.js";
 import { figureEightMotion } from "../dist/motion/motion.js";

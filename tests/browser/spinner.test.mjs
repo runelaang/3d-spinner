@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { startBrowser } from "./harness.mjs";
+import { browserName, startBrowser } from "./harness.mjs";
 
 // Real mounting and drawing in headless Chromium, which the DOM-free unit tests
 // cannot cover. Run with `npm run test:browser` after `npx playwright install chromium`.
@@ -221,6 +221,12 @@ test("a positioned host keeps its position and its children", async () => {
 });
 
 test("repeated mount and destroy releases every WebGL context", async (t) => {
+  if (browserName === "webkit") {
+    // WebKit frees a removed canvas's context only after the current task ends, and this
+    // loop never yields, so it hits WebKit's 16-context limit whatever the library does.
+    t.skip("WebKit releases WebGL contexts only between tasks");
+    return;
+  }
   const { page, messages } = await browser.open();
   if (!(await hasWebGL2(page))) {
     t.skip("no WebGL2 in this browser");
@@ -508,4 +514,54 @@ test("a lost WebGL context switches to Canvas 2D and keeps drawing", async (t) =
   assert.equal(result.replaced, true);
   assert.equal(result.canvases, 1);
   assert.ok(result.lit > 500, `Canvas 2D drew ${result.lit} pixels`);
+});
+
+test("particles with an empty color list draw with the default palette", async () => {
+  const { page, messages } = await browser.open();
+  const result = await page.evaluate(async () => {
+    const { ParticlesAnimation } = await import("/dist/animations/particles.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const particles = new ParticlesAnimation({
+      colors: [],
+      backend: "canvas2d",
+      size: 0.4,
+      seed: 3,
+    });
+    await particles.mount(host);
+    particles.enter(0);
+    particles.render(1000, { progress: 0, targetProgress: 0, indeterminate: true });
+    const lit = litPixels(host.querySelector("canvas"));
+    particles.destroy();
+    return lit;
+  });
+  assert.ok(result > 200, `drew ${result} pixels`);
+  assert.deepEqual(messages, []);
+});
+
+test("particles finish when their outroMs function returns a value that is not finite", async () => {
+  const { page, messages } = await browser.open();
+  const finished = await page.evaluate(async () => {
+    const { ParticlesAnimation } = await import("/dist/animations/particles.js");
+    const host = document.createElement("div");
+    host.style.cssText = "width:160px;height:160px";
+    document.body.appendChild(host);
+    const particles = new ParticlesAnimation({
+      backend: "canvas2d",
+      lifeMs: 500,
+      outroMs: () => NaN,
+    });
+    await particles.mount(host);
+    const frame = { progress: 0, targetProgress: 0, indeterminate: true };
+    particles.enter(0);
+    particles.render(100, frame);
+    particles.exit(100);
+    particles.render(700, frame);
+    const done = particles.isFinished();
+    particles.destroy();
+    return done;
+  });
+  assert.equal(finished, true);
+  assert.deepEqual(messages, []);
 });
