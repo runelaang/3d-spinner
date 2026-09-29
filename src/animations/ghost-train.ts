@@ -14,11 +14,8 @@ import {
   type MeshHandle,
   type Transparency,
   type Vec3,
-  cross,
-  dot,
-  normalize,
-  subtract,
 } from "../engines/little-3d-engine/little-3d-engine.js";
+import { cross, dot, normalize, subtract } from "../engines/little-3d-engine/core/math.js";
 import type { MotionController } from "../motion/controller.js";
 import { squareMotion } from "../motion/square.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";

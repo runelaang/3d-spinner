@@ -404,8 +404,8 @@ export class Little3dEngine {
   }
 }
 
-export { Camera, type CameraOptions } from "./core/camera.js";
-export { Light, type LightOptions, type LightParams } from "./core/light.js";
+export type { CameraOptions } from "./core/camera.js";
+export type { LightOptions, LightParams } from "./core/light.js";
 export { cube } from "./shapes/primitives/cube.js";
 export { quad } from "./shapes/primitives/quad.js";
 export { tetrahedron } from "./shapes/primitives/tetrahedron.js";
@@ -419,7 +419,6 @@ export { planeMesh } from "./shapes/complex/plane.js";
 export { starTexture } from "./textures/dynamic/star.js";
 export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
-export { expandToTriangles } from "./core/geometry.js";
 export type {
   Mesh,
   Face,
@@ -429,7 +428,7 @@ export type {
   OneSidedTransparency,
   TwoSidedTransparency,
 } from "./core/mesh.js";
-export { transform, attachMaterial } from "./core/mesh.js";
+export { attachMaterial } from "./core/mesh.js";
 export type {
   Backend,
   BackendSupport,
@@ -440,11 +439,5 @@ export type {
   RenderItem,
   RendererOptions,
 } from "./renderer.js";
-export {
-  orderRenderItems,
-  chooseBackend,
-  autoBackendCandidates,
-  detectBackendSupport,
-  resolveBackend,
-} from "./renderer.js";
-export { type Vec3, vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";
+export { chooseBackend, detectBackendSupport, resolveBackend } from "./renderer.js";
+export type { Vec3 } from "./core/math.js";

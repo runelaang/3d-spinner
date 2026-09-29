@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { particleField } from "../dist/animations/particles.js";
+import { particleField } from "../dist/animations/particle-field.js";
 
 const mag = (v) => Math.hypot(v.x, v.y, v.z);
 

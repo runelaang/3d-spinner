@@ -1,9 +1,5 @@
 export type EaseType =
   | "linear"
-  | "quadratic"
-  | "cubic"
-  | "quartic"
-  | "quintic"
   | "easeInSine"
   | "easeOutSine"
   | "easeInOutSine"
@@ -45,22 +41,6 @@ function input(value: number, allowExtrapolation: boolean): number {
 
 export function linear(value: number, allowExtrapolation = false): number {
   return input(value, allowExtrapolation);
-}
-
-export function quadratic(value: number, allowExtrapolation = false): number {
-  return easeInQuad(value, allowExtrapolation);
-}
-
-export function cubic(value: number, allowExtrapolation = false): number {
-  return easeInCubic(value, allowExtrapolation);
-}
-
-export function quartic(value: number, allowExtrapolation = false): number {
-  return easeInQuart(value, allowExtrapolation);
-}
-
-export function quintic(value: number, allowExtrapolation = false): number {
-  return easeInQuint(value, allowExtrapolation);
 }
 
 export function easeInSine(value: number, allowExtrapolation = false): number {
@@ -258,10 +238,6 @@ export function easeInOutBounce(value: number, allowExtrapolation = false): numb
 
 export const easeTypes: Readonly<Record<EaseType, EaseFunction>> = {
   linear,
-  quadratic,
-  cubic,
-  quartic,
-  quintic,
   easeInSine,
   easeOutSine,
   easeInOutSine,
