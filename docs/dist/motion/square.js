@@ -1,10 +1,11 @@
+import { finiteNonZero } from "../validate.js";
 /**
  * Travels the perimeter of a square at constant speed, turning sharply at each
  * corner. `tilt` leans the square away from the camera for a 3D read.
  */
 export function squareMotion(options = {}) {
     const half = (options.size ?? 2.4) / 2;
-    const periodMs = options.periodMs ?? 4000;
+    const periodMs = finiteNonZero(options.periodMs ?? 4000, "periodMs");
     const tilt = options.tilt ?? 0.45;
     const direction = options.direction ?? 1;
     const cosTilt = Math.cos(tilt);

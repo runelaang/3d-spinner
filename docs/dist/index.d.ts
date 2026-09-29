@@ -14,8 +14,6 @@ export interface ProgressSpinnerOptions {
      * `NaN` throws a `RangeError`; zero or less completes on the first frame.
      */
     timeoutMs?: number;
-    /** @deprecated Renamed to {@link ProgressSpinnerOptions.timeoutMs}; removed in 1.0.0. */
-    timeout?: number;
     /** Auto-complete at this absolute time. If both are set, the earlier wins. */
     until?: Date;
     /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */

@@ -17,7 +17,7 @@ export interface Little3dEngineOptions {
     rendererFor?: (backend: ResolvedBackend, options: RendererOptions) => Renderer | Promise<Renderer>;
     camera?: Partial<CameraOptions>;
     light?: Partial<LightOptions>;
-    /** Solid background color; omit for a transparent canvas (overlay use). */
+    /** Solid background hex color (`#rgb` or `#rrggbb`); omit for a transparent canvas (overlay use). */
     background?: string;
 }
 /**
@@ -49,6 +49,7 @@ export declare class Little3dEngine {
     private readonly rendererFor?;
     private readonly background?;
     private readonly scene;
+    private readonly checkedMeshes;
     /** The mounted surface: its renderer is initialized and sized. */
     private surface?;
     /** The surface of the backend attempt in progress, if any. */
@@ -60,6 +61,7 @@ export declare class Little3dEngine {
     private cancelMount?;
     private rafId;
     private running;
+    /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
     constructor(options?: Little3dEngineOptions);
     /**
      * Create the canvas inside `target`, load the selected backend, and start
@@ -97,7 +99,10 @@ export declare class Little3dEngine {
     private createRenderer;
     /** Append a fresh full-size canvas to `target` and start tracking its size. */
     private openSurface;
-    /** Add a mesh to the scene and return a handle for animating it. */
+    /**
+     * Add a mesh to the scene and return a handle for animating it. Throws a
+     * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+     */
     add(mesh: Mesh, init?: MeshInstanceOptions): MeshHandle;
     /** Match the canvas's pixel size to its CSS size, and tell a started renderer. */
     private resize;
@@ -110,8 +115,8 @@ export declare class Little3dEngine {
     /** Stop animating, release the renderer, and remove the canvas. */
     destroy(): void;
 }
-export { Camera, type CameraOptions } from "./core/camera.js";
-export { Light, type LightOptions, type LightParams } from "./core/light.js";
+export type { CameraOptions } from "./core/camera.js";
+export type { LightOptions, LightParams } from "./core/light.js";
 export { cube } from "./shapes/primitives/cube.js";
 export { quad } from "./shapes/primitives/quad.js";
 export { tetrahedron } from "./shapes/primitives/tetrahedron.js";
@@ -125,9 +130,8 @@ export { planeMesh } from "./shapes/complex/plane.js";
 export { starTexture } from "./textures/dynamic/star.js";
 export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
-export { expandToTriangles } from "./core/geometry.js";
 export type { Mesh, Face, Material, Transform, Transparency, OneSidedTransparency, TwoSidedTransparency, } from "./core/mesh.js";
-export { transform, attachMaterial } from "./core/mesh.js";
+export { attachMaterial } from "./core/mesh.js";
 export type { Backend, BackendSupport, ResolvedBackend, Renderer, RendererFactory, RenderFrame, RenderItem, RendererOptions, } from "./renderer.js";
-export { orderRenderItems, chooseBackend, autoBackendCandidates, detectBackendSupport, resolveBackend, } from "./renderer.js";
-export { type Vec3, vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";
+export { chooseBackend, detectBackendSupport, resolveBackend } from "./renderer.js";
+export type { Vec3 } from "./core/math.js";

@@ -27,8 +27,6 @@ export interface ProgressPrefabOptions {
     progress?: number;
     /** Auto-complete (drive progress to 1) after this many milliseconds. */
     timeoutMs?: number;
-    /** @deprecated Renamed to {@link ProgressPrefabOptions.timeoutMs}; removed in 1.0.0. */
-    timeout?: number;
     /** Auto-complete at this absolute time. If both are set, the earlier wins. */
     until?: Date;
     /** Accessible name of the spinner's progress bar for assistive technology. Default `"Loading"`. */

@@ -1,10 +1,6 @@
-export type EaseType = "linear" | "quadratic" | "cubic" | "quartic" | "quintic" | "easeInSine" | "easeOutSine" | "easeInOutSine" | "easeInQuad" | "easeOutQuad" | "easeInOutQuad" | "easeInCubic" | "easeOutCubic" | "easeInOutCubic" | "easeInQuart" | "easeOutQuart" | "easeInOutQuart" | "easeInQuint" | "easeOutQuint" | "easeInOutQuint" | "easeInExpo" | "easeOutExpo" | "easeInOutExpo" | "easeInCirc" | "easeOutCirc" | "easeInOutCirc" | "easeInBack" | "easeOutBack" | "easeInOutBack" | "easeInElastic" | "easeOutElastic" | "easeInOutElastic" | "easeInBounce" | "easeOutBounce" | "easeInOutBounce";
+export type EaseType = "linear" | "easeInSine" | "easeOutSine" | "easeInOutSine" | "easeInQuad" | "easeOutQuad" | "easeInOutQuad" | "easeInCubic" | "easeOutCubic" | "easeInOutCubic" | "easeInQuart" | "easeOutQuart" | "easeInOutQuart" | "easeInQuint" | "easeOutQuint" | "easeInOutQuint" | "easeInExpo" | "easeOutExpo" | "easeInOutExpo" | "easeInCirc" | "easeOutCirc" | "easeInOutCirc" | "easeInBack" | "easeOutBack" | "easeInOutBack" | "easeInElastic" | "easeOutElastic" | "easeInOutElastic" | "easeInBounce" | "easeOutBounce" | "easeInOutBounce";
 export type EaseFunction = (value: number, allowExtrapolation?: boolean) => number;
 export declare function linear(value: number, allowExtrapolation?: boolean): number;
-export declare function quadratic(value: number, allowExtrapolation?: boolean): number;
-export declare function cubic(value: number, allowExtrapolation?: boolean): number;
-export declare function quartic(value: number, allowExtrapolation?: boolean): number;
-export declare function quintic(value: number, allowExtrapolation?: boolean): number;
 export declare function easeInSine(value: number, allowExtrapolation?: boolean): number;
 export declare function easeOutSine(value: number, allowExtrapolation?: boolean): number;
 export declare function easeInOutSine(value: number, allowExtrapolation?: boolean): number;

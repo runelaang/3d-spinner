@@ -7,9 +7,12 @@ export interface GridAssemblyOptions {
     size?: number;
     /** Gap between neighboring grid cells in scene units. Default `0.12`. */
     gap?: number;
-    /** Milliseconds for one full orbit revolution. Default `9000`. */
+    /** Milliseconds for one full orbit revolution. Default `9000`. Must be finite and not zero. */
     orbitPeriodMs?: number;
-    /** Milliseconds one shape takes to travel between the orbit and its grid cell. Default `800`. */
+    /**
+     * Milliseconds one shape takes to travel between the orbit and its grid cell. Default `800`.
+     * Must be finite and greater than zero.
+     */
     dockMs?: number;
     /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;

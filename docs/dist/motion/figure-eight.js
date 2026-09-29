@@ -1,3 +1,4 @@
+import { finiteNonZero } from "../validate.js";
 // Figure-8 (lemniscate) amplitudes. A closed, periodic curve so it repeats
 // seamlessly; the z term gives it depth so it reads as 3D rather than flat.
 const LOOP_X = 1.5;
@@ -9,7 +10,7 @@ const LOOP_Z = 1.05;
  */
 export function figureEightMotion(options = {}) {
     const size = options.size ?? 1;
-    const periodMs = options.periodMs ?? 3600;
+    const periodMs = finiteNonZero(options.periodMs ?? 3600, "periodMs");
     return {
         positionAt(t) {
             const a = (t / periodMs) * Math.PI * 2;

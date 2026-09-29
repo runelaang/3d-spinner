@@ -26,9 +26,6 @@ var Spinner3D = (() => {
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
   // src/engines/little-3d-engine/core/math.ts
-  function vec3(x, y, z) {
-    return { x, y, z };
-  }
   function subtract(a, b) {
     return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
   }
@@ -141,6 +138,12 @@ var Spinner3D = (() => {
   });
 
   // src/engines/little-3d-engine/core/geometry.ts
+  function assertHexColor(color, what) {
+    if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+    throw new RangeError(
+      `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`
+    );
+  }
   function parseColor(color) {
     const hex = color.trim().replace("#", "");
     const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
@@ -243,10 +246,12 @@ var Spinner3D = (() => {
     });
     return { vertices, faces };
   }
+  var HEX_COLOR;
   var init_geometry = __esm({
     "src/engines/little-3d-engine/core/geometry.ts"() {
       "use strict";
       init_math();
+      HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
     }
   });
 
@@ -1162,6 +1167,21 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   });
 
   // src/engines/little-3d-engine/renderers/textured-helpers.ts
+  function loadImage(url, options) {
+    const image = new Image();
+    if (options.cors) image.crossOrigin = "anonymous";
+    image.onload = () => options.onLoad?.(image);
+    image.onerror = () => options.onError(new Error("the image did not load"));
+    image.src = url;
+    return image;
+  }
+  function warnTextureFailed(source, error) {
+    const name = typeof source === "string" ? `"${source}"` : "image";
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`
+    );
+  }
   function planarUVs(mesh) {
     let minX = Infinity;
     let minY = Infinity;
@@ -1355,10 +1375,11 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             { width: 1, height: 1 }
           );
           this.textures.set(mesh, white);
+          const pending = () => !this.destroyed && this.textures.get(mesh) === white;
           const upload = async (source2) => {
             const image = source2 instanceof HTMLImageElement ? await createImageBitmap(source2) : source2;
             const current = this.device;
-            if (this.destroyed || !current || this.textures.get(mesh) !== white) return;
+            if (!pending() || !current) return;
             const size = image;
             const width = size.width || 1;
             const height = size.height || 1;
@@ -1373,12 +1394,18 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
             this.bindGroups.delete(mesh);
           };
           const source = this.sources.get(mesh);
+          if (source === void 0) return white;
+          const fail = (error) => {
+            if (pending()) warnTextureFailed(source, error);
+          };
           if (typeof source === "string") {
-            const image = new Image();
-            image.onload = () => void upload(image);
-            image.src = source;
-          } else if (source) {
-            void upload(source);
+            loadImage(source, {
+              cors: true,
+              onLoad: (image) => void upload(image).catch(fail),
+              onError: fail
+            });
+          } else {
+            upload(source).catch(fail);
           }
           return this.textures.get(mesh) ?? white;
         }
@@ -1432,7 +1459,21 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           this.texturedCapacity = draws;
           return this.texturedUniforms;
         }
+        /**
+         * Destroy the retired textures once the GPU has finished all work submitted so
+         * far. Called at the start of a frame, when no command buffer is being encoded.
+         */
+        releaseRetired() {
+          const device = this.device;
+          if (!device || this.retired.length === 0) return;
+          const retired = this.retired.splice(0);
+          const release2 = () => {
+            for (const texture of retired) texture.destroy();
+          };
+          device.queue.onSubmittedWorkDone().then(release2, release2);
+        }
         render(frame) {
+          this.releaseRetired();
           const plain = [];
           const texturedItems = [];
           for (const item of frame.items) {
@@ -1635,23 +1676,30 @@ void main() {
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
           this.textures.set(mesh, texture);
-          const upload = (image) => {
-            if (!this.gl || this.textures.get(mesh) !== texture) return;
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            this.gl.texImage2D(
-              this.gl.TEXTURE_2D,
-              0,
-              this.gl.RGBA,
-              this.gl.RGBA,
-              this.gl.UNSIGNED_BYTE,
-              image
-            );
-          };
           const source = this.sources.get(mesh);
+          const pending = () => this.gl !== void 0 && this.textures.get(mesh) === texture;
+          const fail = (error) => {
+            if (pending()) warnTextureFailed(source, error);
+          };
+          const upload = (image) => {
+            const current = this.gl;
+            if (!current || !pending()) return;
+            current.bindTexture(current.TEXTURE_2D, texture);
+            try {
+              current.texImage2D(
+                current.TEXTURE_2D,
+                0,
+                current.RGBA,
+                current.RGBA,
+                current.UNSIGNED_BYTE,
+                image
+              );
+            } catch (error) {
+              fail(error);
+            }
+          };
           if (typeof source === "string") {
-            const image = new Image();
-            image.onload = () => upload(image);
-            image.src = source;
+            loadImage(source, { cors: true, onLoad: upload, onError: fail });
           } else {
             upload(source);
           }
@@ -1799,6 +1847,7 @@ void main() {
       init_math();
       init_renderer();
       init_canvas2d();
+      init_textured_helpers();
       Canvas2DTexturedRenderer = class {
         constructor(options = {}) {
           this.sources = /* @__PURE__ */ new Map();
@@ -1810,8 +1859,14 @@ void main() {
         setTexture(mesh, source) {
           this.sources.set(mesh, source);
           if (typeof source === "string" && !this.loaded.has(source)) {
-            const image = new Image();
-            image.src = source;
+            const image = loadImage(source, {
+              // No CORS request here: Canvas 2D draws a cross-origin image without it,
+              // and asking for it would fail the load on servers that send no CORS headers.
+              cors: false,
+              onError: (error) => {
+                if (this.loaded.get(source) === image) warnTextureFailed(source, error);
+              }
+            });
             this.loaded.set(source, image);
           }
         }
@@ -1904,13 +1959,11 @@ void main() {
   // <stdin>
   var stdin_exports = {};
   __export(stdin_exports, {
-    Camera: () => Camera,
     Canvas2DTexturedRenderer: () => Canvas2DTexturedRenderer,
     ChargedOrbAnimation: () => ChargedOrbAnimation,
     CompositeAnimation: () => CompositeAnimation,
     GhostTrainAnimation: () => GhostTrainAnimation,
     GridAssemblyAnimation: () => GridAssemblyAnimation,
-    Light: () => Light,
     Little3dEngine: () => Little3dEngine,
     LittleTweenEngine: () => LittleTweenEngine,
     ObjectMotionAnimation: () => ObjectMotionAnimation,
@@ -1920,20 +1973,15 @@ void main() {
     WebGLTexturedRenderer: () => WebGLTexturedRenderer,
     WebGPUTexturedRenderer: () => WebGPUTexturedRenderer,
     attachMaterial: () => attachMaterial,
-    autoBackendCandidates: () => autoBackendCandidates,
-    centerAndScaleMesh: () => centerAndScaleMesh,
     chargedOrb: () => chargedOrb,
     chooseBackend: () => chooseBackend,
     circleMotion: () => circleMotion,
     createSpinner: () => createSpinner,
-    cross: () => cross,
     crystalComet: () => crystalComet,
     cube: () => cube,
     cubeSphere: () => cubeSphere,
-    cubic: () => cubic,
     damp: () => damp,
     detectBackendSupport: () => detectBackendSupport,
-    dot: () => dot,
     ease: () => ease,
     easeInBack: () => easeInBack,
     easeInBounce: () => easeInBounce,
@@ -1967,7 +2015,6 @@ void main() {
     easeOutSine: () => easeOutSine,
     easeTypes: () => easeTypes,
     enterFromObjectDirection: () => enterFromObjectDirection,
-    expandToTriangles: () => expandToTriangles,
     figureEightMotion: () => figureEightMotion,
     ghostTrain: () => ghostTrain,
     gridAssembly: () => gridAssembly,
@@ -1976,35 +2023,25 @@ void main() {
     leaveInObjectDirection: () => leaveInObjectDirection,
     linear: () => linear,
     monochromeStreak: () => monochromeStreak,
-    normalize: () => normalize,
     octaSphere: () => octaSphere,
     octahedron: () => octahedron,
-    orderRenderItems: () => orderRenderItems,
     parseObj: () => parseObj,
-    particleField: () => particleField,
     planeMesh: () => planeMesh,
     planeStarTrail: () => planeStarTrail,
     prefersReducedMotion: () => prefersReducedMotion,
     pulsingStarfield: () => pulsingStarfield,
     pyramid: () => pyramid,
     quad: () => quad,
-    quadratic: () => quadratic,
-    quartic: () => quartic,
-    quintic: () => quintic,
     resolveBackend: () => resolveBackend,
     rocketLaunch: () => rocketLaunch,
-    scale: () => scale,
     shineTexture: () => shineTexture,
     shrink: () => shrink,
     squareMotion: () => squareMotion,
     starSwarm: () => starSwarm,
     starTexture: () => starTexture,
     streakTexture: () => streakTexture,
-    subtract: () => subtract,
     tetrahedron: () => tetrahedron,
-    transform: () => transform,
     uvSphere: () => uvSphere,
-    vec3: () => vec3,
     wanderMotion: () => wanderMotion
   });
 
@@ -2069,7 +2106,7 @@ void main() {
     if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
       throw new RangeError("3d-spinner: until must be a valid Date.");
     }
-    const timeoutMs = indeterminate ? void 0 : options.timeoutMs ?? options.timeout;
+    const timeoutMs = indeterminate ? void 0 : options.timeoutMs;
     if (Number.isNaN(timeoutMs)) {
       throw new RangeError("3d-spinner: timeoutMs must be a number of milliseconds, not NaN.");
     }
@@ -2239,6 +2276,7 @@ void main() {
   };
 
   // src/engines/little-3d-engine/little-3d-engine.ts
+  init_geometry();
   init_light();
   init_math();
 
@@ -2256,14 +2294,43 @@ void main() {
       scale: init?.scale ?? 1
     };
   }
+  function centerAndScaleMesh(mesh, targetSize) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let minZ = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let maxZ = -Infinity;
+    for (const vertex of mesh.vertices) {
+      minX = Math.min(minX, vertex.x);
+      minY = Math.min(minY, vertex.y);
+      minZ = Math.min(minZ, vertex.z);
+      maxX = Math.max(maxX, vertex.x);
+      maxY = Math.max(maxY, vertex.y);
+      maxZ = Math.max(maxZ, vertex.z);
+    }
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const centerZ = (minZ + maxZ) / 2;
+    const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
+    const factor = targetSize / extent;
+    return {
+      vertices: mesh.vertices.map((vertex) => ({
+        x: (vertex.x - centerX) * factor,
+        y: (vertex.y - centerY) * factor,
+        z: (vertex.z - centerZ) * factor
+      })),
+      faces: mesh.faces
+    };
+  }
 
   // src/engines/little-3d-engine/little-3d-engine.ts
   init_renderer();
-  init_light();
 
   // src/engines/little-3d-engine/shapes/primitives/cube.ts
   var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
   function cube(size = 1, colors = DEFAULT_COLORS, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS;
     const h = size / 2;
     const vertices = [
       { x: -h, y: -h, z: h },
@@ -2289,6 +2356,7 @@ void main() {
   // src/engines/little-3d-engine/shapes/primitives/quad.ts
   var DEFAULT_COLORS2 = ["#3b82f6"];
   function quad(size = 1, colors = DEFAULT_COLORS2, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS2;
     const s = size / 2;
     const vertices = [
       { x: -s, y: -s, z: 0 },
@@ -2305,6 +2373,7 @@ void main() {
   // src/engines/little-3d-engine/shapes/primitives/tetrahedron.ts
   var DEFAULT_COLORS3 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
   function tetrahedron(size = 1, colors = DEFAULT_COLORS3, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS3;
     const s = size / 2;
     const vertices = [
       { x: s, y: s, z: s },
@@ -2333,6 +2402,7 @@ void main() {
     "#eab308"
   ];
   function octahedron(size = 1, colors = DEFAULT_COLORS4, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS4;
     const r = size / 2;
     const vertices = [
       { x: r, y: 0, z: 0 },
@@ -2358,6 +2428,7 @@ void main() {
   // src/engines/little-3d-engine/shapes/primitives/pyramid.ts
   var DEFAULT_COLORS5 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
   function pyramid(size = 1, colors = DEFAULT_COLORS5, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS5;
     const h = size / 2;
     const vertices = [
       { x: -h, y: -h, z: h },
@@ -2379,6 +2450,7 @@ void main() {
   // src/engines/little-3d-engine/shapes/primitives/spheres/uv-sphere.ts
   var DEFAULT_COLORS6 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
   function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS6, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS6;
     const r = size / 2;
     const d = Math.max(1, Math.floor(detail));
     const slices = Math.max(4, d * 4);
@@ -2461,6 +2533,7 @@ void main() {
     [9, 8, 1]
   ];
   function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS7, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS7;
     return attachMaterial(
       sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
       material
@@ -2489,6 +2562,7 @@ void main() {
     [5, 0, 3]
   ];
   function octaSphere(size = 1, detail = 1, colors = DEFAULT_COLORS8, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS8;
     return attachMaterial(
       sphereFromTriangles(SEED_VERTICES2, SEED_FACES2, size, detail, colors),
       material
@@ -2506,6 +2580,7 @@ void main() {
     { normal: [0, -1, 0], right: [1, 0, 0], up: [0, 0, 1] }
   ];
   function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS9, material) {
+    if (colors.length === 0) colors = DEFAULT_COLORS9;
     const r = size / 2;
     const n = Math.max(1, Math.floor(detail));
     const vertices = [];
@@ -2645,9 +2720,7 @@ void main() {
   }
 
   // src/engines/little-3d-engine/little-3d-engine.ts
-  init_geometry();
   init_renderer();
-  init_math();
   function modelMatrix(t) {
     const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
     return multiply(
@@ -2673,14 +2746,17 @@ void main() {
     return `${name}: ${error instanceof Error ? error.message : String(error)}`;
   }
   var Little3dEngine = class {
+    /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
     constructor(options = {}) {
       this.scene = [];
+      this.checkedMeshes = /* @__PURE__ */ new WeakSet();
       /** The candidates after the mounted one, to switch to if its renderer is lost. */
       this.fallbacks = [];
       this.state = "idle";
       this.generation = 0;
       this.rafId = 0;
       this.running = false;
+      if (options.background !== void 0) assertHexColor(options.background, "background");
       this.camera = new Camera(options.camera);
       this.light = new Light(options.light);
       this.backend = options.backend ?? "auto";
@@ -2822,8 +2898,15 @@ void main() {
       this.resize(surface);
       return surface;
     }
-    /** Add a mesh to the scene and return a handle for animating it. */
+    /**
+     * Add a mesh to the scene and return a handle for animating it. Throws a
+     * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+     */
     add(mesh, init) {
+      if (!this.checkedMeshes.has(mesh)) {
+        for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+        this.checkedMeshes.add(mesh);
+      }
       const entry = {
         mesh,
         transform: transform(init),
@@ -2914,18 +2997,6 @@ void main() {
   }
   function linear(value, allowExtrapolation = false) {
     return input(value, allowExtrapolation);
-  }
-  function quadratic(value, allowExtrapolation = false) {
-    return easeInQuad(value, allowExtrapolation);
-  }
-  function cubic(value, allowExtrapolation = false) {
-    return easeInCubic(value, allowExtrapolation);
-  }
-  function quartic(value, allowExtrapolation = false) {
-    return easeInQuart(value, allowExtrapolation);
-  }
-  function quintic(value, allowExtrapolation = false) {
-    return easeInQuint(value, allowExtrapolation);
   }
   function easeInSine(value, allowExtrapolation = false) {
     const x = input(value, allowExtrapolation);
@@ -3072,10 +3143,6 @@ void main() {
   }
   var easeTypes = {
     linear,
-    quadratic,
-    cubic,
-    quartic,
-    quintic,
     easeInSine,
     easeOutSine,
     easeInOutSine,
@@ -3111,15 +3178,35 @@ void main() {
     return easeTypes[type](value, allowExtrapolation);
   }
 
+  // src/validate.ts
+  function finite(value, name) {
+    if (!Number.isFinite(value)) {
+      throw new RangeError(`3d-spinner: ${name} must be a finite number.`);
+    }
+    return value;
+  }
+  function finiteNonZero(value, name) {
+    if (!Number.isFinite(value) || value === 0) {
+      throw new RangeError(`3d-spinner: ${name} must be a finite number other than zero.`);
+    }
+    return value;
+  }
+  function positiveFinite(value, name) {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new RangeError(`3d-spinner: ${name} must be a finite number greater than zero.`);
+    }
+    return value;
+  }
+
   // src/progress-animation.ts
   function resolveOptions(options = {}) {
     return {
-      popDurationMs: options.popDurationMs ?? 500,
-      overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
+      popDurationMs: finite(options.popDurationMs ?? 500, "popDurationMs"),
+      overshootRatio: options.overshootRatio ?? 0.2,
       startSnapRatio: options.startSnapRatio ?? 0.2,
       loadingText: options.loadingText === void 0 ? "loading" : options.loadingText,
       doneText: options.doneText ?? "done",
-      doneFadeDurationMs: options.doneFadeDurationMs ?? 2e3,
+      doneFadeDurationMs: finite(options.doneFadeDurationMs ?? 2e3, "doneFadeDurationMs"),
       removeOnComplete: options.removeOnComplete ?? false
     };
   }
@@ -3470,35 +3557,6 @@ void main() {
     const turn = FACE_FORWARD[facing];
     return { vertices: mesh.vertices.map(turn), faces: mesh.faces };
   }
-  function centerAndScaleMesh(mesh, targetSize) {
-    let minX = Infinity;
-    let minY = Infinity;
-    let minZ = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    let maxZ = -Infinity;
-    for (const vertex of mesh.vertices) {
-      minX = Math.min(minX, vertex.x);
-      minY = Math.min(minY, vertex.y);
-      minZ = Math.min(minZ, vertex.z);
-      maxX = Math.max(maxX, vertex.x);
-      maxY = Math.max(maxY, vertex.y);
-      maxZ = Math.max(maxZ, vertex.z);
-    }
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-    const factor = targetSize / extent;
-    return {
-      vertices: mesh.vertices.map((vertex) => ({
-        x: (vertex.x - centerX) * factor,
-        y: (vertex.y - centerY) * factor,
-        z: (vertex.z - centerZ) * factor
-      })),
-      faces: mesh.faces
-    };
-  }
   function orientationFor(forward, bank) {
     const fwd = normalize(forward);
     let right = cross(fwd, WORLD_UP);
@@ -3530,12 +3588,12 @@ void main() {
   function resolveDirection2(velocity, fallback) {
     return Math.hypot(velocity.x, velocity.y, velocity.z) > 1e-6 ? normalize(velocity) : fallback;
   }
-  function resolveTransition(config, fallback, durationMs) {
+  function resolveTransition(config, fallback, durationMs, name) {
     if (!config) return { transition: fallback, durationMs };
     if (typeof config === "function") return { transition: config, durationMs };
     return {
       transition: config.transition,
-      durationMs: Math.max(0, config.durationMs ?? durationMs)
+      durationMs: Math.max(0, finite(config.durationMs ?? durationMs, name))
     };
   }
   var ObjectMotionAnimation = class {
@@ -3570,9 +3628,19 @@ void main() {
         throw new RangeError("3d-spinner: tail.count must be a finite number.");
       }
       this.tailCount = Math.max(0, Math.floor(tailCount));
-      this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
-      this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
-      this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
+      this.tailGap = Math.max(0, finite(options.tail?.gapMs ?? 0, "tail.gapMs"));
+      this.intro = resolveTransition(
+        options.intro,
+        enterFromObjectDirection(),
+        DEFAULT_INTRO_MS,
+        "intro.durationMs"
+      );
+      this.outro = resolveTransition(
+        options.outro,
+        leaveInObjectDirection(),
+        DEFAULT_OUTRO_MS,
+        "outro.durationMs"
+      );
       const rotation = options.rotation;
       this.rotationOffset = { x: rotation?.x ?? 0, y: rotation?.y ?? 0, z: rotation?.z ?? 0 };
       this.rotationSpin = {
@@ -3790,15 +3858,8 @@ void main() {
     }
   };
 
-  // src/engines/little-3d-engine/textured-renderer.ts
-  async function createTexturedRenderer(backend, options, textures) {
-    const renderer = backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(options) : backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(options) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(options);
-    for (const [mesh, source] of textures) renderer.setTexture(mesh, source);
-    return renderer;
-  }
-
-  // src/animations/particles.ts
-  var DEFAULT_COLORS11 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
+  // src/animations/particle-field.ts
+  init_math();
   var FADE_IN_END = 0.15;
   var FADE_OUT_START = 0.6;
   function rand01(seed, index, salt) {
@@ -3811,12 +3872,6 @@ void main() {
   function smoothstep(edge0, edge1, value) {
     const x = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
     return x * x * (3 - 2 * x);
-  }
-  function positiveFinite(value, name) {
-    if (!Number.isFinite(value) || value <= 0) {
-      throw new RangeError(`3d-spinner: ${name} must be a finite number greater than zero.`);
-    }
-    return value;
   }
   function emitBasis(direction) {
     const d = normalize(direction);
@@ -3885,6 +3940,16 @@ void main() {
       }
     };
   }
+
+  // src/engines/little-3d-engine/textured-renderer.ts
+  async function createTexturedRenderer(backend, options, textures) {
+    const renderer = backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(options) : backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(options) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(options);
+    for (const [mesh, source] of textures) renderer.setTexture(mesh, source);
+    return renderer;
+  }
+
+  // src/animations/particles.ts
+  var DEFAULT_COLORS11 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
   var ParticlesAnimation = class {
     constructor(options = {}) {
       this.handles = [];
@@ -3893,14 +3958,18 @@ void main() {
       this.exitAt = Infinity;
       this.finished = false;
       this.field = particleField(options);
-      this.colors = options.colors ?? DEFAULT_COLORS11;
+      this.colors = [...options.colors?.length ? options.colors : DEFAULT_COLORS11];
       this.backend = options.backend;
       this.texture = options.texture;
       this.labelContent = options.label;
       this.fadeLabel = options.fadeLabel ?? true;
       this.emitter = options.emitter;
       const outroMs = options.outroMs ?? 0;
-      this.outroMs = () => Math.max(0, typeof outroMs === "function" ? outroMs() : outroMs);
+      if (typeof outroMs === "number") finite(outroMs, "outroMs");
+      this.outroMs = () => {
+        const value = typeof outroMs === "function" ? outroMs() : outroMs;
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+      };
     }
     mount(target) {
       prepareHost(target);
@@ -4026,7 +4095,7 @@ void main() {
       this.allOutAt = Infinity;
       this.lastNow = 0;
       this.finished = false;
-      this.orbitPeriodMs = options.orbitPeriodMs ?? 6e3;
+      this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 6e3, "orbitPeriodMs");
       this.backend = options.backend;
     }
     mount(target) {
@@ -4190,10 +4259,13 @@ void main() {
     }
   };
 
+  // src/animations/ghost-train.ts
+  init_math();
+
   // src/motion/square.ts
   function squareMotion(options = {}) {
     const half = (options.size ?? 2.4) / 2;
-    const periodMs = options.periodMs ?? 4e3;
+    const periodMs = finiteNonZero(options.periodMs ?? 4e3, "periodMs");
     const tilt = options.tilt ?? 0.45;
     const direction = options.direction ?? 1;
     const cosTilt = Math.cos(tilt);
@@ -4503,8 +4575,8 @@ void main() {
       const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
       this.meshes = sources.map(resolveMesh3);
       this.size = options.size ?? 0.34;
-      this.orbitPeriodMs = options.orbitPeriodMs ?? 9e3;
-      this.dockMs = options.dockMs ?? 800;
+      this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 9e3, "orbitPeriodMs");
+      this.dockMs = positiveFinite(options.dockMs ?? 800, "dockMs");
       this.backend = options.backend;
       this.labelContent = options.label;
       this.fadeLabel = options.fadeLabel ?? true;
@@ -5081,7 +5153,6 @@ void main() {
       animation,
       progress: options.progress ?? 1e-3,
       timeoutMs: options.timeoutMs,
-      timeout: options.timeout,
       until: options.until,
       ariaLabel: options.ariaLabel
     };
@@ -5119,7 +5190,7 @@ void main() {
   var LOOP_Z = 1.05;
   function figureEightMotion(options = {}) {
     const size = options.size ?? 1;
-    const periodMs = options.periodMs ?? 3600;
+    const periodMs = finiteNonZero(options.periodMs ?? 3600, "periodMs");
     return {
       positionAt(t) {
         const a = t / periodMs * Math.PI * 2;
@@ -5330,7 +5401,7 @@ void main() {
     const boundX = options.bounds?.x ?? 1.4;
     const boundY = options.bounds?.y ?? 1;
     const boundZ = options.bounds?.z ?? 0.6;
-    const periodMs = options.periodMs ?? 9e3;
+    const periodMs = finiteNonZero(options.periodMs ?? 9e3, "periodMs");
     const seed = options.seed ?? Math.random() * 1e9 | 0;
     const rnd = mulberry32(seed);
     const omega = 2 * Math.PI / periodMs;
@@ -5374,7 +5445,7 @@ void main() {
   // src/motion/circle.ts
   function circleMotion(options = {}) {
     const radius = options.radius ?? 1.3;
-    const periodMs = options.periodMs ?? 3e3;
+    const periodMs = finiteNonZero(options.periodMs ?? 3e3, "periodMs");
     const tilt = options.tilt ?? 0.5;
     const direction = options.direction ?? 1;
     const cosTilt = Math.cos(tilt);
@@ -5530,15 +5601,11 @@ void main() {
   var LittleTweenEngine = class {
     constructor(options = {}) {
       this.type = options.type ?? "linear";
-      this.allowExtrapolation = options.allowExtrapolation ?? options.overextend ?? false;
+      this.allowExtrapolation = options.allowExtrapolation ?? false;
     }
     /** Map `value` through the selected ease type. */
     evaluate(value, type = this.type, allowExtrapolation = this.allowExtrapolation) {
       return ease(type, value, allowExtrapolation);
-    }
-    /** @deprecated Renamed to {@link LittleTweenEngine.evaluate}; removed in 1.0.0. */
-    value(value, type = this.type, allowExtrapolation = this.allowExtrapolation) {
-      return this.evaluate(value, type, allowExtrapolation);
     }
   };
   return __toCommonJS(stdin_exports);

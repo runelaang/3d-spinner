@@ -27,10 +27,18 @@ __export(motion_exports, {
 });
 module.exports = __toCommonJS(motion_exports);
 
+// src/validate.ts
+function finiteNonZero(value, name) {
+  if (!Number.isFinite(value) || value === 0) {
+    throw new RangeError(`3d-spinner: ${name} must be a finite number other than zero.`);
+  }
+  return value;
+}
+
 // src/motion/circle.ts
 function circleMotion(options = {}) {
   const radius = options.radius ?? 1.3;
-  const periodMs = options.periodMs ?? 3e3;
+  const periodMs = finiteNonZero(options.periodMs ?? 3e3, "periodMs");
   const tilt = options.tilt ?? 0.5;
   const direction = options.direction ?? 1;
   const cosTilt = Math.cos(tilt);
@@ -48,7 +56,7 @@ function circleMotion(options = {}) {
 // src/motion/square.ts
 function squareMotion(options = {}) {
   const half = (options.size ?? 2.4) / 2;
-  const periodMs = options.periodMs ?? 4e3;
+  const periodMs = finiteNonZero(options.periodMs ?? 4e3, "periodMs");
   const tilt = options.tilt ?? 0.45;
   const direction = options.direction ?? 1;
   const cosTilt = Math.cos(tilt);
@@ -85,7 +93,7 @@ var LOOP_Y = 1;
 var LOOP_Z = 1.05;
 function figureEightMotion(options = {}) {
   const size = options.size ?? 1;
-  const periodMs = options.periodMs ?? 3600;
+  const periodMs = finiteNonZero(options.periodMs ?? 3600, "periodMs");
   return {
     positionAt(t) {
       const a = t / periodMs * Math.PI * 2;
@@ -125,7 +133,7 @@ function wanderMotion(options = {}) {
   const boundX = options.bounds?.x ?? 1.4;
   const boundY = options.bounds?.y ?? 1;
   const boundZ = options.bounds?.z ?? 0.6;
-  const periodMs = options.periodMs ?? 9e3;
+  const periodMs = finiteNonZero(options.periodMs ?? 9e3, "periodMs");
   const seed = options.seed ?? Math.random() * 1e9 | 0;
   const rnd = mulberry32(seed);
   const omega = 2 * Math.PI / periodMs;

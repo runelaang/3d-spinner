@@ -2,7 +2,10 @@ import type { AnimationFrame, SpinnerAnimation } from "../animation.cjs";
 import type { MotionController } from "../motion/controller.cjs";
 import { type Backend } from "../engines/little-3d-engine/little-3d-engine.cjs";
 export interface ChargedOrbOptions {
-    /** Milliseconds for one satellite revolution around the center orb. Default `6000`. */
+    /**
+     * Milliseconds for one satellite revolution around the center orb. Default `6000`.
+     * Must be finite and not zero.
+     */
     orbitPeriodMs?: number;
     /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;

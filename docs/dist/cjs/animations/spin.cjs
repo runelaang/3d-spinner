@@ -127,6 +127,12 @@ var init_math = __esm({
 });
 
 // src/engines/little-3d-engine/core/geometry.ts
+function assertHexColor(color, what) {
+  if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+  throw new RangeError(
+    `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`
+  );
+}
 function parseColor(color) {
   const hex = color.trim().replace("#", "");
   const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
@@ -204,10 +210,12 @@ function expandToTriangles(mesh) {
     count: positions.length / 3
   };
 }
+var HEX_COLOR;
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
     init_math();
+    HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
   }
 });
 
@@ -1202,6 +1210,7 @@ var Camera = class {
 };
 
 // src/engines/little-3d-engine/little-3d-engine.ts
+init_geometry();
 init_light();
 init_math();
 
@@ -1226,6 +1235,7 @@ init_renderer();
 // src/engines/little-3d-engine/shapes/primitives/cube.ts
 var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 function cube(size = 1, colors = DEFAULT_COLORS, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const h = size / 2;
   const vertices = [
     { x: -h, y: -h, z: h },
@@ -1274,14 +1284,17 @@ function failure(candidate, error) {
   return `${name}: ${error instanceof Error ? error.message : String(error)}`;
 }
 var Little3dEngine = class {
+  /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
   constructor(options = {}) {
     this.scene = [];
+    this.checkedMeshes = /* @__PURE__ */ new WeakSet();
     /** The candidates after the mounted one, to switch to if its renderer is lost. */
     this.fallbacks = [];
     this.state = "idle";
     this.generation = 0;
     this.rafId = 0;
     this.running = false;
+    if (options.background !== void 0) assertHexColor(options.background, "background");
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
@@ -1423,8 +1436,15 @@ var Little3dEngine = class {
     this.resize(surface);
     return surface;
   }
-  /** Add a mesh to the scene and return a handle for animating it. */
+  /**
+   * Add a mesh to the scene and return a handle for animating it. Throws a
+   * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+   */
   add(mesh, init) {
+    if (!this.checkedMeshes.has(mesh)) {
+      for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+      this.checkedMeshes.add(mesh);
+    }
     const entry = {
       mesh,
       transform: transform(init),
@@ -1530,15 +1550,23 @@ function easeOutExpo(value, allowExtrapolation = false) {
   return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
 }
 
+// src/validate.ts
+function finite(value, name) {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`3d-spinner: ${name} must be a finite number.`);
+  }
+  return value;
+}
+
 // src/progress-animation.ts
 function resolveOptions(options = {}) {
   return {
-    popDurationMs: options.popDurationMs ?? 500,
-    overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
+    popDurationMs: finite(options.popDurationMs ?? 500, "popDurationMs"),
+    overshootRatio: options.overshootRatio ?? 0.2,
     startSnapRatio: options.startSnapRatio ?? 0.2,
     loadingText: options.loadingText === void 0 ? "loading" : options.loadingText,
     doneText: options.doneText ?? "done",
-    doneFadeDurationMs: options.doneFadeDurationMs ?? 2e3,
+    doneFadeDurationMs: finite(options.doneFadeDurationMs ?? 2e3, "doneFadeDurationMs"),
     removeOnComplete: options.removeOnComplete ?? false
   };
 }

@@ -1,6 +1,7 @@
 import { prepareHost } from "../mount-host.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
-import { Little3dEngine, cube, cross, dot, normalize, subtract, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { Little3dEngine, cube, } from "../engines/little-3d-engine/little-3d-engine.js";
+import { cross, dot, normalize, subtract } from "../engines/little-3d-engine/core/math.js";
 import { squareMotion } from "../motion/square.js";
 import { easeOutBack } from "../engines/little-tween-engine/core/tweens.js";
 const MAX_CARS = 50; // one car per 2% of progress

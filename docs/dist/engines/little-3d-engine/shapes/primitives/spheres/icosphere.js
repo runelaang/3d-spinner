@@ -45,9 +45,11 @@ const SEED_FACES = [
  * @param size Diameter. Defaults to `1`.
  * @param detail Subdivision level, `1` = base icosahedron (20 faces). Each level
  *   splits every triangle into four. Defaults to `1`.
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
+    if (colors.length === 0)
+        colors = DEFAULT_COLORS;
     return attachMaterial(sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors), material);
 }

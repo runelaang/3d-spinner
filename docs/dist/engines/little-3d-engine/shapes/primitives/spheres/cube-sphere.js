@@ -16,10 +16,12 @@ const CUBE_FACES = [
  * @param size Diameter. Defaults to `1`.
  * @param detail Subdivisions per cube face edge, `1` = simplest (6 quads).
  *   Defaults to `1`.
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
+    if (colors.length === 0)
+        colors = DEFAULT_COLORS;
     const r = size / 2;
     const n = Math.max(1, Math.floor(detail));
     const vertices = [];

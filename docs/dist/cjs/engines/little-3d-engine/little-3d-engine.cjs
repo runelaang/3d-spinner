@@ -26,9 +26,6 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/engines/little-3d-engine/core/math.ts
-function vec3(x, y, z) {
-  return { x, y, z };
-}
 function subtract(a, b) {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
@@ -130,6 +127,12 @@ var init_math = __esm({
 });
 
 // src/engines/little-3d-engine/core/geometry.ts
+function assertHexColor(color, what) {
+  if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+  throw new RangeError(
+    `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`
+  );
+}
 function parseColor(color) {
   const hex = color.trim().replace("#", "");
   const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
@@ -232,10 +235,12 @@ function sphereFromTriangles(seedVertices, seedFaces, size, detail, colors) {
   });
   return { vertices, faces };
 }
+var HEX_COLOR;
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
     init_math();
+    HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
   }
 });
 
@@ -1153,36 +1158,24 @@ var init_renderer = __esm({
 // src/engines/little-3d-engine/little-3d-engine.ts
 var little_3d_engine_exports = {};
 __export(little_3d_engine_exports, {
-  Camera: () => Camera,
-  Light: () => Light,
   Little3dEngine: () => Little3dEngine,
   attachMaterial: () => attachMaterial,
-  autoBackendCandidates: () => autoBackendCandidates,
   chooseBackend: () => chooseBackend,
-  cross: () => cross,
   cube: () => cube,
   cubeSphere: () => cubeSphere,
   detectBackendSupport: () => detectBackendSupport,
-  dot: () => dot,
-  expandToTriangles: () => expandToTriangles,
   icosphere: () => icosphere,
-  normalize: () => normalize,
   octaSphere: () => octaSphere,
   octahedron: () => octahedron,
-  orderRenderItems: () => orderRenderItems,
   planeMesh: () => planeMesh,
   pyramid: () => pyramid,
   quad: () => quad,
   resolveBackend: () => resolveBackend,
-  scale: () => scale,
   shineTexture: () => shineTexture,
   starTexture: () => starTexture,
   streakTexture: () => streakTexture,
-  subtract: () => subtract,
   tetrahedron: () => tetrahedron,
-  transform: () => transform,
-  uvSphere: () => uvSphere,
-  vec3: () => vec3
+  uvSphere: () => uvSphere
 });
 module.exports = __toCommonJS(little_3d_engine_exports);
 
@@ -1253,6 +1246,7 @@ var Camera = class {
 };
 
 // src/engines/little-3d-engine/little-3d-engine.ts
+init_geometry();
 init_light();
 init_math();
 
@@ -1273,11 +1267,11 @@ function transform(init) {
 
 // src/engines/little-3d-engine/little-3d-engine.ts
 init_renderer();
-init_light();
 
 // src/engines/little-3d-engine/shapes/primitives/cube.ts
 var DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 function cube(size = 1, colors = DEFAULT_COLORS, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const h = size / 2;
   const vertices = [
     { x: -h, y: -h, z: h },
@@ -1303,6 +1297,7 @@ function cube(size = 1, colors = DEFAULT_COLORS, material) {
 // src/engines/little-3d-engine/shapes/primitives/quad.ts
 var DEFAULT_COLORS2 = ["#3b82f6"];
 function quad(size = 1, colors = DEFAULT_COLORS2, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS2;
   const s = size / 2;
   const vertices = [
     { x: -s, y: -s, z: 0 },
@@ -1319,6 +1314,7 @@ function quad(size = 1, colors = DEFAULT_COLORS2, material) {
 // src/engines/little-3d-engine/shapes/primitives/tetrahedron.ts
 var DEFAULT_COLORS3 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b"];
 function tetrahedron(size = 1, colors = DEFAULT_COLORS3, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS3;
   const s = size / 2;
   const vertices = [
     { x: s, y: s, z: s },
@@ -1347,6 +1343,7 @@ var DEFAULT_COLORS4 = [
   "#eab308"
 ];
 function octahedron(size = 1, colors = DEFAULT_COLORS4, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS4;
   const r = size / 2;
   const vertices = [
     { x: r, y: 0, z: 0 },
@@ -1372,6 +1369,7 @@ function octahedron(size = 1, colors = DEFAULT_COLORS4, material) {
 // src/engines/little-3d-engine/shapes/primitives/pyramid.ts
 var DEFAULT_COLORS5 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
 function pyramid(size = 1, colors = DEFAULT_COLORS5, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS5;
   const h = size / 2;
   const vertices = [
     { x: -h, y: -h, z: h },
@@ -1393,6 +1391,7 @@ function pyramid(size = 1, colors = DEFAULT_COLORS5, material) {
 // src/engines/little-3d-engine/shapes/primitives/spheres/uv-sphere.ts
 var DEFAULT_COLORS6 = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
 function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS6, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS6;
   const r = size / 2;
   const d = Math.max(1, Math.floor(detail));
   const slices = Math.max(4, d * 4);
@@ -1475,6 +1474,7 @@ var SEED_FACES = [
   [9, 8, 1]
 ];
 function icosphere(size = 1, detail = 1, colors = DEFAULT_COLORS7, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS7;
   return attachMaterial(
     sphereFromTriangles(SEED_VERTICES, SEED_FACES, size, detail, colors),
     material
@@ -1503,6 +1503,7 @@ var SEED_FACES2 = [
   [5, 0, 3]
 ];
 function octaSphere(size = 1, detail = 1, colors = DEFAULT_COLORS8, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS8;
   return attachMaterial(
     sphereFromTriangles(SEED_VERTICES2, SEED_FACES2, size, detail, colors),
     material
@@ -1520,6 +1521,7 @@ var CUBE_FACES = [
   { normal: [0, -1, 0], right: [1, 0, 0], up: [0, 0, 1] }
 ];
 function cubeSphere(size = 1, detail = 1, colors = DEFAULT_COLORS9, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS9;
   const r = size / 2;
   const n = Math.max(1, Math.floor(detail));
   const vertices = [];
@@ -1659,9 +1661,7 @@ function streakTexture() {
 }
 
 // src/engines/little-3d-engine/little-3d-engine.ts
-init_geometry();
 init_renderer();
-init_math();
 function modelMatrix(t) {
   const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
@@ -1687,14 +1687,17 @@ function failure(candidate, error) {
   return `${name}: ${error instanceof Error ? error.message : String(error)}`;
 }
 var Little3dEngine = class {
+  /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
   constructor(options = {}) {
     this.scene = [];
+    this.checkedMeshes = /* @__PURE__ */ new WeakSet();
     /** The candidates after the mounted one, to switch to if its renderer is lost. */
     this.fallbacks = [];
     this.state = "idle";
     this.generation = 0;
     this.rafId = 0;
     this.running = false;
+    if (options.background !== void 0) assertHexColor(options.background, "background");
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
@@ -1836,8 +1839,15 @@ var Little3dEngine = class {
     this.resize(surface);
     return surface;
   }
-  /** Add a mesh to the scene and return a handle for animating it. */
+  /**
+   * Add a mesh to the scene and return a handle for animating it. Throws a
+   * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+   */
   add(mesh, init) {
+    if (!this.checkedMeshes.has(mesh)) {
+      for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+      this.checkedMeshes.add(mesh);
+    }
     const entry = {
       mesh,
       transform: transform(init),

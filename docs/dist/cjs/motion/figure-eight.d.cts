@@ -3,7 +3,7 @@ import type { MotionController } from "./controller.cjs";
 export interface FigureEightMotionOptions {
     /** Overall scale of the figure-8 in scene units. Default `1`. */
     size?: number;
-    /** Milliseconds for one full lap. Default `3600`. */
+    /** Milliseconds for one full lap. Default `3600`. Must be finite and not zero. */
     periodMs?: number;
 }
 /**

@@ -547,6 +547,21 @@ init_math();
 init_renderer();
 
 // src/engines/little-3d-engine/renderers/textured-helpers.ts
+function loadImage(url, options) {
+  const image = new Image();
+  if (options.cors) image.crossOrigin = "anonymous";
+  image.onload = () => options.onLoad?.(image);
+  image.onerror = () => options.onError(new Error("the image did not load"));
+  image.src = url;
+  return image;
+}
+function warnTextureFailed(source, error) {
+  const name = typeof source === "string" ? `"${source}"` : "image";
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(
+    `3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`
+  );
+}
 function planarUVs(mesh) {
   let minX = Infinity;
   let minY = Infinity;
@@ -723,10 +738,11 @@ var WebGPUTexturedRenderer = class extends WebGPURenderer {
       { width: 1, height: 1 }
     );
     this.textures.set(mesh, white);
+    const pending = () => !this.destroyed && this.textures.get(mesh) === white;
     const upload = async (source2) => {
       const image = source2 instanceof HTMLImageElement ? await createImageBitmap(source2) : source2;
       const current = this.device;
-      if (this.destroyed || !current || this.textures.get(mesh) !== white) return;
+      if (!pending() || !current) return;
       const size = image;
       const width = size.width || 1;
       const height = size.height || 1;
@@ -741,12 +757,18 @@ var WebGPUTexturedRenderer = class extends WebGPURenderer {
       this.bindGroups.delete(mesh);
     };
     const source = this.sources.get(mesh);
+    if (source === void 0) return white;
+    const fail = (error) => {
+      if (pending()) warnTextureFailed(source, error);
+    };
     if (typeof source === "string") {
-      const image = new Image();
-      image.onload = () => void upload(image);
-      image.src = source;
-    } else if (source) {
-      void upload(source);
+      loadImage(source, {
+        cors: true,
+        onLoad: (image) => void upload(image).catch(fail),
+        onError: fail
+      });
+    } else {
+      upload(source).catch(fail);
     }
     return this.textures.get(mesh) ?? white;
   }
@@ -800,7 +822,21 @@ var WebGPUTexturedRenderer = class extends WebGPURenderer {
     this.texturedCapacity = draws;
     return this.texturedUniforms;
   }
+  /**
+   * Destroy the retired textures once the GPU has finished all work submitted so
+   * far. Called at the start of a frame, when no command buffer is being encoded.
+   */
+  releaseRetired() {
+    const device = this.device;
+    if (!device || this.retired.length === 0) return;
+    const retired = this.retired.splice(0);
+    const release = () => {
+      for (const texture of retired) texture.destroy();
+    };
+    device.queue.onSubmittedWorkDone().then(release, release);
+  }
   render(frame) {
+    this.releaseRetired();
     const plain = [];
     const texturedItems = [];
     for (const item of frame.items) {

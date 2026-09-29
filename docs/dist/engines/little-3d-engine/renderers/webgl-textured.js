@@ -1,6 +1,6 @@
 import { expandToTriangles } from "../core/geometry.js";
 import { DEFAULT_ONE_SIDED_OPACITY, opacity, resolveTwoSidedOpacity, } from "../renderer.js";
-import { planarUVs } from "./textured-helpers.js";
+import { loadImage, planarUVs, warnTextureFailed } from "./textured-helpers.js";
 import { WebGLRenderer } from "./webgl.js";
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPos;
@@ -126,17 +126,26 @@ export class WebGLTexturedRenderer {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         this.textures.set(mesh, texture);
-        const upload = (image) => {
-            if (!this.gl || this.textures.get(mesh) !== texture)
-                return;
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
-        };
         const source = this.sources.get(mesh);
+        const pending = () => this.gl !== undefined && this.textures.get(mesh) === texture;
+        const fail = (error) => {
+            if (pending())
+                warnTextureFailed(source, error);
+        };
+        const upload = (image) => {
+            const current = this.gl;
+            if (!current || !pending())
+                return;
+            current.bindTexture(current.TEXTURE_2D, texture);
+            try {
+                current.texImage2D(current.TEXTURE_2D, 0, current.RGBA, current.RGBA, current.UNSIGNED_BYTE, image);
+            }
+            catch (error) {
+                fail(error);
+            }
+        };
         if (typeof source === "string") {
-            const image = new Image();
-            image.onload = () => upload(image);
-            image.src = source;
+            loadImage(source, { cors: true, onLoad: upload, onError: fail });
         }
         else {
             upload(source);

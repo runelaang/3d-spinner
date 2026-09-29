@@ -155,6 +155,7 @@ export interface GpuQueue extends GpuObject<"GPUQueue"> {
         texture: GpuTexture;
     }, size: GpuExtent): void;
     submit(commandBuffers: GpuCommandBuffer[]): void;
+    onSubmittedWorkDone(): Promise<undefined>;
 }
 export interface GpuDeviceLostInfo {
     readonly reason: "unknown" | "destroyed";

@@ -1,6 +1,11 @@
 import { type Vec3 } from "./math.js";
 import type { Mesh } from "./mesh.js";
-/** Parse a CSS hex color (`#rgb` or `#rrggbb`) into 0..255 channels. */
+/**
+ * Throw a `RangeError` unless `color` is a hex color (`#rgb` or `#rrggbb`).
+ * `what` names the value in the message.
+ */
+export declare function assertHexColor(color: unknown, what: string): void;
+/** Parse a hex color (`#rgb` or `#rrggbb`) into 0..255 channels. */
 export declare function parseColor(color: string): [number, number, number];
 /** Flat triangle soup ready for GPU upload: 3 floats per vertex per array. */
 export interface TriangleData {

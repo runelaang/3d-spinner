@@ -1,6 +1,7 @@
 import { transformAffine, transformPoint } from "../core/math.js";
 import { DEFAULT_ONE_SIDED_OPACITY, opacity, } from "../renderer.js";
 import { Canvas2DRenderer } from "./canvas2d.js";
+import { loadImage, warnTextureFailed } from "./textured-helpers.js";
 function imageSize(source) {
     if (source instanceof HTMLImageElement) {
         return source.complete && source.naturalWidth > 0
@@ -66,8 +67,15 @@ export class Canvas2DTexturedRenderer {
     setTexture(mesh, source) {
         this.sources.set(mesh, source);
         if (typeof source === "string" && !this.loaded.has(source)) {
-            const image = new Image();
-            image.src = source;
+            const image = loadImage(source, {
+                // No CORS request here: Canvas 2D draws a cross-origin image without it,
+                // and asking for it would fail the load on servers that send no CORS headers.
+                cors: false,
+                onError: (error) => {
+                    if (this.loaded.get(source) === image)
+                        warnTextureFailed(source, error);
+                },
+            });
             this.loaded.set(source, image);
         }
     }

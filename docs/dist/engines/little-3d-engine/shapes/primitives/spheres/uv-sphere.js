@@ -6,10 +6,12 @@ const DEFAULT_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "
  * @param size Diameter. Defaults to `1`.
  * @param detail Tessellation level, `1` = simplest. Higher values add rings and
  *   segments. Defaults to `1`.
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export function uvSphere(size = 1, detail = 1, colors = DEFAULT_COLORS, material) {
+    if (colors.length === 0)
+        colors = DEFAULT_COLORS;
     const r = size / 2;
     const d = Math.max(1, Math.floor(detail));
     const slices = Math.max(4, d * 4);

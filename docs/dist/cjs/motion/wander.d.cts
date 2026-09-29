@@ -9,7 +9,7 @@ export interface WanderBounds {
 export interface WanderMotionOptions {
     /** Half-extents of the box the object stays within. Default `{ x: 1.4, y: 1.0, z: 0.6 }`. */
     bounds?: WanderBounds;
-    /** Base drift period in ms; larger is slower. Default `9000`. */
+    /** Base drift period in ms; larger is slower. Default `9000`. Must be finite and not zero. */
     periodMs?: number;
     /** Seed for the random direction pattern. Omit for a different wander each time. */
     seed?: number;

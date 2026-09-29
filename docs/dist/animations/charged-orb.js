@@ -1,4 +1,5 @@
 import { prepareHost } from "../mount-host.js";
+import { finiteNonZero } from "../validate.js";
 import { Little3dEngine, icosphere, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { easeInCubic, easeInOutCubic, easeInQuad, easeOutBack, easeOutCubic, easeOutQuad, } from "../engines/little-tween-engine/core/tweens.js";
 const MINIS = 10;
@@ -51,7 +52,7 @@ export class ChargedOrbAnimation {
         this.allOutAt = Infinity;
         this.lastNow = 0;
         this.finished = false;
-        this.orbitPeriodMs = options.orbitPeriodMs ?? 6000;
+        this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 6000, "orbitPeriodMs");
         this.backend = options.backend;
     }
     mount(target) {

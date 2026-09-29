@@ -5,7 +5,7 @@ import { type Material, type Mesh } from "../../../core/mesh.cjs";
  * @param size Diameter. Defaults to `1`.
  * @param detail Tessellation level, `1` = simplest. Higher values add rings and
  *   segments. Defaults to `1`.
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export declare function uvSphere(size?: number, detail?: number, colors?: string[], material?: Material): Mesh;

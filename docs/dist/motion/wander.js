@@ -1,3 +1,4 @@
+import { finiteNonZero } from "../validate.js";
 function mulberry32(seed) {
     let a = seed >>> 0;
     return () => {
@@ -35,7 +36,7 @@ export function wanderMotion(options = {}) {
     const boundX = options.bounds?.x ?? 1.4;
     const boundY = options.bounds?.y ?? 1.0;
     const boundZ = options.bounds?.z ?? 0.6;
-    const periodMs = options.periodMs ?? 9000;
+    const periodMs = finiteNonZero(options.periodMs ?? 9000, "periodMs");
     const seed = options.seed ?? (Math.random() * 1e9) | 0;
     const rnd = mulberry32(seed);
     const omega = (2 * Math.PI) / periodMs;

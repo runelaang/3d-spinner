@@ -1,12 +1,13 @@
 import { easeOutCubic, easeOutExpo, easeOutQuad, easeInQuad, } from "./engines/little-tween-engine/core/tweens.js";
+import { finite } from "./validate.js";
 function resolveOptions(options = {}) {
     return {
-        popDurationMs: options.popDurationMs ?? 500,
-        overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
+        popDurationMs: finite(options.popDurationMs ?? 500, "popDurationMs"),
+        overshootRatio: options.overshootRatio ?? 0.2,
         startSnapRatio: options.startSnapRatio ?? 0.2,
         loadingText: options.loadingText === undefined ? "loading" : options.loadingText,
         doneText: options.doneText ?? "done",
-        doneFadeDurationMs: options.doneFadeDurationMs ?? 2000,
+        doneFadeDurationMs: finite(options.doneFadeDurationMs ?? 2000, "doneFadeDurationMs"),
         removeOnComplete: options.removeOnComplete ?? false,
     };
 }

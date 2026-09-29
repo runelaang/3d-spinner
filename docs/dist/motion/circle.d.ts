@@ -3,7 +3,7 @@ import type { MotionController } from "./controller.js";
 export interface CircleMotionOptions {
     /** Circle radius in scene units. Default `1.3`. */
     radius?: number;
-    /** Milliseconds for one full revolution. Default `3000`. */
+    /** Milliseconds for one full revolution. Default `3000`. Must be finite and not zero. */
     periodMs?: number;
     /** Tilt of the circle's plane about the X axis, radians. `0` faces the camera. Default `0.5`. */
     tilt?: number;

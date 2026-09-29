@@ -127,6 +127,12 @@ var init_math = __esm({
 });
 
 // src/engines/little-3d-engine/core/geometry.ts
+function assertHexColor(color, what) {
+  if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+  throw new RangeError(
+    `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`
+  );
+}
 function parseColor(color) {
   const hex = color.trim().replace("#", "");
   const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
@@ -204,10 +210,12 @@ function expandToTriangles(mesh) {
     count: positions.length / 3
   };
 }
+var HEX_COLOR;
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
     init_math();
+    HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
   }
 });
 
@@ -1123,6 +1131,21 @@ var init_renderer = __esm({
 });
 
 // src/engines/little-3d-engine/renderers/textured-helpers.ts
+function loadImage(url, options) {
+  const image = new Image();
+  if (options.cors) image.crossOrigin = "anonymous";
+  image.onload = () => options.onLoad?.(image);
+  image.onerror = () => options.onError(new Error("the image did not load"));
+  image.src = url;
+  return image;
+}
+function warnTextureFailed(source, error) {
+  const name = typeof source === "string" ? `"${source}"` : "image";
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(
+    `3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`
+  );
+}
 function planarUVs(mesh) {
   let minX = Infinity;
   let minY = Infinity;
@@ -1316,10 +1339,11 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           { width: 1, height: 1 }
         );
         this.textures.set(mesh, white);
+        const pending = () => !this.destroyed && this.textures.get(mesh) === white;
         const upload = async (source2) => {
           const image = source2 instanceof HTMLImageElement ? await createImageBitmap(source2) : source2;
           const current = this.device;
-          if (this.destroyed || !current || this.textures.get(mesh) !== white) return;
+          if (!pending() || !current) return;
           const size = image;
           const width = size.width || 1;
           const height = size.height || 1;
@@ -1334,12 +1358,18 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
           this.bindGroups.delete(mesh);
         };
         const source = this.sources.get(mesh);
+        if (source === void 0) return white;
+        const fail = (error) => {
+          if (pending()) warnTextureFailed(source, error);
+        };
         if (typeof source === "string") {
-          const image = new Image();
-          image.onload = () => void upload(image);
-          image.src = source;
-        } else if (source) {
-          void upload(source);
+          loadImage(source, {
+            cors: true,
+            onLoad: (image) => void upload(image).catch(fail),
+            onError: fail
+          });
+        } else {
+          upload(source).catch(fail);
         }
         return this.textures.get(mesh) ?? white;
       }
@@ -1393,7 +1423,21 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
         this.texturedCapacity = draws;
         return this.texturedUniforms;
       }
+      /**
+       * Destroy the retired textures once the GPU has finished all work submitted so
+       * far. Called at the start of a frame, when no command buffer is being encoded.
+       */
+      releaseRetired() {
+        const device = this.device;
+        if (!device || this.retired.length === 0) return;
+        const retired = this.retired.splice(0);
+        const release2 = () => {
+          for (const texture of retired) texture.destroy();
+        };
+        device.queue.onSubmittedWorkDone().then(release2, release2);
+      }
       render(frame) {
+        this.releaseRetired();
         const plain = [];
         const texturedItems = [];
         for (const item of frame.items) {
@@ -1596,23 +1640,30 @@ void main() {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         this.textures.set(mesh, texture);
-        const upload = (image) => {
-          if (!this.gl || this.textures.get(mesh) !== texture) return;
-          this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-          this.gl.texImage2D(
-            this.gl.TEXTURE_2D,
-            0,
-            this.gl.RGBA,
-            this.gl.RGBA,
-            this.gl.UNSIGNED_BYTE,
-            image
-          );
-        };
         const source = this.sources.get(mesh);
+        const pending = () => this.gl !== void 0 && this.textures.get(mesh) === texture;
+        const fail = (error) => {
+          if (pending()) warnTextureFailed(source, error);
+        };
+        const upload = (image) => {
+          const current = this.gl;
+          if (!current || !pending()) return;
+          current.bindTexture(current.TEXTURE_2D, texture);
+          try {
+            current.texImage2D(
+              current.TEXTURE_2D,
+              0,
+              current.RGBA,
+              current.RGBA,
+              current.UNSIGNED_BYTE,
+              image
+            );
+          } catch (error) {
+            fail(error);
+          }
+        };
         if (typeof source === "string") {
-          const image = new Image();
-          image.onload = () => upload(image);
-          image.src = source;
+          loadImage(source, { cors: true, onLoad: upload, onError: fail });
         } else {
           upload(source);
         }
@@ -1760,6 +1811,7 @@ var init_canvas2d_textured = __esm({
     init_math();
     init_renderer();
     init_canvas2d();
+    init_textured_helpers();
     Canvas2DTexturedRenderer = class {
       constructor(options = {}) {
         this.sources = /* @__PURE__ */ new Map();
@@ -1771,8 +1823,14 @@ var init_canvas2d_textured = __esm({
       setTexture(mesh, source) {
         this.sources.set(mesh, source);
         if (typeof source === "string" && !this.loaded.has(source)) {
-          const image = new Image();
-          image.src = source;
+          const image = loadImage(source, {
+            // No CORS request here: Canvas 2D draws a cross-origin image without it,
+            // and asking for it would fail the load on servers that send no CORS headers.
+            cors: false,
+            onError: (error) => {
+              if (this.loaded.get(source) === image) warnTextureFailed(source, error);
+            }
+          });
           this.loaded.set(source, image);
         }
       }
@@ -1865,8 +1923,7 @@ var init_canvas2d_textured = __esm({
 // src/animations/particles.ts
 var particles_exports = {};
 __export(particles_exports, {
-  ParticlesAnimation: () => ParticlesAnimation,
-  particleField: () => particleField
+  ParticlesAnimation: () => ParticlesAnimation
 });
 module.exports = __toCommonJS(particles_exports);
 
@@ -1874,6 +1931,20 @@ module.exports = __toCommonJS(particles_exports);
 function prepareHost(target) {
   const position = getComputedStyle(target).position;
   if (position === "static" || position === "") target.style.position = "relative";
+}
+
+// src/validate.ts
+function finite(value, name) {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`3d-spinner: ${name} must be a finite number.`);
+  }
+  return value;
+}
+function positiveFinite(value, name) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`3d-spinner: ${name} must be a finite number greater than zero.`);
+  }
+  return value;
 }
 
 // src/animation-label.ts
@@ -1989,6 +2060,7 @@ var Camera = class {
 };
 
 // src/engines/little-3d-engine/little-3d-engine.ts
+init_geometry();
 init_light();
 init_math();
 
@@ -2013,6 +2085,7 @@ init_renderer();
 // src/engines/little-3d-engine/shapes/primitives/quad.ts
 var DEFAULT_COLORS = ["#3b82f6"];
 function quad(size = 1, colors = DEFAULT_COLORS, material) {
+  if (colors.length === 0) colors = DEFAULT_COLORS;
   const s = size / 2;
   const vertices = [
     { x: -s, y: -s, z: 0 },
@@ -2027,7 +2100,6 @@ function quad(size = 1, colors = DEFAULT_COLORS, material) {
 }
 
 // src/engines/little-3d-engine/little-3d-engine.ts
-init_math();
 function modelMatrix(t) {
   const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
@@ -2053,14 +2125,17 @@ function failure(candidate, error) {
   return `${name}: ${error instanceof Error ? error.message : String(error)}`;
 }
 var Little3dEngine = class {
+  /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
   constructor(options = {}) {
     this.scene = [];
+    this.checkedMeshes = /* @__PURE__ */ new WeakSet();
     /** The candidates after the mounted one, to switch to if its renderer is lost. */
     this.fallbacks = [];
     this.state = "idle";
     this.generation = 0;
     this.rafId = 0;
     this.running = false;
+    if (options.background !== void 0) assertHexColor(options.background, "background");
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
@@ -2202,8 +2277,15 @@ var Little3dEngine = class {
     this.resize(surface);
     return surface;
   }
-  /** Add a mesh to the scene and return a handle for animating it. */
+  /**
+   * Add a mesh to the scene and return a handle for animating it. Throws a
+   * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+   */
   add(mesh, init) {
+    if (!this.checkedMeshes.has(mesh)) {
+      for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+      this.checkedMeshes.add(mesh);
+    }
     const entry = {
       mesh,
       transform: transform(init),
@@ -2286,15 +2368,8 @@ var Little3dEngine = class {
   }
 };
 
-// src/engines/little-3d-engine/textured-renderer.ts
-async function createTexturedRenderer(backend, options, textures) {
-  const renderer = backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(options) : backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(options) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(options);
-  for (const [mesh, source] of textures) renderer.setTexture(mesh, source);
-  return renderer;
-}
-
-// src/animations/particles.ts
-var DEFAULT_COLORS2 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
+// src/animations/particle-field.ts
+init_math();
 var FADE_IN_END = 0.15;
 var FADE_OUT_START = 0.6;
 function rand01(seed, index, salt) {
@@ -2307,12 +2382,6 @@ function rand01(seed, index, salt) {
 function smoothstep(edge0, edge1, value) {
   const x = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
   return x * x * (3 - 2 * x);
-}
-function positiveFinite(value, name) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`3d-spinner: ${name} must be a finite number greater than zero.`);
-  }
-  return value;
 }
 function emitBasis(direction) {
   const d = normalize(direction);
@@ -2381,6 +2450,16 @@ function particleField(options = {}) {
     }
   };
 }
+
+// src/engines/little-3d-engine/textured-renderer.ts
+async function createTexturedRenderer(backend, options, textures) {
+  const renderer = backend === "webgpu" ? new (await Promise.resolve().then(() => (init_webgpu_textured(), webgpu_textured_exports))).WebGPUTexturedRenderer(options) : backend === "webgl" ? new (await Promise.resolve().then(() => (init_webgl_textured(), webgl_textured_exports))).WebGLTexturedRenderer(options) : new (await Promise.resolve().then(() => (init_canvas2d_textured(), canvas2d_textured_exports))).Canvas2DTexturedRenderer(options);
+  for (const [mesh, source] of textures) renderer.setTexture(mesh, source);
+  return renderer;
+}
+
+// src/animations/particles.ts
+var DEFAULT_COLORS2 = ["#fde047", "#fb923c", "#f472b6", "#60a5fa"];
 var ParticlesAnimation = class {
   constructor(options = {}) {
     this.handles = [];
@@ -2389,14 +2468,18 @@ var ParticlesAnimation = class {
     this.exitAt = Infinity;
     this.finished = false;
     this.field = particleField(options);
-    this.colors = options.colors ?? DEFAULT_COLORS2;
+    this.colors = [...options.colors?.length ? options.colors : DEFAULT_COLORS2];
     this.backend = options.backend;
     this.texture = options.texture;
     this.labelContent = options.label;
     this.fadeLabel = options.fadeLabel ?? true;
     this.emitter = options.emitter;
     const outroMs = options.outroMs ?? 0;
-    this.outroMs = () => Math.max(0, typeof outroMs === "function" ? outroMs() : outroMs);
+    if (typeof outroMs === "number") finite(outroMs, "outroMs");
+    this.outroMs = () => {
+      const value = typeof outroMs === "function" ? outroMs() : outroMs;
+      return Number.isFinite(value) ? Math.max(0, value) : 0;
+    };
   }
   mount(target) {
     prepareHost(target);

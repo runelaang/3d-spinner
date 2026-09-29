@@ -5,7 +5,7 @@ import { type Material, type Mesh } from "../../../core/mesh.js";
  * @param size Diameter. Defaults to `1`.
  * @param detail Subdivision level, `1` = base octahedron (8 faces). Each level
  *   splits every triangle into four. Defaults to `1`.
- * @param colors CSS colors cycled across faces. Defaults to a built-in palette.
+ * @param colors Hex colors cycled across faces. Defaults to a built-in palette, also when empty.
  * @param material Optional surface material applied to every face.
  */
 export declare function octaSphere(size?: number, detail?: number, colors?: string[], material?: Material): Mesh;

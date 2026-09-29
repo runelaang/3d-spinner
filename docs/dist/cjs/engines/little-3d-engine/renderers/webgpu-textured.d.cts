@@ -49,6 +49,11 @@ export declare class WebGPUTexturedRenderer extends WebGPURenderer {
     private bindGroupFor;
     /** The textured uniform buffer, grown to hold at least `draws` uniform blocks. */
     private ensureTexturedCapacity;
+    /**
+     * Destroy the retired textures once the GPU has finished all work submitted so
+     * far. Called at the start of a frame, when no command buffer is being encoded.
+     */
+    private releaseRetired;
     render(frame: RenderFrame): void;
     /** Free the buffers cached for `mesh`, textured or plain. Its texture stays registered. */
     releaseMesh(mesh: Mesh): void;

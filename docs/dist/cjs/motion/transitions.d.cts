@@ -36,6 +36,7 @@ export interface ObjectMotionTransitionOutput {
 export type ObjectMotionTransition = (input: ObjectMotionTransitionInput) => ObjectMotionTransitionOutput;
 export interface ObjectMotionTransitionWithDuration {
     transition: ObjectMotionTransition;
+    /** Milliseconds the transition takes. Must be finite (`RangeError` otherwise). */
     durationMs?: number;
 }
 export type ObjectMotionTransitionConfig = ObjectMotionTransition | ObjectMotionTransitionWithDuration;

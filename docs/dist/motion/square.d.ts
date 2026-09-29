@@ -3,7 +3,7 @@ import type { MotionController } from "./controller.js";
 export interface SquareMotionOptions {
     /** Side length of the square in scene units. Default `2.4`. */
     size?: number;
-    /** Milliseconds for one full lap of the perimeter. Default `4000`. */
+    /** Milliseconds for one full lap of the perimeter. Default `4000`. Must be finite and not zero. */
     periodMs?: number;
     /** Tilt of the square's plane about the X axis, radians. `0` faces the camera. Default `0.45`. */
     tilt?: number;

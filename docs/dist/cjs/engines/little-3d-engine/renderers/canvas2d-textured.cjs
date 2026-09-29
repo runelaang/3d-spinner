@@ -277,6 +277,25 @@ module.exports = __toCommonJS(canvas2d_textured_exports);
 init_math();
 init_renderer();
 init_canvas2d();
+
+// src/engines/little-3d-engine/renderers/textured-helpers.ts
+function loadImage(url, options) {
+  const image = new Image();
+  if (options.cors) image.crossOrigin = "anonymous";
+  image.onload = () => options.onLoad?.(image);
+  image.onerror = () => options.onError(new Error("the image did not load"));
+  image.src = url;
+  return image;
+}
+function warnTextureFailed(source, error) {
+  const name = typeof source === "string" ? `"${source}"` : "image";
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(
+    `3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`
+  );
+}
+
+// src/engines/little-3d-engine/renderers/canvas2d-textured.ts
 function imageSize(source) {
   if (source instanceof HTMLImageElement) {
     return source.complete && source.naturalWidth > 0 ? { width: source.naturalWidth, height: source.naturalHeight } : void 0;
@@ -328,8 +347,14 @@ var Canvas2DTexturedRenderer = class {
   setTexture(mesh, source) {
     this.sources.set(mesh, source);
     if (typeof source === "string" && !this.loaded.has(source)) {
-      const image = new Image();
-      image.src = source;
+      const image = loadImage(source, {
+        // No CORS request here: Canvas 2D draws a cross-origin image without it,
+        // and asking for it would fail the load on servers that send no CORS headers.
+        cors: false,
+        onError: (error) => {
+          if (this.loaded.get(source) === image) warnTextureFailed(source, error);
+        }
+      });
       this.loaded.set(source, image);
     }
   }

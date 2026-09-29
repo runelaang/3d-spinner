@@ -1,3 +1,19 @@
+/** Start loading the image at `url` and return it; `onLoad` or `onError` follows. */
+export function loadImage(url, options) {
+    const image = new Image();
+    if (options.cors)
+        image.crossOrigin = "anonymous";
+    image.onload = () => options.onLoad?.(image);
+    image.onerror = () => options.onError(new Error("the image did not load"));
+    image.src = url;
+    return image;
+}
+/** Warn that a texture could not be used; its mesh keeps drawing in its plain color. */
+export function warnTextureFailed(source, error) {
+    const name = typeof source === "string" ? `"${source}"` : "image";
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`);
+}
 /**
  * UVs as a planar projection of the mesh's XY bounds (u right, v up), emitted
  * in the same face-fan order as `expandToTriangles` so the arrays stay

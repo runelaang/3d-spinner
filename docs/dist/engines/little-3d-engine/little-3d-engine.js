@@ -1,4 +1,5 @@
 import { Camera } from "./core/camera.js";
+import { assertHexColor } from "./core/geometry.js";
 import { Light } from "./core/light.js";
 import { multiply, rotationFromEuler, scaleMatrix, translation } from "./core/math.js";
 import { transform as makeTransform, } from "./core/mesh.js";
@@ -35,14 +36,18 @@ function failure(candidate, error) {
  * element to overlay a page.
  */
 export class Little3dEngine {
+    /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
     constructor(options = {}) {
         this.scene = [];
+        this.checkedMeshes = new WeakSet();
         /** The candidates after the mounted one, to switch to if its renderer is lost. */
         this.fallbacks = [];
         this.state = "idle";
         this.generation = 0;
         this.rafId = 0;
         this.running = false;
+        if (options.background !== undefined)
+            assertHexColor(options.background, "background");
         this.camera = new Camera(options.camera);
         this.light = new Light(options.light);
         this.backend = options.backend ?? "auto";
@@ -202,8 +207,16 @@ export class Little3dEngine {
         this.resize(surface);
         return surface;
     }
-    /** Add a mesh to the scene and return a handle for animating it. */
+    /**
+     * Add a mesh to the scene and return a handle for animating it. Throws a
+     * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+     */
     add(mesh, init) {
+        if (!this.checkedMeshes.has(mesh)) {
+            for (const face of mesh.faces)
+                assertHexColor(face.color, "a face color");
+            this.checkedMeshes.add(mesh);
+        }
         const entry = {
             mesh,
             transform: makeTransform(init),
@@ -296,8 +309,6 @@ export class Little3dEngine {
             release(surface);
     }
 }
-export { Camera } from "./core/camera.js";
-export { Light } from "./core/light.js";
 export { cube } from "./shapes/primitives/cube.js";
 export { quad } from "./shapes/primitives/quad.js";
 export { tetrahedron } from "./shapes/primitives/tetrahedron.js";
@@ -311,7 +322,5 @@ export { planeMesh } from "./shapes/complex/plane.js";
 export { starTexture } from "./textures/dynamic/star.js";
 export { shineTexture } from "./textures/dynamic/shine.js";
 export { streakTexture } from "./textures/dynamic/streak.js";
-export { expandToTriangles } from "./core/geometry.js";
-export { transform, attachMaterial } from "./core/mesh.js";
-export { orderRenderItems, chooseBackend, autoBackendCandidates, detectBackendSupport, resolveBackend, } from "./renderer.js";
-export { vec3, subtract, cross, dot, scale, normalize } from "./core/math.js";
+export { attachMaterial } from "./core/mesh.js";
+export { chooseBackend, detectBackendSupport, resolveBackend } from "./renderer.js";

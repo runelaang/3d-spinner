@@ -138,6 +138,12 @@ var init_math = __esm({
 });
 
 // src/engines/little-3d-engine/core/geometry.ts
+function assertHexColor(color, what) {
+  if (typeof color === "string" && HEX_COLOR.test(color.trim())) return;
+  throw new RangeError(
+    `3d-spinner: ${what} must be a hex color (#rgb or #rrggbb), got ${JSON.stringify(color)}.`
+  );
+}
 function parseColor(color) {
   const hex = color.trim().replace("#", "");
   const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
@@ -215,10 +221,12 @@ function expandToTriangles(mesh) {
     count: positions.length / 3
   };
 }
+var HEX_COLOR;
 var init_geometry = __esm({
   "src/engines/little-3d-engine/core/geometry.ts"() {
     "use strict";
     init_math();
+    HEX_COLOR = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
   }
 });
 
@@ -1136,8 +1144,7 @@ var init_renderer = __esm({
 // src/animations/object-motion.ts
 var object_motion_exports = {};
 __export(object_motion_exports, {
-  ObjectMotionAnimation: () => ObjectMotionAnimation,
-  centerAndScaleMesh: () => centerAndScaleMesh
+  ObjectMotionAnimation: () => ObjectMotionAnimation
 });
 module.exports = __toCommonJS(object_motion_exports);
 
@@ -1145,6 +1152,14 @@ module.exports = __toCommonJS(object_motion_exports);
 function prepareHost(target) {
   const position = getComputedStyle(target).position;
   if (position === "static" || position === "") target.style.position = "relative";
+}
+
+// src/validate.ts
+function finite(value, name) {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`3d-spinner: ${name} must be a finite number.`);
+  }
+  return value;
 }
 
 // src/animation-label.ts
@@ -1260,6 +1275,7 @@ var Camera = class {
 };
 
 // src/engines/little-3d-engine/little-3d-engine.ts
+init_geometry();
 init_light();
 init_math();
 
@@ -1271,10 +1287,38 @@ function transform(init) {
     scale: init?.scale ?? 1
   };
 }
+function centerAndScaleMesh(mesh, targetSize) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let maxZ = -Infinity;
+  for (const vertex of mesh.vertices) {
+    minX = Math.min(minX, vertex.x);
+    minY = Math.min(minY, vertex.y);
+    minZ = Math.min(minZ, vertex.z);
+    maxX = Math.max(maxX, vertex.x);
+    maxY = Math.max(maxY, vertex.y);
+    maxZ = Math.max(maxZ, vertex.z);
+  }
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+  const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
+  const factor = targetSize / extent;
+  return {
+    vertices: mesh.vertices.map((vertex) => ({
+      x: (vertex.x - centerX) * factor,
+      y: (vertex.y - centerY) * factor,
+      z: (vertex.z - centerZ) * factor
+    })),
+    faces: mesh.faces
+  };
+}
 
 // src/engines/little-3d-engine/little-3d-engine.ts
 init_renderer();
-init_math();
 function modelMatrix(t) {
   const rotation = rotationFromEuler(t.rotation.x, t.rotation.y, t.rotation.z);
   return multiply(
@@ -1300,14 +1344,17 @@ function failure(candidate, error) {
   return `${name}: ${error instanceof Error ? error.message : String(error)}`;
 }
 var Little3dEngine = class {
+  /** Throws a `RangeError` if `background` is not a hex color (`#rgb` or `#rrggbb`). */
   constructor(options = {}) {
     this.scene = [];
+    this.checkedMeshes = /* @__PURE__ */ new WeakSet();
     /** The candidates after the mounted one, to switch to if its renderer is lost. */
     this.fallbacks = [];
     this.state = "idle";
     this.generation = 0;
     this.rafId = 0;
     this.running = false;
+    if (options.background !== void 0) assertHexColor(options.background, "background");
     this.camera = new Camera(options.camera);
     this.light = new Light(options.light);
     this.backend = options.backend ?? "auto";
@@ -1449,8 +1496,15 @@ var Little3dEngine = class {
     this.resize(surface);
     return surface;
   }
-  /** Add a mesh to the scene and return a handle for animating it. */
+  /**
+   * Add a mesh to the scene and return a handle for animating it. Throws a
+   * `RangeError` if a face color is not a hex color (`#rgb` or `#rrggbb`).
+   */
   add(mesh, init) {
+    if (!this.checkedMeshes.has(mesh)) {
+      for (const face of mesh.faces) assertHexColor(face.color, "a face color");
+      this.checkedMeshes.add(mesh);
+    }
     const entry = {
       mesh,
       transform: transform(init),
@@ -1627,35 +1681,6 @@ function faceForward(mesh, facing) {
   const turn = FACE_FORWARD[facing];
   return { vertices: mesh.vertices.map(turn), faces: mesh.faces };
 }
-function centerAndScaleMesh(mesh, targetSize) {
-  let minX = Infinity;
-  let minY = Infinity;
-  let minZ = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let maxZ = -Infinity;
-  for (const vertex of mesh.vertices) {
-    minX = Math.min(minX, vertex.x);
-    minY = Math.min(minY, vertex.y);
-    minZ = Math.min(minZ, vertex.z);
-    maxX = Math.max(maxX, vertex.x);
-    maxY = Math.max(maxY, vertex.y);
-    maxZ = Math.max(maxZ, vertex.z);
-  }
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const centerZ = (minZ + maxZ) / 2;
-  const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-  const factor = targetSize / extent;
-  return {
-    vertices: mesh.vertices.map((vertex) => ({
-      x: (vertex.x - centerX) * factor,
-      y: (vertex.y - centerY) * factor,
-      z: (vertex.z - centerZ) * factor
-    })),
-    faces: mesh.faces
-  };
-}
 function orientationFor(forward, bank) {
   const fwd = normalize(forward);
   let right = cross(fwd, WORLD_UP);
@@ -1687,12 +1712,12 @@ function motionVectorAt(motion, t) {
 function resolveDirection2(velocity, fallback) {
   return Math.hypot(velocity.x, velocity.y, velocity.z) > 1e-6 ? normalize(velocity) : fallback;
 }
-function resolveTransition(config, fallback, durationMs) {
+function resolveTransition(config, fallback, durationMs, name) {
   if (!config) return { transition: fallback, durationMs };
   if (typeof config === "function") return { transition: config, durationMs };
   return {
     transition: config.transition,
-    durationMs: Math.max(0, config.durationMs ?? durationMs)
+    durationMs: Math.max(0, finite(config.durationMs ?? durationMs, name))
   };
 }
 var ObjectMotionAnimation = class {
@@ -1727,9 +1752,19 @@ var ObjectMotionAnimation = class {
       throw new RangeError("3d-spinner: tail.count must be a finite number.");
     }
     this.tailCount = Math.max(0, Math.floor(tailCount));
-    this.tailGap = Math.max(0, options.tail?.gapMs ?? 0);
-    this.intro = resolveTransition(options.intro, enterFromObjectDirection(), DEFAULT_INTRO_MS);
-    this.outro = resolveTransition(options.outro, leaveInObjectDirection(), DEFAULT_OUTRO_MS);
+    this.tailGap = Math.max(0, finite(options.tail?.gapMs ?? 0, "tail.gapMs"));
+    this.intro = resolveTransition(
+      options.intro,
+      enterFromObjectDirection(),
+      DEFAULT_INTRO_MS,
+      "intro.durationMs"
+    );
+    this.outro = resolveTransition(
+      options.outro,
+      leaveInObjectDirection(),
+      DEFAULT_OUTRO_MS,
+      "outro.durationMs"
+    );
     const rotation = options.rotation;
     this.rotationOffset = { x: rotation?.x ?? 0, y: rotation?.y ?? 0, z: rotation?.z ?? 0 };
     this.rotationSpin = {

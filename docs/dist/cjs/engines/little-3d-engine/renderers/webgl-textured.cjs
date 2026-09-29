@@ -408,6 +408,21 @@ init_geometry();
 init_renderer();
 
 // src/engines/little-3d-engine/renderers/textured-helpers.ts
+function loadImage(url, options) {
+  const image = new Image();
+  if (options.cors) image.crossOrigin = "anonymous";
+  image.onload = () => options.onLoad?.(image);
+  image.onerror = () => options.onError(new Error("the image did not load"));
+  image.src = url;
+  return image;
+}
+function warnTextureFailed(source, error) {
+  const name = typeof source === "string" ? `"${source}"` : "image";
+  const reason = error instanceof Error ? error.message : String(error);
+  console.warn(
+    `3d-spinner: texture ${name} could not be used (${reason}); drawing its plain color instead.`
+  );
+}
 function planarUVs(mesh) {
   let minX = Infinity;
   let minY = Infinity;
@@ -548,23 +563,30 @@ var WebGLTexturedRenderer = class {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.textures.set(mesh, texture);
-    const upload = (image) => {
-      if (!this.gl || this.textures.get(mesh) !== texture) return;
-      this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D,
-        0,
-        this.gl.RGBA,
-        this.gl.RGBA,
-        this.gl.UNSIGNED_BYTE,
-        image
-      );
-    };
     const source = this.sources.get(mesh);
+    const pending = () => this.gl !== void 0 && this.textures.get(mesh) === texture;
+    const fail = (error) => {
+      if (pending()) warnTextureFailed(source, error);
+    };
+    const upload = (image) => {
+      const current = this.gl;
+      if (!current || !pending()) return;
+      current.bindTexture(current.TEXTURE_2D, texture);
+      try {
+        current.texImage2D(
+          current.TEXTURE_2D,
+          0,
+          current.RGBA,
+          current.RGBA,
+          current.UNSIGNED_BYTE,
+          image
+        );
+      } catch (error) {
+        fail(error);
+      }
+    };
     if (typeof source === "string") {
-      const image = new Image();
-      image.onload = () => upload(image);
-      image.src = source;
+      loadImage(source, { cors: true, onLoad: upload, onError: fail });
     } else {
       upload(source);
     }

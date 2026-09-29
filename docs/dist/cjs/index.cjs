@@ -82,7 +82,7 @@ function createSpinner(target, options) {
   if (!indeterminate && options.until instanceof Date && Number.isNaN(options.until.getTime())) {
     throw new RangeError("3d-spinner: until must be a valid Date.");
   }
-  const timeoutMs = indeterminate ? void 0 : options.timeoutMs ?? options.timeout;
+  const timeoutMs = indeterminate ? void 0 : options.timeoutMs;
   if (Number.isNaN(timeoutMs)) {
     throw new RangeError("3d-spinner: timeoutMs must be a number of milliseconds, not NaN.");
   }

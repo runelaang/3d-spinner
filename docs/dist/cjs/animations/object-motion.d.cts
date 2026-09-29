@@ -8,7 +8,7 @@ export type Facing = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export interface ObjectMotionTail {
     /** Number of trailing copies. Must be finite; `Infinity` or `NaN` throws a `RangeError`. */
     count: number;
-    /** Time each copy lags the one ahead of it, in milliseconds. */
+    /** Time each copy lags the one ahead of it, in milliseconds. Must be finite (`RangeError` otherwise). */
     gapMs: number;
 }
 /** Extra local-space orientation on top of path following. */
@@ -27,7 +27,7 @@ export interface ObjectMotionOptions {
     mesh: Mesh | (() => Mesh);
     /** How the object moves: a circle, square, figure-8, wander, or any custom controller. */
     motion: MotionController;
-    /** Face color applied to every triangle. Omit to retain the mesh's face colors. */
+    /** Hex face color applied to every triangle. Omit to retain the mesh's face colors. */
     color?: string;
     /** Rendering backend. Default `"auto"`: WebGPU, then WebGL, then Canvas 2D. */
     backend?: Backend;
@@ -50,8 +50,6 @@ export interface ObjectMotionOptions {
     /** Fade the label with the intro and outro transitions. Default `true`. */
     fadeLabel?: boolean;
 }
-/** Centers a mesh at the origin and uniformly scales it to fit within `targetSize`. */
-export declare function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh;
 /**
  * An object that moves along a {@link MotionController}'s path (a circle, a
  * square, a figure-8, a smooth wander, or any custom controller) with its nose

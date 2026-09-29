@@ -44,7 +44,7 @@ export interface Face {
      * type-check; the OBJ loader validates count and range at the input boundary.
      */
     indices: number[];
-    /** Base CSS color, for example `"#3b82f6"`. Shading is applied on top of it. */
+    /** Base hex color (`#rgb` or `#rrggbb`), for example `"#3b82f6"`. Shading is applied on top of it. */
     color: string;
     /**
      * Optional surface material (ambient, specular, shininess, emissive, opacity)
@@ -94,3 +94,5 @@ export interface Transform {
 }
 /** Create a {@link Transform} with sensible defaults (origin, no rotation). */
 export declare function transform(init?: Partial<Transform>): Transform;
+/** Centers a mesh at the origin and uniformly scales it to fit within `targetSize`. */
+export declare function centerAndScaleMesh(mesh: Mesh, targetSize: number): Mesh;

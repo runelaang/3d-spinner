@@ -1,4 +1,5 @@
 import { prepareHost } from "../mount-host.js";
+import { finiteNonZero, positiveFinite } from "../validate.js";
 import { animationLabelOpacity, mountAnimationLabel, } from "../animation-label.js";
 import { Little3dEngine, cube, } from "../engines/little-3d-engine/little-3d-engine.js";
 import { easeInCubic, easeInOutCubic, easeOutCubic, } from "../engines/little-tween-engine/core/tweens.js";
@@ -79,8 +80,8 @@ export class GridAssemblyAnimation {
         const sources = options.meshes && options.meshes.length > 0 ? options.meshes : DEFAULT_MESHES;
         this.meshes = sources.map(resolveMesh);
         this.size = options.size ?? 0.34;
-        this.orbitPeriodMs = options.orbitPeriodMs ?? 9000;
-        this.dockMs = options.dockMs ?? 800;
+        this.orbitPeriodMs = finiteNonZero(options.orbitPeriodMs ?? 9000, "orbitPeriodMs");
+        this.dockMs = positiveFinite(options.dockMs ?? 800, "dockMs");
         this.backend = options.backend;
         this.labelContent = options.label;
         this.fadeLabel = options.fadeLabel ?? true;

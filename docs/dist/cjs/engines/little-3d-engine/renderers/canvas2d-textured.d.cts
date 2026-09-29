@@ -1,6 +1,6 @@
 import type { Mesh } from "../core/mesh.cjs";
 import { type Renderer, type RenderFrame, type RendererOptions } from "../renderer.cjs";
-import type { TextureSource } from "./textured-helpers.cjs";
+import { type TextureSource } from "./textured-helpers.cjs";
 export type { TextureSource } from "./textured-helpers.cjs";
 /** Canvas 2D texture renderer optimized for planar billboard meshes. */
 export declare class Canvas2DTexturedRenderer implements Renderer {

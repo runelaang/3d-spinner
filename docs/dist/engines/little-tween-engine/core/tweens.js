@@ -8,18 +8,6 @@ function input(value, allowExtrapolation) {
 export function linear(value, allowExtrapolation = false) {
     return input(value, allowExtrapolation);
 }
-export function quadratic(value, allowExtrapolation = false) {
-    return easeInQuad(value, allowExtrapolation);
-}
-export function cubic(value, allowExtrapolation = false) {
-    return easeInCubic(value, allowExtrapolation);
-}
-export function quartic(value, allowExtrapolation = false) {
-    return easeInQuart(value, allowExtrapolation);
-}
-export function quintic(value, allowExtrapolation = false) {
-    return easeInQuint(value, allowExtrapolation);
-}
 export function easeInSine(value, allowExtrapolation = false) {
     const x = input(value, allowExtrapolation);
     return 1 - Math.cos((x * Math.PI) / 2);
@@ -183,10 +171,6 @@ export function easeInOutBounce(value, allowExtrapolation = false) {
 }
 export const easeTypes = {
     linear,
-    quadratic,
-    cubic,
-    quartic,
-    quintic,
     easeInSine,
     easeOutSine,
     easeInOutSine,

@@ -21,7 +21,6 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var little_tween_engine_exports = {};
 __export(little_tween_engine_exports, {
   LittleTweenEngine: () => LittleTweenEngine,
-  cubic: () => cubic,
   damp: () => damp,
   ease: () => ease,
   easeInBack: () => easeInBack,
@@ -55,10 +54,7 @@ __export(little_tween_engine_exports, {
   easeOutQuint: () => easeOutQuint,
   easeOutSine: () => easeOutSine,
   easeTypes: () => easeTypes,
-  linear: () => linear,
-  quadratic: () => quadratic,
-  quartic: () => quartic,
-  quintic: () => quintic
+  linear: () => linear
 });
 module.exports = __toCommonJS(little_tween_engine_exports);
 
@@ -70,18 +66,6 @@ function input(value, allowExtrapolation) {
 }
 function linear(value, allowExtrapolation = false) {
   return input(value, allowExtrapolation);
-}
-function quadratic(value, allowExtrapolation = false) {
-  return easeInQuad(value, allowExtrapolation);
-}
-function cubic(value, allowExtrapolation = false) {
-  return easeInCubic(value, allowExtrapolation);
-}
-function quartic(value, allowExtrapolation = false) {
-  return easeInQuart(value, allowExtrapolation);
-}
-function quintic(value, allowExtrapolation = false) {
-  return easeInQuint(value, allowExtrapolation);
 }
 function easeInSine(value, allowExtrapolation = false) {
   const x = input(value, allowExtrapolation);
@@ -228,10 +212,6 @@ function easeInOutBounce(value, allowExtrapolation = false) {
 }
 var easeTypes = {
   linear,
-  quadratic,
-  cubic,
-  quartic,
-  quintic,
   easeInSine,
   easeOutSine,
   easeInOutSine,
@@ -276,14 +256,10 @@ function damp(perFrame, deltaMs) {
 var LittleTweenEngine = class {
   constructor(options = {}) {
     this.type = options.type ?? "linear";
-    this.allowExtrapolation = options.allowExtrapolation ?? options.overextend ?? false;
+    this.allowExtrapolation = options.allowExtrapolation ?? false;
   }
   /** Map `value` through the selected ease type. */
   evaluate(value, type = this.type, allowExtrapolation = this.allowExtrapolation) {
     return ease(type, value, allowExtrapolation);
-  }
-  /** @deprecated Renamed to {@link LittleTweenEngine.evaluate}; removed in 1.0.0. */
-  value(value, type = this.type, allowExtrapolation = this.allowExtrapolation) {
-    return this.evaluate(value, type, allowExtrapolation);
   }
 };

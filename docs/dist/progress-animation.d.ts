@@ -1,17 +1,15 @@
 export interface ProgressAnimationOptions {
-    /** Pop-in / pop-out duration in milliseconds. Default `500`. */
+    /** Pop-in / pop-out duration in milliseconds. Default `500`. Must be finite. */
     popDurationMs?: number;
     /** Scale overshoot fraction during pop. Default `0.2` (20%). */
     overshootRatio?: number;
-    /** @deprecated Renamed to {@link ProgressAnimationOptions.overshootRatio}; removed in 1.0.0. */
-    overextend?: number;
     /** Share of pop duration used for the fast overshoot snap. Default `0.2`. */
     startSnapRatio?: number;
     /** Label while loading; `false` hides it. Default `"loading"`. */
     loadingText?: string | false;
     /** Label when complete. Default `"done"`. */
     doneText?: string;
-    /** Fade-out duration for the done label in milliseconds. Default `2000`. */
+    /** Fade-out duration for the done label in milliseconds. Default `2000`. Must be finite. */
     doneFadeDurationMs?: number;
     /** Remove all overlay content after the done fade finishes. Default `false`. */
     removeOnComplete?: boolean;

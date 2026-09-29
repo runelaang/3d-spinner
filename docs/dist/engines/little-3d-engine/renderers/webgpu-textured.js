@@ -1,7 +1,7 @@
 import { expandToTriangles } from "../core/geometry.js";
 import { multiply } from "../core/math.js";
 import { DEFAULT_ONE_SIDED_OPACITY, opacity, resolveTwoSidedOpacity, } from "../renderer.js";
-import { planarUVs } from "./textured-helpers.js";
+import { loadImage, planarUVs, warnTextureFailed } from "./textured-helpers.js";
 import { WebGPURenderer } from "./webgpu.js";
 import { gpuFlags, } from "../core/webgpu-api.js";
 const WGSL = `
@@ -88,8 +88,8 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         const texture = this.textures.get(mesh);
         if (!texture)
             return;
-        // The old texture may still be referenced by an unsubmitted command buffer,
-        // so it is retired and destroyed with the renderer.
+        // The old texture may still be in use by queued GPU work, so it is retired
+        // and destroyed once that work is done (see releaseRetired).
         this.textures.delete(mesh);
         this.retired.push(texture);
     }
@@ -170,10 +170,11 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         });
         device.queue.writeTexture({ texture: white }, new Uint8Array([255, 255, 255, 255]), {}, { width: 1, height: 1 });
         this.textures.set(mesh, white);
+        const pending = () => !this.destroyed && this.textures.get(mesh) === white;
         const upload = async (source) => {
             const image = source instanceof HTMLImageElement ? await createImageBitmap(source) : source;
             const current = this.device;
-            if (this.destroyed || !current || this.textures.get(mesh) !== white)
+            if (!pending() || !current)
                 return;
             const size = image;
             const width = size.width || 1;
@@ -184,20 +185,28 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
                 usage: usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT,
             });
             current.queue.copyExternalImageToTexture({ source: image }, { texture }, { width, height });
-            // The placeholder may still be referenced by an unsubmitted command
-            // buffer, so it is retired here and destroyed with the renderer.
+            // The placeholder may still be referenced by a command buffer that is being
+            // encoded, so it is retired here and destroyed after a later frame.
             this.retired.push(white);
             this.textures.set(mesh, texture);
             this.bindGroups.delete(mesh);
         };
         const source = this.sources.get(mesh);
+        if (source === undefined)
+            return white;
+        const fail = (error) => {
+            if (pending())
+                warnTextureFailed(source, error);
+        };
         if (typeof source === "string") {
-            const image = new Image();
-            image.onload = () => void upload(image);
-            image.src = source;
+            loadImage(source, {
+                cors: true,
+                onLoad: (image) => void upload(image).catch(fail),
+                onError: fail,
+            });
         }
-        else if (source) {
-            void upload(source);
+        else {
+            upload(source).catch(fail);
         }
         // A canvas or bitmap source uploads synchronously above, so it may already be in place.
         return this.textures.get(mesh) ?? white;
@@ -254,7 +263,23 @@ export class WebGPUTexturedRenderer extends WebGPURenderer {
         this.texturedCapacity = draws;
         return this.texturedUniforms;
     }
+    /**
+     * Destroy the retired textures once the GPU has finished all work submitted so
+     * far. Called at the start of a frame, when no command buffer is being encoded.
+     */
+    releaseRetired() {
+        const device = this.device;
+        if (!device || this.retired.length === 0)
+            return;
+        const retired = this.retired.splice(0);
+        const release = () => {
+            for (const texture of retired)
+                texture.destroy();
+        };
+        device.queue.onSubmittedWorkDone().then(release, release);
+    }
     render(frame) {
+        this.releaseRetired();
         const plain = [];
         const texturedItems = [];
         for (const item of frame.items) {
