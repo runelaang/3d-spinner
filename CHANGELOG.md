@@ -3,6 +3,25 @@
 Notable changes, newest first. Versions before 0.9.26 are described in the git history. Not
 every version was published to npm; each one includes all changes of the versions below it.
 
+## 1.0.0
+
+The public interface is stable from this version on and follows semantic versioning: breaking
+changes only come with a new major version.
+
+### Removed
+
+- Names deprecated in 0.9.24: `LittleTweenEngine.value()` (now `evaluate()`), the tween option
+  `overextend` (now `allowExtrapolation`), the `ProgressAnimation` option `overextend` (now
+  `overshootRatio`), and the spinner and prefab option `timeout` (now `timeoutMs`).
+- The ease aliases `quadratic`, `cubic`, `quartic`, and `quintic`, as functions and as `EaseType`
+  names. They were identical to `easeInQuad`, `easeInCubic`, `easeInQuart`, and `easeInQuint`.
+- Engine internals exported from `3d-spinner/engines/little-3d-engine`: `Camera`, `Light`,
+  `vec3`, `subtract`, `cross`, `dot`, `scale`, `normalize`, `expandToTriangles`,
+  `orderRenderItems`, `autoBackendCandidates`, and `transform`. The `CameraOptions`,
+  `LightOptions`, `LightParams`, and `Vec3` types remain.
+- `particleField`, `ParticleField`, and `ParticleSample` from `3d-spinner/animations/particles`,
+  and `centerAndScaleMesh` from `3d-spinner/animations/object-motion`.
+
 ## 0.9.31
 
 ### Changed
