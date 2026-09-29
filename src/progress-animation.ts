@@ -11,8 +11,6 @@ export interface ProgressAnimationOptions {
   popDurationMs?: number;
   /** Scale overshoot fraction during pop. Default `0.2` (20%). */
   overshootRatio?: number;
-  /** @deprecated Renamed to {@link ProgressAnimationOptions.overshootRatio}; removed in 1.0.0. */
-  overextend?: number;
   /** Share of pop duration used for the fast overshoot snap. Default `0.2`. */
   startSnapRatio?: number;
   /** Label while loading; `false` hides it. Default `"loading"`. */
@@ -51,7 +49,7 @@ interface ResolvedOptions {
 function resolveOptions(options: ProgressAnimationOptions = {}): ResolvedOptions {
   return {
     popDurationMs: finite(options.popDurationMs ?? 500, "popDurationMs"),
-    overshootRatio: options.overshootRatio ?? options.overextend ?? 0.2,
+    overshootRatio: options.overshootRatio ?? 0.2,
     startSnapRatio: options.startSnapRatio ?? 0.2,
     loadingText: options.loadingText === undefined ? "loading" : options.loadingText,
     doneText: options.doneText ?? "done",

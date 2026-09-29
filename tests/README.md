@@ -53,7 +53,7 @@ Lifecycle, engine, and pure logic:
   done-label fading and immediate completion when the fade is disabled.
 - `spinner-lifecycle.test.mjs` - `createSpinner` mounting, reported and timed completion,
   indeterminate stop, immediate/idempotent destroy, and option validation (`periodMs`,
-  `until`, `timeout`) using a fake animation, element, and animation-frame scheduler. A mount
+  `until`, `timeoutMs`) using a fake animation, element, and animation-frame scheduler. A mount
   that throws at once still returns a spinner and rejects `ready`; a throwing `destroy()` still
   removes the progress bar.
 - `engine-fallback.test.mjs` - `Little3dEngine` mounting with fake canvases: `"auto"` falls

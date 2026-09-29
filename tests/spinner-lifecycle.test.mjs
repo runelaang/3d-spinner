@@ -125,9 +125,9 @@ test("createSpinner mounts once and completes reported progress after the outro"
   assert.equal(frames.size, 0);
 });
 
-test("timeout and until complete a progress spinner", async (t) => {
+test("timeoutMs and until complete a progress spinner", async (t) => {
   for (const [name, deadline] of [
-    ["timeout", { timeout: 0 }],
+    ["timeoutMs", { timeoutMs: 0 }],
     ["until", { until: new Date(0) }],
   ]) {
     await t.test(name, () => {
@@ -198,7 +198,7 @@ test("invalid indeterminate periods fail before mounting", () => {
   }
 });
 
-test("until uses wall-clock time and the earlier of timeout and until wins", async (t) => {
+test("until uses wall-clock time and the earlier of timeoutMs and until wins", async (t) => {
   await t.test("future until completes at its deadline, not before", () => {
     const animation = fakeAnimation();
     createSpinner(new FakeHTMLElement(), {
@@ -223,24 +223,24 @@ test("until uses wall-clock time and the earlier of timeout and until wins", asy
     assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
   });
 
-  await t.test("earlier timeout beats later until", () => {
+  await t.test("earlier timeoutMs beats later until", () => {
     resetFrameScheduler();
     const animation = fakeAnimation();
     createSpinner(new FakeHTMLElement(), {
       animation,
-      timeout: 0,
+      timeoutMs: 0,
       until: new Date(Date.now() + 60_000),
     });
     runNextFrame();
     assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
   });
 
-  await t.test("earlier until beats later timeout", () => {
+  await t.test("earlier until beats later timeoutMs", () => {
     resetFrameScheduler();
     const animation = fakeAnimation();
     createSpinner(new FakeHTMLElement(), {
       animation,
-      timeout: 60_000,
+      timeoutMs: 60_000,
       until: new Date(Date.now() - 1000),
     });
     runNextFrame();
@@ -258,9 +258,9 @@ test("an invalid until Date fails before mounting", () => {
   assert.equal(frames.size, 0);
 });
 
-test("a NaN timeout fails before mounting", () => {
+test("a NaN timeoutMs fails before mounting", () => {
   const animation = fakeAnimation();
-  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, timeout: NaN }), {
+  assert.throws(() => createSpinner(new FakeHTMLElement(), { animation, timeoutMs: NaN }), {
     name: "RangeError",
     message: /timeout/,
   });
@@ -392,9 +392,9 @@ test("an indeterminate spinner's progressbar has a name but no value", () => {
   assert.equal("aria-valuemax" in bar.attributes, false);
 });
 
-test("timeoutMs completes a progress spinner and wins over the deprecated timeout", () => {
+test("timeoutMs completes a progress spinner", () => {
   const animation = fakeAnimation();
-  createSpinner(new FakeHTMLElement(), { animation, timeoutMs: 0, timeout: 60_000 });
+  createSpinner(new FakeHTMLElement(), { animation, timeoutMs: 0 });
   runNextFrame();
   assert.equal(animation.renders.at(-1).frame.targetProgress, 1);
   assert.throws(

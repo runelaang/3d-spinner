@@ -11,11 +11,11 @@ test("gridAssembly returns progress spinner options with an intro-ready progress
   assert.ok(options.animation instanceof GridAssemblyAnimation);
 });
 
-test("gridAssembly forwards progress, timeout, and until", () => {
+test("gridAssembly forwards progress, timeoutMs, and until", () => {
   const until = new Date(Date.now() + 5000);
-  const options = gridAssembly({ progress: 0.25, timeout: 4000, until });
+  const options = gridAssembly({ progress: 0.25, timeoutMs: 4000, until });
   assert.equal(options.progress, 0.25);
-  assert.equal(options.timeout, 4000);
+  assert.equal(options.timeoutMs, 4000);
   assert.equal(options.until, until);
 });
 

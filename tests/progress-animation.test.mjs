@@ -59,7 +59,7 @@ test("ProgressAnimation can finish immediately when the done fade is disabled", 
   assert.equal(animation.isFinished(), true);
 });
 
-test("overshootRatio sets the pop overshoot, and the deprecated overextend still does", () => {
+test("overshootRatio sets the pop overshoot", () => {
   const peak = (options) => {
     const animation = new ProgressAnimation({ popDurationMs: 100, ...options });
     animation.enter(0);
@@ -68,5 +68,4 @@ test("overshootRatio sets the pop overshoot, and the deprecated overextend still
     return max;
   };
   assert.ok(peak({ overshootRatio: 0.5 }) > peak({ overshootRatio: 0.1 }));
-  assert.equal(peak({ overextend: 0.5 }), peak({ overshootRatio: 0.5 }));
 });
