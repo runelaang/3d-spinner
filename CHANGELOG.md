@@ -3,6 +3,21 @@
 Notable changes, newest first. Versions before 0.9.26 are described in the git history. Not
 every version was published to npm; each one includes all changes of the versions below it.
 
+## 1.1.0
+
+### Added
+
+- `spinner.finished`: a promise that resolves once the spinner has stopped animating - its outro
+  finished, it was stopped before its intro, it was destroyed, or its setup failed. It never
+  rejects. `spinner.stop(); await spinner.finished; spinner.destroy();` plays the outro before
+  removing the spinner.
+
+### Internal
+
+- The GitHub Pages demo is built by a workflow from `main` (`scripts/build-pages.mjs`) instead
+  of a separate `demo` branch.
+- A regression test covers every way `finished` resolves.
+
 ## 1.0.0
 
 The public interface is stable from this version on and follows semantic versioning: breaking
